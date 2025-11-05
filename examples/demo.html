@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deepdots Popup SDK Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    .controls {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button.secondary {
+      background: #2196F3;
+    }
+    button.secondary:hover {
+      background: #0b7dda;
+    }
+    .event-log {
+      background: #2d2d2d;
+      color: #fff;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin: 20px 0;
+    }
+    .event-log .event {
+      margin: 5px 0;
+      padding: 5px;
+      border-left: 3px solid #4CAF50;
+      padding-left: 10px;
+    }
+    .content {
+      margin: 40px 0;
+      min-height: 1500px;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎯 Deepdots Popup SDK Demo</h1>
+  
+  <div class="controls">
+    <h2>Controls</h2>
+    <button id="show-instant">Show Instant Popup</button>
+    <button id="show-with-data" class="secondary">Show with Custom Data</button>
+    <button id="enable-time-trigger" class="secondary">Enable Time Trigger (3s)</button>
+    <button id="enable-scroll-trigger" class="secondary">Enable Scroll Trigger (50%)</button>
+    <button id="enable-exit-trigger" class="secondary">Enable Exit Intent Trigger</button>
+  </div>
+
+  <div>
+    <h2>Event Log</h2>
+    <div class="event-log" id="event-log">
+      <div class="event">Waiting for events...</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="section">
+      <h2>About This Demo</h2>
+      <p>This is a minimal demo of the Deepdots Popup SDK. The SDK allows you to:</p>
+      <ul>
+        <li>Show survey popups on demand</li>
+        <li>Configure automatic triggers (time, scroll, exit intent)</li>
+        <li>Listen to events (popup_shown, popup_clicked, survey_completed)</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Try It Out</h2>
+      <p>Use the buttons above to test different features of the SDK:</p>
+      <ul>
+        <li><strong>Show Instant Popup:</strong> Displays a popup immediately</li>
+        <li><strong>Show with Custom Data:</strong> Displays a popup with additional data</li>
+        <li><strong>Enable Time Trigger:</strong> Shows popup after 3 seconds</li>
+        <li><strong>Enable Scroll Trigger:</strong> Shows popup when you scroll 50% down the page</li>
+        <li><strong>Enable Exit Intent Trigger:</strong> Shows popup when you move mouse to exit the page</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Scroll Content</h2>
+      <p>Scroll down to test the scroll trigger feature...</p>
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+      <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+      <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+    </div>
+
+    <div class="section">
+      <h2>More Content</h2>
+      <p>Keep scrolling...</p>
+      <p>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+      <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</p>
+    </div>
+
+    <div class="section">
+      <h2>Even More Content</h2>
+      <p>Almost there...</p>
+      <p>Totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+    </div>
+  </div>
+
+  <!-- Include the SDK -->
+  <script type="module">
+    // In production, you would import from the npm package
+    // For this demo, we'll create a simple implementation
+    
+    class DeepdotsPopups {
+      constructor() {
+        this.config = null;
+        this.listeners = new Map();
+        this.triggers = [];
+        this.initialized = false;
+        this.popupContainer = null;
+      }
+
+      init(config) {
+        if (this.initialized) return;
+        
+        this.config = {
+          baseUrl: 'https://api.magicfeedback.com',
+          debug: false,
+          ...config,
+        };
+        
+        this.initialized = true;
+        this.setupPopupContainer();
+        this.log('SDK initialized', this.config);
+      }
+
+      autoLaunch() {
+        if (!this.initialized) throw new Error('SDK not initialized');
+        this.triggers.forEach(trigger => this.setupTrigger(trigger));
+      }
+
+      show(options) {
+        if (!this.initialized) throw new Error('SDK not initialized');
+        this.renderPopup(options.surveyId, options.data);
+        this.emitEvent('popup_shown', options.surveyId, options.data);
+      }
+
+      configureTriggers(triggers) {
+        if (!this.initialized) throw new Error('SDK not initialized');
+        this.triggers = triggers;
+      }
+
+      on(eventType, listener) {
+        if (!this.listeners.has(eventType)) {
+          this.listeners.set(eventType, new Set());
+        }
+        this.listeners.get(eventType).add(listener);
+      }
+
+      off(eventType, listener) {
+        const listeners = this.listeners.get(eventType);
+        if (listeners) listeners.delete(listener);
+      }
+
+      setupPopupContainer() {
+        this.popupContainer = document.createElement('div');
+        this.popupContainer.id = 'deepdots-popup-container';
+        this.popupContainer.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+          display: none; z-index: 999999; background: rgba(0, 0, 0, 0.5);
+          justify-content: center; align-items: center;
+        `;
+        document.body.appendChild(this.popupContainer);
+      }
+
+      renderPopup(surveyId, data) {
+        const popup = document.createElement('div');
+        popup.style.cssText = `
+          background: white; border-radius: 8px; padding: 24px;
+          max-width: 500px; width: 90%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          position: relative;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText = `
+          position: absolute; top: 8px; right: 12px; border: none;
+          background: none; font-size: 24px; cursor: pointer; color: #666;
+        `;
+        closeBtn.onclick = () => this.hidePopup();
+
+        const content = document.createElement('div');
+        content.innerHTML = `
+          <h2 style="margin-top: 0; color: #333;">Survey</h2>
+          <p style="color: #666;">Survey ID: ${surveyId}</p>
+          <p style="color: #666;">This is a demo survey popup.</p>
+          ${data ? `<pre style="background: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto;">${JSON.stringify(data, null, 2)}</pre>` : ''}
+        `;
+
+        const submitBtn = document.createElement('button');
+        submitBtn.textContent = 'Complete Survey';
+        submitBtn.style.cssText = `
+          background: #4CAF50; color: white; border: none; padding: 12px 24px;
+          border-radius: 4px; cursor: pointer; font-size: 14px; margin-top: 16px;
+        `;
+        submitBtn.onclick = () => {
+          this.emitEvent('popup_clicked', surveyId, data);
+          this.emitEvent('survey_completed', surveyId, data);
+          this.hidePopup();
+        };
+
+        popup.appendChild(closeBtn);
+        popup.appendChild(content);
+        popup.appendChild(submitBtn);
+
+        this.popupContainer.innerHTML = '';
+        this.popupContainer.appendChild(popup);
+        this.popupContainer.style.display = 'flex';
+      }
+
+      hidePopup() {
+        if (this.popupContainer) {
+          this.popupContainer.style.display = 'none';
+          this.popupContainer.innerHTML = '';
+        }
+      }
+
+      setupTrigger(trigger) {
+        switch (trigger.type) {
+          case 'time':
+            setTimeout(() => this.show({ surveyId: trigger.surveyId }), trigger.value || 5000);
+            break;
+          case 'scroll':
+            const threshold = trigger.value || 50;
+            const handler = () => {
+              const pct = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+              if (pct >= threshold) {
+                this.show({ surveyId: trigger.surveyId });
+                window.removeEventListener('scroll', handler);
+              }
+            };
+            window.addEventListener('scroll', handler);
+            break;
+          case 'exit':
+            const exitHandler = (e) => {
+              if (e.clientY <= 0) {
+                this.show({ surveyId: trigger.surveyId });
+                document.removeEventListener('mouseout', exitHandler);
+              }
+            };
+            document.addEventListener('mouseout', exitHandler);
+            break;
+        }
+      }
+
+      emitEvent(type, surveyId, data) {
+        const event = { type, surveyId, timestamp: Date.now(), data };
+        const listeners = this.listeners.get(type);
+        if (listeners) {
+          listeners.forEach(listener => {
+            try { listener(event); }
+            catch (e) { console.error('Event listener error:', e); }
+          });
+        }
+      }
+
+      log(...args) {
+        if (this.config?.debug) console.log('[DeepdotsPopups]', ...args);
+      }
+    }
+
+    // Initialize SDK
+    const sdk = new DeepdotsPopups();
+    sdk.init({
+      apiKey: 'demo-api-key',
+      debug: true
+    });
+
+    // Setup event logging
+    const eventLog = document.getElementById('event-log');
+    function logEvent(event) {
+      const eventDiv = document.createElement('div');
+      eventDiv.className = 'event';
+      eventDiv.textContent = `[${new Date(event.timestamp).toLocaleTimeString()}] ${event.type} - Survey: ${event.surveyId}`;
+      eventLog.appendChild(eventDiv);
+      eventLog.scrollTop = eventLog.scrollHeight;
+    }
+
+    sdk.on('popup_shown', logEvent);
+    sdk.on('popup_clicked', logEvent);
+    sdk.on('survey_completed', logEvent);
+
+    // Setup button handlers
+    document.getElementById('show-instant').onclick = () => {
+      sdk.show({ surveyId: 'instant-survey' });
+    };
+
+    document.getElementById('show-with-data').onclick = () => {
+      sdk.show({
+        surveyId: 'data-survey',
+        data: {
+          userId: '12345',
+          source: 'demo-button',
+          timestamp: new Date().toISOString()
+        }
+      });
+    };
+
+    document.getElementById('enable-time-trigger').onclick = () => {
+      sdk.configureTriggers([
+        { type: 'time', value: 3000, surveyId: 'time-trigger-survey' }
+      ]);
+      sdk.autoLaunch();
+      alert('Time trigger enabled! Popup will show in 3 seconds.');
+    };
+
+    document.getElementById('enable-scroll-trigger').onclick = () => {
+      sdk.configureTriggers([
+        { type: 'scroll', value: 50, surveyId: 'scroll-trigger-survey' }
+      ]);
+      sdk.autoLaunch();
+      alert('Scroll trigger enabled! Popup will show when you scroll 50% down.');
+    };
+
+    document.getElementById('enable-exit-trigger').onclick = () => {
+      sdk.configureTriggers([
+        { type: 'exit', surveyId: 'exit-trigger-survey' }
+      ]);
+      sdk.autoLaunch();
+      alert('Exit intent trigger enabled! Popup will show when you move mouse to exit.');
+    };
+  </script>
+</body>
+</html>
