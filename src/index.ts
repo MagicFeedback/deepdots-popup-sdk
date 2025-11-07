@@ -1,4 +1,4 @@
-export { DeepdotsPopups } from './deepdots-popups';
+export { DeepdotsPopups } from './core/deepdots-popups';
 export type {
   DeepdotsConfig,
   TriggerConfig,

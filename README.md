@@ -13,16 +13,17 @@ npm install deepdots-popup-sdk
 ```typescript
 import { DeepdotsPopups } from 'deepdots-popup-sdk';
 
-// Initialize the SDK
+// Initialize the SDK (basic)
 const popups = new DeepdotsPopups();
 popups.init({
   apiKey: 'your-api-key',
   debug: true // Optional: enable debug logging
 });
 
-// Show a popup immediately
+// Show a popup immediately (productId now required)
 popups.show({
-  surveyId: 'survey-123'
+  surveyId: 'survey-123',
+  productId: 'product-xyz'
 });
 
 // Listen to events
@@ -37,12 +38,14 @@ popups.on('survey_completed', (event) => {
 
 ## Features
 
-- ✅ **Simple API**: Initialize and show popups with minimal code
-- ✅ **Auto-launch Triggers**: Time-based, scroll-based, and exit-intent triggers
-- ✅ **Event System**: Listen to popup_shown, popup_clicked, and survey_completed events
-- ✅ **TypeScript**: Full TypeScript support with type definitions
-- ✅ **Lightweight**: Minimal dependencies
-- ✅ **Framework Agnostic**: Works with any framework or vanilla JavaScript
+- ✅ Simple API: Initialize and show popups with minimal code
+- ✅ Auto-launch Triggers: Time-based, scroll-based, and exit-intent triggers
+- ✅ Automatic trigger derivation from remote popup definitions (time_on_page → time, etc.)
+- ✅ Conditions & Cooldowns: Avoid showing to answered users or during cooldown periods
+- ✅ Event System: Listen to popup_shown, popup_clicked, and survey_completed events
+- ✅ TypeScript: Full TypeScript support with type definitions
+- ✅ Lightweight: Minimal dependencies
+- ✅ Framework Agnostic: Works with any framework or vanilla JavaScript
 
 ## API Reference
 
@@ -52,17 +55,36 @@ Main class for managing survey popups.
 
 #### Methods
 
-##### `init(config: DeepdotsConfig): void`
+##### `init(config: DeepdotsInitParams): void`
 
 Initialize the SDK with configuration.
 
 ```typescript
 popups.init({
   apiKey: 'your-api-key',
-  baseUrl: 'https://api.magicfeedback.com', // Optional
-  debug: false // Optional
+  nodeEnv: 'production',            // Optional: 'development' | 'production' (affects baseUrl)
+  mode: 'client',                   // Optional: 'client' (use provided popups) | 'server' (fetch remote popups)
+  debug: false,                     // Optional
+  popups: [                         // Optional: preload popup definitions (client mode)
+    {
+      id: 'popup-123',
+      title: 'Would you like to help us improve?',
+      message: '<p>Take a quick survey and share your thoughts.</p>',
+      trigger: { type: 'time_on_page', value: 5, condition: [{ answered: false, cooldownDays: 7 }] },
+      actions: {
+        accept: { label: 'Take Survey', surveyId: 'survey-abc' },
+        decline: { label: 'Not Now', cooldownDays: 7 }
+      },
+      surveyId: 'survey-abc',
+      productId: 'product-xyz',
+      style: { theme: 'light', position: 'bottom-right', imageUrl: null },
+      segments: { lang: ['en'], path: ['/checkout'] }
+    }
+  ]
 });
 ```
+
+The SDK resolves `baseUrl` internally from `nodeEnv` (defaults to production) and will convert `time_on_page` trigger values (seconds) into internal `time` triggers (milliseconds).
 
 ##### `show(options: ShowOptions): void`
 
@@ -71,42 +93,52 @@ Show a popup immediately.
 ```typescript
 popups.show({
   surveyId: 'survey-123',
-  data: { // Optional custom data
+  productId: 'product-xyz', // REQUIRED now
+  data: { // Optional custom data passed to events
     userId: 'user-456',
     source: 'homepage'
   }
 });
 ```
 
+##### `showByPopupId(popupId: string): void`
+
+Show a popup using its definition `id` (will internally map to `surveyId`).
+
+```typescript
+popups.showByPopupId('popup-123');
+```
+
 ##### `configureTriggers(triggers: TriggerConfig[]): void`
 
-Configure triggers for auto-launching popups.
+Manually configure triggers for auto-launching popups.
 
 ```typescript
 popups.configureTriggers([
-  {
-    type: 'time',
-    value: 5000, // Show after 5 seconds
-    surveyId: 'survey-123'
-  },
-  {
-    type: 'scroll',
-    value: 50, // Show at 50% scroll
-    surveyId: 'survey-456'
-  },
-  {
-    type: 'exit',
-    surveyId: 'survey-789' // Show on exit intent
-  }
+  { type: 'time', value: 5000, surveyId: 'survey-123' },
+  { type: 'scroll', value: 50, surveyId: 'survey-456' },
+  { type: 'exit', surveyId: 'survey-789' }
 ]);
 ```
 
 ##### `autoLaunch(): void`
 
-Enable auto-launch functionality with configured triggers.
+Enable auto-launch functionality with previously configured triggers OR triggers derived automatically from popup definitions.
 
 ```typescript
 popups.autoLaunch();
+```
+
+##### `triggerSurvey(surveyId: string): void`
+
+Internal trigger evaluation + display (used by trigger system). You normally don't call this directly; use `configureTriggers` + `autoLaunch`.
+
+##### `markSurveyAnswered(surveyId: string): void`
+
+Manually mark a survey as answered (affects future conditions like `answered: false`).
+
+```typescript
+popups.markSurveyAnswered('survey-123');
 ```
 
 ##### `on(eventType: DeepdotsEventType, listener: EventListener): void`
@@ -129,15 +161,48 @@ popups.on('popup_shown', listener);
 popups.off('popup_shown', listener);
 ```
 
-## Events
+### Popup Definitions (Advanced)
+
+When operating in `client` mode you can preload popup definitions via `popups` in `init()`. In `server` mode the SDK (currently) simulates a fetch and loads remote definitions asynchronously.
+
+Structure:
+
+```typescript
+interface PopupDefinition {
+  id: string;
+  title: string;
+  message: string; // HTML string
+  trigger: {
+    type: 'time_on_page' | 'scroll' | 'exit';
+    value: number; // seconds for time_on_page, percentage for scroll
+    condition?: { answered: boolean; cooldownDays: number; }[];
+  };
+  actions: {
+    accept: { label: string; surveyId: string };
+    decline: { label: string; cooldownDays?: number };
+  };
+  surveyId: string;
+  productId: string;
+  style: { theme: 'light' | 'dark'; position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center'; imageUrl: string | null };
+  segments?: { lang?: string[]; path?: string[]; [key: string]: unknown };
+}
+```
+
+Conditions inside `trigger.condition` are evaluated before showing:
+
+- `answered: false` → only show if the survey hasn't been completed yet
+- `cooldownDays: X` → don't show again until X days have passed since last display
+
+### Events
 
 The SDK emits the following events:
 
-- **`popup_shown`**: Fired when a popup is displayed
-- **`popup_clicked`**: Fired when a user interacts with the popup
-- **`survey_completed`**: Fired when a user completes the survey
+- `popup_shown`: Fired when a popup is displayed
+- `popup_clicked`: Fired on the first interaction (form load or manual click)
+- `survey_completed`: Fired when a user completes the survey
 
 Each event includes:
+
 ```typescript
 {
   type: 'popup_shown' | 'popup_clicked' | 'survey_completed',
@@ -147,39 +212,34 @@ Each event includes:
 }
 ```
 
-## Trigger Types
+### Trigger Types (Manual Configuration)
 
-### Time Trigger
+#### Time Trigger (`type: 'time'`)
 Show popup after a specified delay in milliseconds.
 
 ```typescript
-{
-  type: 'time',
-  value: 5000, // 5 seconds
-  surveyId: 'survey-123'
-}
+{ type: 'time', value: 5000, surveyId: 'survey-123' }
 ```
 
-### Scroll Trigger
+#### Scroll Trigger (`type: 'scroll'`)
 Show popup when user scrolls to a certain percentage of the page.
 
 ```typescript
-{
-  type: 'scroll',
-  value: 50, // 50% of page
-  surveyId: 'survey-123'
-}
+{ type: 'scroll', value: 50, surveyId: 'survey-123' }
 ```
 
-### Exit Intent Trigger
+#### Exit Intent Trigger (`type: 'exit'`)
 Show popup when user moves mouse to exit the page.
 
 ```typescript
-{
-  type: 'exit',
-  surveyId: 'survey-123'
-}
+{ type: 'exit', surveyId: 'survey-123' }
 ```
+
+### Automatic Trigger Derivation
+When using popup definitions, remote trigger types like `time_on_page` are mapped to internal `time` triggers (seconds → milliseconds) and started automatically after `autoLaunch()`.
+
+## Styling & Container
+The SDK creates a container with id `deepdots-popup-container` covering the viewport and renders a popup inside with a basic layout. You can override styles via global CSS targeting `.deepdots-popup` or the container id.
 
 ## Examples
 
