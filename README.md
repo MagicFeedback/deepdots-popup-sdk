@@ -1,169 +1,155 @@
-# deepdots-popup-sdk
+# MagicFeedback Popup SDK
 
 TypeScript SDK to render and manage survey popups for MagicFeedback.
+
+> Current package name: `@magicfeedback/popup-sdk`
 
 ## Installation
 
 ```bash
-npm install deepdots-popup-sdk
+npm install @magicfeedback/popup-sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import { DeepdotsPopups } from 'deepdots-popup-sdk';
+import {DeepdotsPopups} from '@magicfeedback/popup-sdk';
 
-// Initialize the SDK (basic)
+// Basic initialization
 const popups = new DeepdotsPopups();
 popups.init({
-  apiKey: 'your-api-key',
-  debug: true // Optional: enable debug logging
+    debug: true,                       // enable verbose logging
+    mode: 'client',                    // 'client' (preloaded definitions) | 'server' (fake async load for now)
+    popups: [                          // optional in client mode
+        {
+            id: 'popup-123',
+            title: 'Help us improve?',
+            message: '<p>Take a quick survey and share your thoughts.</p>',
+            trigger: {type: 'time_on_page', value: 5, condition: [{answered: false, cooldownDays: 7}]},
+            actions: {
+                accept: {label: 'Take Survey', surveyId: 'survey-abc'},
+                decline: {label: 'Not Now', cooldownDays: 7}
+            },
+            surveyId: 'survey-abc',
+            productId: 'product-xyz',
+            style: {theme: 'light', position: 'bottom-right', imageUrl: null},
+            segments: {lang: ['en'], path: ['/checkout']}
+        }
+    ]
 });
 
-// Show a popup immediately (productId now required)
+// Show a popup immediately
 popups.show({
-  surveyId: 'survey-123',
-  productId: 'product-xyz'
+    surveyId: 'survey-abc',
+    productId: 'product-xyz',
+    data: {source: 'homepage'}
 });
 
 // Listen to events
-popups.on('popup_shown', (event) => {
-  console.log('Popup shown:', event);
-});
-
-popups.on('survey_completed', (event) => {
-  console.log('Survey completed:', event);
-});
+popups.on('popup_shown', (ev) => console.log('Shown:', ev));
+popups.on('popup_clicked', (ev) => console.log('Clicked:', ev));
+popups.on('survey_completed', (ev) => console.log('Completed:', ev));
 ```
 
 ## Features
 
-- ✅ Simple API: Initialize and show popups with minimal code
-- ✅ Auto-launch Triggers: Time-based, scroll-based, and exit-intent triggers
-- ✅ Automatic trigger derivation from remote popup definitions (time_on_page → time, etc.)
-- ✅ Conditions & Cooldowns: Avoid showing to answered users or during cooldown periods
-- ✅ Event System: Listen to popup_shown, popup_clicked, and survey_completed events
-- ✅ TypeScript: Full TypeScript support with type definitions
-- ✅ Lightweight: Minimal dependencies
-- ✅ Framework Agnostic: Works with any framework or vanilla JavaScript
+- ✅ Simple API: initialize and show popups with minimal code
+- ✅ Auto-launch triggers: time, scroll, exit intent
+- ✅ Automatic trigger derivation from popup definitions (`time_on_page` → internal `time` in ms)
+- ✅ Conditions & cooldowns: prevent display if already answered or within cooldown window
+- ✅ Event system: `popup_shown`, `popup_clicked`, `survey_completed`
+- ✅ Renderer abstraction: browser, React Native stub, SSR-friendly no-op
+- ✅ TypeScript: full type definitions
+- ✅ Lightweight: zero runtime dependencies for core logic
+- ✅ Framework agnostic: works in vanilla JS or any framework
 
 ## API Reference
 
-### `DeepdotsPopups`
+### Class: `DeepdotsPopups`
+Main class for configuring and displaying survey popups.
 
-Main class for managing survey popups.
-
-#### Methods
-
-##### `init(config: DeepdotsInitParams): void`
-
-Initialize the SDK with configuration.
+#### `init(config: DeepdotsInitParams): void`
+Initializes the SDK. Must be called before other methods.
 
 ```typescript
 popups.init({
-  apiKey: 'your-api-key',
-  nodeEnv: 'production',            // Optional: 'development' | 'production' (affects baseUrl)
-  mode: 'client',                   // Optional: 'client' (use provided popups) | 'server' (fetch remote popups)
-  debug: false,                     // Optional
-  popups: [                         // Optional: preload popup definitions (client mode)
-    {
-      id: 'popup-123',
-      title: 'Would you like to help us improve?',
-      message: '<p>Take a quick survey and share your thoughts.</p>',
-      trigger: { type: 'time_on_page', value: 5, condition: [{ answered: false, cooldownDays: 7 }] },
-      actions: {
-        accept: { label: 'Take Survey', surveyId: 'survey-abc' },
-        decline: { label: 'Not Now', cooldownDays: 7 }
-      },
-      surveyId: 'survey-abc',
-      productId: 'product-xyz',
-      style: { theme: 'light', position: 'bottom-right', imageUrl: null },
-      segments: { lang: ['en'], path: ['/checkout'] }
-    }
-  ]
+  apiKey: 'your-key',          // optional
+  nodeEnv: 'production',       // optional: influences internal baseUrl
+  mode: 'client',              // 'client' or 'server'
+  debug: false,                // verbose logging
+  popups: [ /* PopupDefinition[] (client mode only) */ ]
 });
 ```
 
-The SDK resolves `baseUrl` internally from `nodeEnv` (defaults to production) and will convert `time_on_page` trigger values (seconds) into internal `time` triggers (milliseconds).
+In `server` mode popups are (currently) loaded via a simulated async fetch; triggers derived after load will start when `autoLaunch()` runs or once loading completes.
 
-##### `show(options: ShowOptions): void`
-
-Show a popup immediately.
+#### `show(options: ShowOptions): void`
+Displays a popup for a survey immediately. `productId` is required.
 
 ```typescript
-popups.show({
-  surveyId: 'survey-123',
-  productId: 'product-xyz', // REQUIRED now
-  data: { // Optional custom data passed to events
-    userId: 'user-456',
-    source: 'homepage'
-  }
-});
+popups.show({ surveyId: 'survey-xyz', productId: 'product-123', data: { plan: 'pro' } });
 ```
 
-##### `showByPopupId(popupId: string): void`
-
-Show a popup using its definition `id` (will internally map to `surveyId`).
+#### `showByPopupId(popupId: string): void`
+Displays a popup using its definition `id` (internally maps to `surveyId` + `productId`).
 
 ```typescript
 popups.showByPopupId('popup-123');
 ```
 
-##### `configureTriggers(triggers: TriggerConfig[]): void`
-
-Manually configure triggers for auto-launching popups.
+#### `configureTriggers(triggers: TriggerConfig[]): void`
+Registers manual triggers.
 
 ```typescript
 popups.configureTriggers([
-  { type: 'time', value: 5000, surveyId: 'survey-123' },
-  { type: 'scroll', value: 50, surveyId: 'survey-456' },
-  { type: 'exit', surveyId: 'survey-789' }
+  { type: 'time', value: 5000, surveyId: 'survey-1' },
+  { type: 'scroll', value: 60, surveyId: 'survey-2' },
+  { type: 'exit', surveyId: 'survey-3' }
 ]);
 ```
 
-##### `autoLaunch(): void`
-
-Enable auto-launch functionality with previously configured triggers OR triggers derived automatically from popup definitions.
+#### `autoLaunch(): void`
+Starts automatic trigger evaluation. If popups are not yet loaded (server mode) call is deferred until load completes.
 
 ```typescript
 popups.autoLaunch();
 ```
 
-##### `triggerSurvey(surveyId: string): void`
+#### `triggerSurvey(surveyId: string): void`
+Evaluates conditions and, if allowed, shows a popup for the specified survey. Used internally by trigger handlers; you normally don’t call this directly.
 
-Internal trigger evaluation + display (used by trigger system). You normally don't call this directly; use `configureTriggers` + `autoLaunch`.
-
-##### `markSurveyAnswered(surveyId: string): void`
-
-Manually mark a survey as answered (affects future conditions like `answered: false`).
+#### `markSurveyAnswered(surveyId: string): void`
+Marks a survey as answered to satisfy conditions like `{ answered: false }`.
 
 ```typescript
-popups.markSurveyAnswered('survey-123');
+popups.markSurveyAnswered('survey-xyz');
 ```
 
-##### `on(eventType: DeepdotsEventType, listener: EventListener): void`
-
-Add an event listener.
+#### `on(type, listener)` / `off(type, listener)`
+Add or remove event listeners.
 
 ```typescript
-popups.on('popup_shown', (event) => {
-  console.log('Event:', event);
-});
+const handler = (ev) => console.log(ev);
+popups.on('popup_shown', handler);
+popups.off('popup_shown', handler);
 ```
 
-##### `off(eventType: DeepdotsEventType, listener: EventListener): void`
-
-Remove an event listener.
+#### `setRenderer(renderer: PopupRenderer): void`
+Inject a custom renderer (e.g. native mobile). If called after `init` and the renderer has `init()`, it's invoked automatically.
 
 ```typescript
-const listener = (event) => console.log(event);
-popups.on('popup_shown', listener);
-popups.off('popup_shown', listener);
+import { ReactNativePopupRenderer } from './my-native-renderer';
+const sdk = new DeepdotsPopups();
+sdk.setRenderer(new ReactNativePopupRenderer());
+sdk.init({ mode: 'client', popups: [...] });
 ```
 
-### Popup Definitions (Advanced)
+## Popup Definitions
 
-When operating in `client` mode you can preload popup definitions via `popups` in `init()`. In `server` mode the SDK (currently) simulates a fetch and loads remote definitions asynchronously.
+When using `client` mode you can preload definitions. In `server` mode a fake fetch creates sample definitions. Trigger types in definitions:
+- `time_on_page` (seconds) → mapped automatically to internal `time` trigger (milliseconds)
+- `scroll` (percentage scrolled)
+- `exit` (exit intent)
 
 Structure:
 
@@ -174,8 +160,8 @@ interface PopupDefinition {
   message: string; // HTML string
   trigger: {
     type: 'time_on_page' | 'scroll' | 'exit';
-    value: number; // seconds for time_on_page, percentage for scroll
-    condition?: { answered: boolean; cooldownDays: number; }[];
+    value: number; // seconds (time_on_page) or percentage (scroll)
+    condition?: { answered: boolean; cooldownDays: number }[];
   };
   actions: {
     accept: { label: string; surveyId: string };
@@ -183,108 +169,94 @@ interface PopupDefinition {
   };
   surveyId: string;
   productId: string;
-  style: { theme: 'light' | 'dark'; position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center'; imageUrl: string | null };
+  style: {
+    theme: 'light' | 'dark';
+    position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
+    imageUrl: string | null;
+  };
   segments?: { lang?: string[]; path?: string[]; [key: string]: unknown };
 }
 ```
 
-Conditions inside `trigger.condition` are evaluated before showing:
+### Conditions
+- `answered: false` → show only if survey not yet completed
+- `cooldownDays: N` → do not show again until N days have passed since last display (per popup definition `id`)
 
-- `answered: false` → only show if the survey hasn't been completed yet
-- `cooldownDays: X` → don't show again until X days have passed since last display
+## Events
 
-### Events
+Emitted events:
+- `popup_shown`
+- `popup_clicked` (first interaction / initial rendering)
+- `survey_completed`
 
-The SDK emits the following events:
-
-- `popup_shown`: Fired when a popup is displayed
-- `popup_clicked`: Fired on the first interaction (form load or manual click)
-- `survey_completed`: Fired when a user completes the survey
-
-Each event includes:
-
+Payload:
 ```typescript
-{
-  type: 'popup_shown' | 'popup_clicked' | 'survey_completed',
-  surveyId: string,
-  timestamp: number,
-  data?: Record<string, unknown>
+interface DeepdotsEvent {
+  type: 'popup_shown' | 'popup_clicked' | 'survey_completed';
+  surveyId: string;
+  timestamp: number;
+  data?: Record<string, unknown>;
 }
 ```
 
-### Trigger Types (Manual Configuration)
-
-#### Time Trigger (`type: 'time'`)
-Show popup after a specified delay in milliseconds.
+## Trigger Types (Manual Mode)
 
 ```typescript
-{ type: 'time', value: 5000, surveyId: 'survey-123' }
+{ type: 'time', value: 5000, surveyId: 'survey-1' }          // after 5s
+{ type: 'scroll', value: 50, surveyId: 'survey-2' }          // at 50% scroll
+{ type: 'exit', surveyId: 'survey-3' }                       // exit intent
 ```
 
-#### Scroll Trigger (`type: 'scroll'`)
-Show popup when user scrolls to a certain percentage of the page.
-
-```typescript
-{ type: 'scroll', value: 50, surveyId: 'survey-123' }
-```
-
-#### Exit Intent Trigger (`type: 'exit'`)
-Show popup when user moves mouse to exit the page.
-
-```typescript
-{ type: 'exit', surveyId: 'survey-123' }
-```
-
-### Automatic Trigger Derivation
-When using popup definitions, remote trigger types like `time_on_page` are mapped to internal `time` triggers (seconds → milliseconds) and started automatically after `autoLaunch()`.
+## Automatic Trigger Derivation
+When definitions are loaded, each `time_on_page` trigger is converted to `{ type: 'time', value: seconds * 1000 }`. You just call `autoLaunch()` and derived triggers start.
 
 ## Styling & Container
-The SDK creates a container with id `deepdots-popup-container` covering the viewport and renders a popup inside with a basic layout. You can override styles via global CSS targeting `.deepdots-popup` or the container id.
+Browser renderer creates a container `#deepdots-popup-container` with an overlay. Override styles via global CSS (e.g. `.deepdots-popup`, `#deepdots-popup-container`). The layout is intentionally minimal.
 
-## Examples
+## Renderer Architecture
 
-See the [examples](./examples) directory for a complete demo.
+The SDK decouples core logic (triggers, conditions, events) from UI rendering.
 
-To run the demo:
+- `BrowserPopupRenderer`: default when DOM is available.
+- `ReactNativePopupRenderer` (stub): demonstrates how to bridge events in RN (does not render real UI here).
+- `NoopPopupRenderer`: used in SSR / test environments without a DOM.
 
-1. Open `examples/demo.html` in your browser
-2. Try different triggers and see events in the console
+Detection for React Native uses `navigator.product === 'ReactNative'`.
 
-## Development
+### Creating a Native Renderer
+```typescript
+class MyNativeRenderer implements PopupRenderer {
+  init() { /* prepare modal/store */ }
+  show(surveyId, productId, data, emit, onClose) {
+    // 1. Display native modal
+    // 2. Render equivalent UI
+    // 3. Call emit('popup_clicked', surveyId, data) on first interaction
+  }
+  hide() { /* close modal */ }
+}
 
-### Install Dependencies
-
-```bash
-npm install
+const sdk = new DeepdotsPopups();
+sdk.setRenderer(new MyNativeRenderer());
+sdk.init({ mode: 'client', popups: [...] });
 ```
 
-### Build
+### WebView (Cordova / Capacitor / RN / Flutter)
+1. Build the bundle: `npm run build`.
+2. Load `dist/` in a WebView.
+3. Bridge events: `window.ReactNativeWebView.postMessage(JSON.stringify(ev))`.
+4. Initialize: `popups.init({...}); popups.autoLaunch();`.
 
-```bash
-npm run build
+Example event forwarding:
+```javascript
+function forward(ev) {
+  window.ReactNativeWebView?.postMessage(JSON.stringify(ev));
+}
+popups.on('popup_shown', forward);
+popups.on('survey_completed', forward);
 ```
 
-### Lint
-
-```bash
-npm run lint
-```
-
-### Test
-
-```bash
-npm test
-```
-
-### Watch Mode (Tests)
-
-```bash
-npm run test:watch
-```
-
-## TypeScript Types
-
-The package includes full TypeScript type definitions. Import types as needed:
+## Types
+Import types directly:
 
 ```typescript
 import type {
@@ -293,80 +265,40 @@ import type {
   ShowOptions,
   DeepdotsEvent,
   DeepdotsEventType,
-  EventListener
-} from 'deepdots-popup-sdk';
+  EventListener,
+} from '@magicfeedback/popup-sdk';
 ```
 
-## Plataforma y Adaptación a Mobile
+## Example Demo
+See `examples/demo.html` for a runnable browser demo (uses client mode + fake definitions). To try it:
+1. Build the project (`npm run build`).
+2. Open `examples/demo.html` in a browser.
+3. Use buttons to show popups and observe console + event log.
 
-Desde la versión actual se introdujo una abstracción de renderizado (`PopupRenderer`) que permite portar la lógica de estado y triggers a otros entornos.
+## Development
 
-### Arquitectura
-- Core (triggers, condiciones, eventos, definiciones) es independiente del DOM.
-- `BrowserPopupRenderer` implementa la UI sobre el DOM (usa `renderPopup`).
-- `NoopPopupRenderer` evita errores en SSR / pruebas sin DOM.
-
-### Cómo usar en Android / iOS (WebView)
-Caso rápido (Cordova / Capacitor / React Native WebView / Flutter WebView):
-1. Construye el bundle (`npm run build`).
-2. Sirve o empaqueta los archivos de `dist/` dentro de un WebView.
-3. Expone una API puente (bridge) para recibir eventos (`popup_shown`, `survey_completed`) usando `window.ReactNativeWebView.postMessage` (RN) o `webView.evaluateJavascript` (Android nativo).
-4. Inyecta script de inicialización: `popups.init({...}); popups.autoLaunch();`.
-
-### Implementación nativa (sin WebView)
-Para una experiencia 100% nativa se escribiría un nuevo renderer:
-```typescript
-class ReactNativePopupRenderer implements PopupRenderer {
-  init() { /* preparar store/modal */ }
-  show(surveyId, productId, data, emit, onClose) {
-    // 1. Mostrar un Modal nativo
-    // 2. Renderizar componentes equivalentes
-    // 3. Integrar MagicFeedback vía API HTTP si el SDK web no está disponible
-    emit('popup_clicked', surveyId, data); // cuando el usuario interactúe
-  }
-  hide() { /* cerrar modal */ }
-}
-```
-Luego se inyecta:
-```typescript
-const popups = new DeepdotsPopups();
-popups.setRenderer(new ReactNativePopupRenderer()); // inyectar renderer nativo
-popups.init({...});
+```bash
+npm install          # install dependencies
+npm run build        # build (CJS + ESM + d.ts)
+npm run build:watch  # watch build
+npm run lint         # eslint
+npm test             # run vitest
+npm run test:watch   # watch tests
 ```
 
-### Pasos para extender
-1. Crear archivo `src/platform/react-native-renderer.ts`.
-2. Implementar interfaz `PopupRenderer`.
-3. Exportar factoría condicional (detectar `global.navigator.product === 'ReactNative'`).
-4. Reemplazar `createDefaultRenderer()` por lógica de detección.
+Publishing uses `prepublishOnly` to ensure a fresh build.
 
-### Eventos & Bridge
-Ejemplo puente en React Native:
-```js
-window.addEventListener('message', (e) => {
-  // recibir comandos desde native -> web
-});
-// Envío desde web a native
-function forwardEvent(ev) {
-  window.ReactNativeWebView?.postMessage(JSON.stringify(ev));
-}
-popups.on('popup_shown', forwardEvent);
-popups.on('survey_completed', forwardEvent);
-```
-
-### Ventajas
-- Reutilizas lógica de triggers sin duplicar código.
-- Puedes iterar primero con WebView y luego migrar a UI nativa.
-- Tests siguen funcionando porque usan el renderer de navegador.
-
-## License
-
-MIT
+## Notes & Limitations
+- `server` mode currently simulates fetch; real network integration pending.
+- `apiKey` is reserved for future authenticated endpoints.
+- React Native renderer provided is a stub (example only).
+- Sanitization of `message` HTML should be handled upstream if untrusted.
 
 ## Contributing
+Issues & PRs welcome: https://github.com/MagicFeedback/deepdots-popup-sdk
 
-Contributions are welcome! Please open an issue or submit a pull request.
+## License
+MIT
 
 ## Support
-
-For issues and questions, please visit the [GitHub repository](https://github.com/MagicFeedback/deepdots-popup-sdk).
+Open issues on the GitHub repository or contact maintainers.

@@ -1,10 +1,11 @@
 {
-  "name": "deepdots-popup-sdk",
+  "name": "@magicfeedback/popup-sdk",
   "version": "1.0.0",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "autho": "sarias@deepdots.com",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -21,7 +22,8 @@
     "lint": "eslint src --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "publish": "npm publish --access public"
   },
   "keywords": [
     "survey",
@@ -30,7 +32,6 @@
     "sdk",
     "typescript"
   ],
-  "author": "MagicFeedback",
   "license": "MIT",
   "repository": {
     "type": "git",
