@@ -9,6 +9,7 @@ import {
 import {renderPopup} from '../ui/renderPopup';
 import {setupTrigger} from '../triggers';
 import {resolveEnvironment} from '../config/env';
+import { PopupRenderer, createDefaultRenderer } from '../platform/renderer';
 
 /**
  * Main class for managing survey popups
@@ -18,7 +19,8 @@ export class DeepdotsPopups {
     private listeners: Map<DeepdotsEventType, Set<EventListener>> = new Map();
     private triggers: TriggerConfig[] = [];
     private initialized = false;
-    private popupContainer: HTMLElement | null = null;
+    private renderer: PopupRenderer = createDefaultRenderer();
+    private popupContainer: HTMLElement | null = null; // deprecated: mantenido para compatibilidad interna
     private popupDefinitions: PopupDefinition[] = [];
     private popupsLoaded = false;
     private pendingAutoLaunch = false;
@@ -45,7 +47,9 @@ export class DeepdotsPopups {
 
         this.initialized = true;
         this.log('SDK initialized', this.config);
-        this.setupPopupContainer();
+        // sustituimos setupPopupContainer por init del renderer
+        if (this.renderer.init) this.renderer.init();
+        this.setupPopupContainer(); // mantener por ahora para tests que acceden directamente al DOM
 
         // Carga de popups según modo
         if (this.config.mode === 'client') {
@@ -257,12 +261,22 @@ export class DeepdotsPopups {
 
     /** Render the popup UI */
     private renderPopup(surveyId: string, productId: string, data?: Record<string, unknown>): void {
+        // Nuevo camino: usar renderer
+        if (this.renderer) {
+            this.renderer.show(surveyId, productId, data, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
+            return;
+        }
+        // Fallback legacy
         if (!this.popupContainer) return;
         renderPopup(this.popupContainer, surveyId,productId, data, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
     }
 
     /** Hide the popup */
     private hidePopup(): void {
+        if (this.renderer) {
+            this.renderer.hide();
+            return;
+        }
         if (this.popupContainer) {
             this.popupContainer.style.display = 'none';
             this.popupContainer.innerHTML = '';
@@ -298,6 +312,14 @@ export class DeepdotsPopups {
     /** External debug method for triggers */
     public debug(...args: unknown[]): void {
         this.log(...args);
+    }
+
+    /** Set a custom renderer */
+    public setRenderer(renderer: PopupRenderer): void {
+        this.renderer = renderer;
+        if (this.initialized && this.renderer.init) {
+            this.renderer.init();
+        }
     }
 
     // Type guards

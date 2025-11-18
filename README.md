@@ -297,6 +297,68 @@ import type {
 } from 'deepdots-popup-sdk';
 ```
 
+## Plataforma y Adaptación a Mobile
+
+Desde la versión actual se introdujo una abstracción de renderizado (`PopupRenderer`) que permite portar la lógica de estado y triggers a otros entornos.
+
+### Arquitectura
+- Core (triggers, condiciones, eventos, definiciones) es independiente del DOM.
+- `BrowserPopupRenderer` implementa la UI sobre el DOM (usa `renderPopup`).
+- `NoopPopupRenderer` evita errores en SSR / pruebas sin DOM.
+
+### Cómo usar en Android / iOS (WebView)
+Caso rápido (Cordova / Capacitor / React Native WebView / Flutter WebView):
+1. Construye el bundle (`npm run build`).
+2. Sirve o empaqueta los archivos de `dist/` dentro de un WebView.
+3. Expone una API puente (bridge) para recibir eventos (`popup_shown`, `survey_completed`) usando `window.ReactNativeWebView.postMessage` (RN) o `webView.evaluateJavascript` (Android nativo).
+4. Inyecta script de inicialización: `popups.init({...}); popups.autoLaunch();`.
+
+### Implementación nativa (sin WebView)
+Para una experiencia 100% nativa se escribiría un nuevo renderer:
+```typescript
+class ReactNativePopupRenderer implements PopupRenderer {
+  init() { /* preparar store/modal */ }
+  show(surveyId, productId, data, emit, onClose) {
+    // 1. Mostrar un Modal nativo
+    // 2. Renderizar componentes equivalentes
+    // 3. Integrar MagicFeedback vía API HTTP si el SDK web no está disponible
+    emit('popup_clicked', surveyId, data); // cuando el usuario interactúe
+  }
+  hide() { /* cerrar modal */ }
+}
+```
+Luego se inyecta:
+```typescript
+const popups = new DeepdotsPopups();
+popups.setRenderer(new ReactNativePopupRenderer()); // inyectar renderer nativo
+popups.init({...});
+```
+
+### Pasos para extender
+1. Crear archivo `src/platform/react-native-renderer.ts`.
+2. Implementar interfaz `PopupRenderer`.
+3. Exportar factoría condicional (detectar `global.navigator.product === 'ReactNative'`).
+4. Reemplazar `createDefaultRenderer()` por lógica de detección.
+
+### Eventos & Bridge
+Ejemplo puente en React Native:
+```js
+window.addEventListener('message', (e) => {
+  // recibir comandos desde native -> web
+});
+// Envío desde web a native
+function forwardEvent(ev) {
+  window.ReactNativeWebView?.postMessage(JSON.stringify(ev));
+}
+popups.on('popup_shown', forwardEvent);
+popups.on('survey_completed', forwardEvent);
+```
+
+### Ventajas
+- Reutilizas lógica de triggers sin duplicar código.
+- Puedes iterar primero con WebView y luego migrar a UI nativa.
+- Tests siguen funcionando porque usan el renderer de navegador.
+
 ## License
 
 MIT
