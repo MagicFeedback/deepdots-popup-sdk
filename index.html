@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Deepdots Popup SDK - Fake Website</title>
+    <link rel="stylesheet" href="examples/style.css"/>
+    <style>
+        /* Modern, elegant refresh */
+        :root {
+            --primary: #0e172d;
+            --secondary: #4f46e5; /* refined secondary */
+            --text: #172036;
+            --muted: #61728c;
+            --bg: #f7f9fc;
+            --border: #e5e9f2;
+            --card: #ffffff;
+            --shadow: 0 8px 24px rgba(14, 23, 45, 0.08);
+            --shadow-hover: 0 12px 32px rgba(14, 23, 45, 0.12);
+            --radius: 14px;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+        }
+
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 28px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: saturate(180%) blur(6px);
+        }
+
+        .navbar .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .navbar img.logo {
+            height: 36px;
+            width: auto;
+            object-fit: cover;
+        }
+
+        .navbar nav a {
+            margin: 0 12px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .navbar nav a:hover {
+            color: var(--primary);
+            opacity: 1;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns:1.05fr 0.95fr;
+            gap: 28px;
+            align-items: center;
+            padding: 48px 28px;
+            margin: 28px auto;
+            max-width: 1080px;
+        }
+
+        .hero h1 {
+            margin: 0 0 8px;
+            font-size: 32px;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            color: var(--muted);
+            font-size: 16px;
+        }
+
+        .hero .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+
+        .hero img {
+            width: 100%;
+            border-radius: var(--radius);
+            object-fit: cover;
+            box-shadow: var(--shadow);
+        }
+
+        .section {
+            max-width: 1080px;
+            margin: 28px auto;
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .section > h2 {
+            margin: 0 0 16px;
+            letter-spacing: -0.01em;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+            transition: box-shadow .2s ease, transform .2s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .card img {
+            width: 100%;
+            height: 170px;
+            object-fit: cover;
+        }
+
+        .card .content {
+            padding: 16px;
+        }
+
+        .card .content h3 {
+            margin: 0 0 6px;
+            font-size: 18px;
+        }
+
+        .card .content p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .blog-list {
+            display: grid;
+            grid-template-columns:1fr 1fr;
+            gap: 16px;
+        }
+
+        .post {
+            display: flex;
+            gap: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            transition: box-shadow .2s ease, transform .2s ease;
+        }
+
+        .post:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .post img {
+            width: 120px;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .post .meta {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .footer {
+            text-align: center;
+            color: #7c8eaa;
+            padding: 28px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            padding: 3px 8px;
+            font-size: 11px;
+            border-radius: 999px;
+            margin-left: 6px;
+        }
+
+        /* Buttons */
+        button {
+            appearance: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+
+        button:not(.secondary):not(.outline) {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: var(--shadow);
+        }
+
+        button.secondary {
+            background: var(--secondary);
+            color: #fff;
+            box-shadow: var(--shadow);
+        }
+
+        button.outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--border);
+        }
+
+        button:hover {
+            filter: brightness(1.05);
+        }
+
+        button.outline:hover {
+            border-color: var(--primary);
+            background: rgba(14, 23, 45, 0.04);
+        }
+
+        /* Event Log */
+        .event-log {
+            max-height: 200px;
+            overflow: auto;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: #fbfcff;
+        }
+
+        .event {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            color: #334155;
+            padding: 4px 0;
+        }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "@magicfeedback/popup-sdk": "https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.0.1/dist/index.mjs"
+      }
+    }
+  </script>
+</head>
+<body>
+<header class="navbar">
+    <div class="brand">
+        <img class="logo" src="https://deepdots.com/wp-content/uploads/2025/10/deepdots-logo-1.webp"
+             alt="Deepdots Logo"/>
+    </div>
+    <nav>
+        <a href="#features">Features</a>
+        <a href="#customers">Customers</a>
+        <a href="#blog">Blog</a>
+        <a href="#contact">Contact</a>
+    </nav>
+</header>
+
+<main>
+    <section class="hero">
+        <div>
+            <h1>Understand your users with delightful popups</h1>
+            <p>Gather rich feedback at the right time and place. Our SDK lets you trigger surveys with precision and
+                style.</p>
+        </div>
+        <img src="https://picsum.photos/seed/product-hero/800/500" alt="Product preview"/>
+    </section>
+
+    <section id="features" class="section">
+        <h2>Powerful features</h2>
+        <div class="cards">
+            <article class="card">
+                <img src="https://picsum.photos/seed/feature-a/600/400" alt="Feature A"/>
+                <div class="content">
+                    <h3>Smart triggers</h3>
+                    <p>Time on page, scroll depth, custom events, and more.</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/feature-b/600/400" alt="Feature B"/>
+                <div class="content">
+                    <h3>Segment targeting</h3>
+                    <p>Target by language, path, or custom attributes.</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/feature-c/600/400" alt="Feature C"/>
+                <div class="content">
+                    <h3>Beautiful UI</h3>
+                    <p>Light/dark themes and flexible positioning.</p>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section id="customers" class="section">
+        <h2>Loved by product teams</h2>
+        <div class="cards">
+            <article class="card">
+                <img src="https://picsum.photos/seed/customer-1/600/400" alt="Customer 1"/>
+                <div class="content">
+                    <h3>Acme Corp</h3>
+                    <p>"We improved our NPS by 34% thanks to targeted surveys."</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/customer-2/600/400" alt="Customer 2"/>
+                <div class="content">
+                    <h3>Globex</h3>
+                    <p>"Setup took minutes, insights arrived instantly."</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/customer-3/600/400" alt="Customer 3"/>
+                <div class="content">
+                    <h3>Initech</h3>
+                    <p>"The popup UX is clean and non-intrusive. Users love it."</p>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section id="blog" class="section">
+        <h2>From the blog</h2>
+        <div class="blog-list">
+            <article class="post">
+                <img src="https://picsum.photos/seed/blog-1/240/160" alt="Blog 1"/>
+                <div>
+                    <h3>Timing your surveys for maximum response</h3>
+                    <p class="meta">Product • 5 min read</p>
+                    <p>Learn how to balance scroll and time-based triggers to avoid fatigue and get better insights.</p>
+                </div>
+            </article>
+            <article class="post">
+                <img src="https://picsum.photos/seed/blog-2/240/160" alt="Blog 2"/>
+                <div>
+                    <h3>Designing popups that delight</h3>
+                    <p class="meta">Design • 4 min read</p>
+                    <p>Tips to craft accessible, beautiful popups that users actually want to engage with.</p>
+                </div>
+            </article>
+        </div>
+    </section>
+
+
+    <!-- Added: Extra sections to increase scroll space -->
+    <section id="case-studies" class="section">
+        <h2>Case Studies</h2>
+        <div class="cards">
+            <article class="card">
+                <img src="https://picsum.photos/seed/case-1/600/400" alt="Case Study 1"/>
+                <div class="content">
+                    <h3>Retail Upgrade</h3>
+                    <p>Used scroll triggers to collect contextual feedback during product discovery.</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/case-2/600/400" alt="Case Study 2"/>
+                <div class="content">
+                    <h3>SaaS Onboarding</h3>
+                    <p>Time on page + segments helped guide new users and improve activation.</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/case-3/600/400" alt="Case Study 3"/>
+                <div class="content">
+                    <h3>Media Engagement</h3>
+                    <p>Non-intrusive popups boosted article reads while reducing drop-offs.</p>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section id="faq" class="section">
+        <h2>Frequently Asked Questions</h2>
+        <div class="blog-list">
+            <article class="post">
+                <img src="https://picsum.photos/seed/faq-1/240/160" alt="FAQ 1"/>
+                <div>
+                    <h3>Is the SDK privacy-friendly?</h3>
+                    <p class="meta">Privacy • Basics</p>
+                    <p>Yes. You control segments and triggers. No personal data is required to run surveys.</p>
+                </div>
+            </article>
+            <article class="post">
+                <img src="https://picsum.photos/seed/faq-2/240/160" alt="FAQ 2"/>
+                <div>
+                    <h3>Can I run multiple popups?</h3>
+                    <p class="meta">Product • Advanced</p>
+                    <p>Absolutely. Use conditions like cooldowns and answered flags to manage overlap.</p>
+                </div>
+            </article>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>© 2025 Deepdots Inc. • Privacy • Terms</p>
+</footer>
+
+<script type="module">
+    import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
+
+    const popupDefinitions = [
+        {
+            id: 'popup-demo-1',
+            title: 'Welcome! Quick feedback?',
+            message: '<p>Your quick opinion helps us improve 🚀</p>',
+            trigger: {type: 'time_on_page', value: 0.1, condition: [{answered: false, cooldownDays: 1}]},
+            actions: {
+                accept: {label: 'Answer', surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0'},
+                decline: {label: 'Close', cooldownDays: 1}
+            },
+            surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',
+            productId: '02b809f20e024bce47c57f123cff8735',
+            segments: {lang: ['en'], path: ['/']}
+        },
+        {
+            id: 'popup-demo-2',
+            title: 'Experience survey',
+            message: '<p>We care about your experience while browsing.</p>',
+            trigger: {type: 'scroll', value: 50},
+            actions: {
+                accept: {label: 'Participate', surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119'},
+                decline: {label: 'Not now'}
+            },
+            surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119',
+            productId: '02b809f20e024bce47c57f123cff8735',
+            segments: {lang: ['en'], path: ['/']}
+        },
+        {
+            id: 'popup-demo-3',
+            title: 'Got questions? Help us improve',
+            message: '<p>Before contacting us, would you answer a quick question?</p>',
+            trigger: {type: 'time_on_page', value: 99999}, // effectively disabled for auto triggers; will be shown on click
+            actions: {
+                accept: {label: 'Sure', surveyId: '7f1e5020-bb1d-11f0-8c3b-8a1d1e2c9a77'},
+                decline: {label: 'No thanks'}
+            },
+            surveyId: '7f1e5020-bb1c-11f0-8c3b-8a1d1e2c9a77',
+            productId: '02b809f20e024bce47c57f123cff8735',
+            style: {theme: 'light', position: 'bottom-left', imageUrl: null},
+            segments: {lang: ['en'], path: ['/']}
+        }
+    ];
+
+    const sdk = new DeepdotsPopups();
+    sdk.init({mode: 'client', debug: true, popups: popupDefinitions});
+    // Enable AutoLaunch by default on page load
+    sdk.autoLaunch();
+
+    const logEl = document.getElementById('event-log');
+
+    function logEvent(ev) {
+        const line = document.createElement('div');
+        line.className = 'event';
+        line.textContent = `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type} - survey:${ev.surveyId}`;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    sdk.on('popup_shown', logEvent);
+    sdk.on('popup_clicked', logEvent);
+    sdk.on('survey_completed', logEvent);
+
+    // Hero buttons
+    document.getElementById('btn-hero-demo').onclick = () => {
+        sdk.show({
+            surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',
+            productId: '02b809f20e024bce47c57f123cff8735',
+            data: {origin: 'hero_demo'}
+        });
+    };
+    document.getElementById('btn-hero-autolaunch').onclick = () => {
+        sdk.autoLaunch();
+        alert('AutoLaunch enabled: Popup 1 (time) and Popup 2 (scroll) will trigger.');
+    };
+    document.getElementById('btn-hero-clear').onclick = () => {
+        logEl.innerHTML = '<div class="event">Log cleared...</div>';
+    };
+
+    // Toolbar buttons
+    document.getElementById('btn-show-popup1').onclick = () => {
+        sdk.show({
+            surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',
+            productId: '02b809f20e024bce47c57f123cff8735',
+            data: {origin: 'toolbar_popup1'}
+        });
+    };
+    document.getElementById('btn-show-popup2').onclick = () => {
+        sdk.show({
+            surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119',
+            productId: '02b809f20e024bce47c57f123cff8735',
+            data: {origin: 'toolbar_popup2'}
+        });
+    };
+    document.getElementById('btn-autolaunch').onclick = () => {
+        sdk.autoLaunch();
+        alert('AutoLaunch enabled: try scrolling 50% to trigger the second popup.');
+    };
+    document.getElementById('btn-mark-answered').onclick = () => {
+        sdk.markSurveyAnswered('a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0');
+        logEvent({
+            type: 'survey_completed',
+            surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',
+            productId: '02b809f20e024bce47c57f123cff8735',
+            timestamp: Date.now(),
+            data: {manual: true}
+        });
+        alert('Marked Survey 1 as answered. Popup 1 won\'t show if answered:false condition is active.');
+    };
+    document.getElementById('btn-force-survey').onclick = () => {
+        sdk.triggerSurvey('dc278020-bb1c-11f0-aedb-5b3735c7e119');
+    };
+    document.getElementById('btn-clear-log').onclick = () => {
+        logEl.innerHTML = '<div class="event">Log cleared...</div>';
+    };
+
+    // Contact link click -> show third popup
+    const contactLink = document.querySelector('a[href="#contact"]');
+    if (contactLink) {
+        contactLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            sdk.show({
+                surveyId: '7f1e5020-bb1c-11f0-8c3b-8a1d1e2c9a77',
+                productId: '02b809f20e024bce47c57f123cff8735',
+                data: {origin: 'contact_link'}
+            });
+            // Optionally also scroll to contact section
+            const contactSection = document.getElementById('contact');
+            if (contactSection) contactSection.scrollIntoView({behavior: 'smooth'});
+        });
+    }
+</script>
+</body>
+</html>
