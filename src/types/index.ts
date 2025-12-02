@@ -135,3 +135,51 @@ export interface PopupDefinition {
     style: PopupStyle;
     segments?: PopupSegments;
 }
+
+export interface FormStyle
+{
+    id: string;
+    logo: string;
+    title: string;
+    companyName: string;
+    backgroundColor: string;
+    boxBackgroundColor: string;
+    buttonOnTopColor: string;
+    buttonPrimaryColor: string
+    buttonSecondaryColor: string;
+    loadingBarColor: string;
+    favIcon: string;
+    startMessage: string;
+    successMessage: string;
+    addLogoInMsg: boolean;
+    privacyPolicyUrl: string;
+    helpUrl: string;
+    integrationId: string;
+    redirectLink: string;
+    redirectError: string;
+    redirectTime: number;
+    integrationThemeId: string;
+    contentAlign: 'top' | 'center';
+    logoSize: 'small' | 'medium' | 'large';
+    logoPosition: 'left' | 'right' | 'center';
+    showProgressBar: boolean;
+    showProgressUnit: boolean;
+    progressUnit: 'percentage' | 'fraction';
+}
+
+
+export interface FormData {
+    id: string;
+    name: string;
+    description: string;
+    type: string;
+    identity: string;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    externalId?: string | null;
+    companyId: string;
+    productId: string;
+    userId: string;
+    style: FormStyle
+}

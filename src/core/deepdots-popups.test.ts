@@ -127,7 +127,7 @@ describe('DeepdotsPopups', () => {
       
       // Click the submit button
       const buttons = Array.from(document.querySelectorAll('button'));
-      const completeButton = buttons.find(btn => btn.textContent === 'Complete Survey');
+      const completeButton = buttons.find(btn => btn.textContent === 'Send');
       completeButton?.click();
       
       expect(listener).toHaveBeenCalledWith(

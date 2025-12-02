@@ -10,6 +10,7 @@ export default defineConfig({
     sourcemap: true,
     // 👇 this bundles ALL deps, including @magicfeedback/native
     noExternal: [/@magicfeedback\/native/],
+    loader: { '.css': 'text' }, // permite importar CSS como string
     esbuildOptions(options) {
         // 👇 Shim Node built-ins so the browser doesn’t crash
         options.alias = {
