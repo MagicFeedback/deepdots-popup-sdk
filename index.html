@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -146,6 +144,15 @@
             object-fit: cover;
         }
 
+        /* Ajuste específico para no deformar el logo de Danske Spil */
+        .card img.danske-spil-logo {
+            height: auto; /* no fuerza altura fija */
+            max-height: 170px; /* límite para mantener proporción dentro de la tarjeta */
+            object-fit: contain; /* evita recortes o deformaciones */
+            background-color: #1e2933; /* fondo de contraste */
+            padding: 12px; /* respiración alrededor del logo */
+        }
+
         .card .content {
             padding: 16px;
         }
@@ -270,24 +277,97 @@
             color: #334155;
             padding: 4px 0;
         }
+
+        /* Responsive layout tweaks */
+        @media (max-width: 960px) {
+            .hero {
+                grid-template-columns: 1fr;
+                padding: 32px 20px;
+            }
+
+            .hero img {
+                margin-top: 16px;
+            }
+
+            .section {
+                padding: 20px;
+                margin: 20px auto;
+            }
+
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 14px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .navbar {
+                padding: 12px 16px;
+            }
+
+            .navbar nav a {
+                margin: 0 8px;
+            }
+
+            .hero {
+                padding: 24px 16px;
+            }
+
+            .hero h1 {
+                font-size: 26px;
+            }
+
+            .hero p {
+                font-size: 14px;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .card img {
+                height: 140px;
+            }
+
+            .card img.danske-spil-logo {
+                max-height: 140px;
+            }
+
+            .blog-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .hero h1 {
+                font-size: 22px;
+            }
+
+            .card .content h3 {
+                font-size: 16px;
+            }
+
+            .navbar img.logo {
+                height: 30px;
+            }
+        }
     </style>
     <script type="importmap">
-    {
-      "imports": {
-        "@magicfeedback/popup-sdk": "https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.0.3/dist/index.mjs"
-      }
-    }
-  </script>
+        {
+          "imports": {
+            "@magicfeedback/popup-sdk": "https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.0.3/dist/index.mjs"
+          }
+        }
+    </script>
 </head>
+<body>
 <header class="navbar">
     <div class="brand">
         <img class="logo" src="https://deepdots.com/wp-content/uploads/2025/10/deepdots-logo-1.webp"
              alt="Deepdots Logo"/>
     </div>
     <nav>
-        <a href="#features">Features</a>
-        <a href="#customers">Customers</a>
-        <a href="#blog">Blog</a>
         <a id="contact" style="cursor: pointer">Contact</a>
     </nav>
 </header>
@@ -428,6 +508,22 @@
             </article>
         </div>
     </section>
+
+    <section id="danske-spil" class="section">
+        <h2>DANSKE SPIL</h2>
+        <div class="cards">
+            <article class="card">
+                <img class="danske-spil-logo"
+                     src="https://ds-static.dk/-/media/f49775fcb7f54c2c99a8950a6e0a5779.svg?la=da&hash=4BE6350B5588D80E8B603420C886649AAC7EF99C"
+                     alt="Danske Spil Logo"/>
+                <div class="content" style="flex-grow: 1;">
+                    <h3>Danske Spil</h3>
+                    <p>Your feedback helps us level up the experience.</p>
+                    <button id="danske-spil-btn" class="secondary" style="margin-top: 8px">Give Feedback</button>
+                </div>
+            </article>
+        </div>
+    </section>
 </main>
 
 <footer class="footer">
@@ -435,7 +531,7 @@
 </footer>
 
 <script type="module">
-    import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
+    import {DeepdotsPopups} from '@magicfeedback/popup-sdk';
 
     const popupDefinitions = [
         {
@@ -477,6 +573,17 @@
             productId: '02b809f20e024bce47c57f123cff8735',
             style: {theme: 'light', position: 'bottom-left', imageUrl: null},
             segments: {lang: ['en'], path: ['/']}
+        },
+        {
+            id: 'popup-danske-spil',
+            title: 'Danske Spil Feedback',
+            message: '<p>Help us enhance the gaming experience. Share your thoughts!</p>',
+            trigger: {type: 'time_on_page', value: 99999, condition: [{answered: false, cooldownDays: 1}]}, // solo manual via botón
+            actions: {},
+            surveyId: '596c9af0-cf92-11f0-bbea-6f0493bd7ba7',
+            productId: 'e5c8241506ac83ddcf061a01f5b0f567',
+            style: {theme: 'light', position: 'bottom-right', imageUrl: null},
+            segments: {lang: ['en'], path: ['/']}
         }
     ];
 
@@ -504,11 +611,13 @@
 
 
     document.getElementById('contact').onclick = () => {
-        sdk.show({
-            surveyId: '06442e60-cf6a-11f0-893f-e3a18837a917',
-            productId: '02b809f20e024bce47c57f123cff8735',
-            data: {origin: 'contact_link'}
-        });
+        sdk.show(popupDefinitions[2]);
+    }
+    const danskeBtn = document.getElementById('danske-spil-btn');
+    if (danskeBtn) {
+        danskeBtn.onclick = () => {
+            sdk.show(popupDefinitions[3]);
+        };
     }
 </script>
 </body>
