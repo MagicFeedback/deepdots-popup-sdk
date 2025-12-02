@@ -1,6 +1,6 @@
 {
   "name": "@magicfeedback/popup-sdk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -42,7 +42,7 @@
   },
   "homepage": "https://github.com/MagicFeedback/deepdots-popup-sdk#readme",
   "devDependencies": {
-    "@magicfeedback/native": "^2.1.2-beta.2",
+    "@magicfeedback/native": "^2.1.2-beta.7",
     "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",

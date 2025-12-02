@@ -1,10 +1,9 @@
 import {
     DeepdotsConfig,
     TriggerConfig,
-    ShowOptions,
     DeepdotsEvent,
     DeepdotsEventType,
-    EventListener, DeepdotsInitParams, PopupDefinition, PopupTriggerCondition
+    EventListener, DeepdotsInitParams, PopupDefinition, PopupTriggerCondition, PopupActions
 } from '../types';
 import {renderPopup} from '../ui/renderPopup';
 import {setupTrigger} from '../triggers';
@@ -89,15 +88,25 @@ export class DeepdotsPopups {
         this.triggers.forEach((trigger) => setupTrigger(this, trigger));
     }
 
-    /** Show a popup immediately (by surveyId) */
-    show(options: ShowOptions): void {
+    /** Show a popup immediately (supports legacy ShowOptions and new PopupDefinition) */
+    show(options: PopupDefinition | { surveyId: string; productId: string; data?: Record<string, unknown> }): void {
         console.log('Show popup called with options:', options);
         if (!this.initialized) {
             throw new Error('SDK not initialized. Call init() first.');
         }
-        this.log('Showing popup', options);
-        this.renderPopup(options.surveyId,options.productId, options.data);
-        this.emitEvent('popup_shown', options.surveyId, options.data);
+        // Detectar tipo
+        const isDefinition = (options as PopupDefinition).id !== undefined;
+        if (isDefinition) {
+            const def = options as PopupDefinition;
+            this.log('Showing popup (definition)', def);
+            this.renderPopup(def.surveyId, def.productId, def.actions);
+            this.emitEvent('popup_shown', def.surveyId);
+        } else {
+            const opt = options as { surveyId: string; productId: string; data?: Record<string, unknown> };
+            this.log('Showing popup (legacy options)', opt);
+            this.renderPopup(opt.surveyId, opt.productId, undefined);
+            this.emitEvent('popup_shown', opt.surveyId);
+        }
     }
 
     /** Mostrar popup por id de definición (usa surveyId interno) */
@@ -107,7 +116,7 @@ export class DeepdotsPopups {
             this.log('Popup definition not found', popupId);
             return;
         }
-        this.show({ surveyId: def.surveyId, productId: def.productId });
+        this.show(def);
     }
 
     /** Configure triggers for auto-launching popups (manual) */
@@ -161,7 +170,7 @@ export class DeepdotsPopups {
             this.debug('Conditions prevented showing popup', def.id);
             return;
         }
-        this.show({ surveyId: def.surveyId, productId: def.productId });
+        this.show(def);
         this.lastShown.set(def.id, Date.now());
     }
 
@@ -173,8 +182,7 @@ export class DeepdotsPopups {
     }
 
     private evaluateCondition(def: PopupDefinition, condition: PopupTriggerCondition): boolean {
-        // answered: si true, sólo mostrar si ya contestó? En nuestro objeto answered:false significa mostrar solo si NO ha contestado.
-        if (condition.answered === false && this.answeredSurveys.has(def.surveyId)) {
+        if (!condition.answered && this.answeredSurveys.has(def.surveyId)) {
             return false;
         }
         // cooldownDays: no mostrar si se mostró hace menos de cooldownDays días
@@ -260,15 +268,15 @@ export class DeepdotsPopups {
     }
 
     /** Render the popup UI */
-    private renderPopup(surveyId: string, productId: string, data?: Record<string, unknown>): void {
+    private renderPopup(surveyId: string, productId: string, actions?: PopupActions): void {
         // Nuevo camino: usar renderer
         if (this.renderer) {
-            this.renderer.show(surveyId, productId, data, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
+            this.renderer.show(surveyId, productId, actions, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
             return;
         }
         // Fallback legacy
         if (!this.popupContainer) return;
-        renderPopup(this.popupContainer, surveyId,productId, data, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
+        renderPopup(this.popupContainer, surveyId,productId, actions, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
     }
 
     /** Hide the popup */
@@ -326,7 +334,7 @@ export class DeepdotsPopups {
     private isPopupDefinition(value: unknown): value is PopupDefinition {
         if (typeof value !== 'object' || value === null) return false;
         const v = value as Partial<PopupDefinition>;
-        return typeof v.id === 'string' && typeof v.title === 'string' && typeof v.message === 'string' && typeof v.surveyId === 'string' && typeof v.productId === 'string' && !!v.trigger && typeof v.trigger.type === 'string';
+        return typeof v.id === 'string' && typeof v.title === 'string' && typeof v.message === 'string' && typeof v.surveyId === 'string' && typeof v.productId === 'string' && !!v.trigger; // removed redundant typeof v.trigger.type
     }
 
     private validatePopupDefinitions(defs: unknown[]): PopupDefinition[] {
