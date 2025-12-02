@@ -19,15 +19,15 @@ function ensureMagicFeedbackStyles(popup: HTMLElement) {
 
 // Añade estilos de spinner si no existen
 function ensureSpinnerStyles(popup: HTMLElement) {
-  if (document.getElementById('deepdots-spinner-styles')) return;
-  const style = document.createElement('style');
-  style.id = 'deepdots-spinner-styles';
-  style.textContent = `
+    if (document.getElementById('deepdots-spinner-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'deepdots-spinner-styles';
+    style.textContent = `
     @keyframes ddspin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .mf-spinner { display:flex; justify-content:center; align-items:center; padding:8px 0; }
     .mf-spinner-circle { width:28px; height:28px; border:3px solid #e0e6ed; border-top-color:#4CAF50; border-radius:50%; animation: ddspin 0.9s linear infinite; }
   `;
-  popup.appendChild(style);
+    popup.appendChild(style);
 }
 
 /**
@@ -74,8 +74,8 @@ export async function renderPopup(
 
     const spinnerEl = document.createElement('div');
     spinnerEl.className = 'mf-spinner';
-    spinnerEl.setAttribute('role','status');
-    spinnerEl.setAttribute('aria-label','Loading survey');
+    spinnerEl.setAttribute('role', 'status');
+    spinnerEl.setAttribute('aria-label', 'Loading survey');
     spinnerEl.innerHTML = '<div class="mf-spinner-circle"></div>';
     // Spinner centrado absoluta y no modifica el tamaño reservado
     spinnerEl.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);';
@@ -94,7 +94,7 @@ export async function renderPopup(
     actionsBar.style.cssText = 'display:flex; justify-content:flex-end; gap:8px; margin-top:12px;';
 
     const cancelButton = document.createElement('button');
-    cancelButton.textContent = actions?.decline ? actions?.decline.label :'Cancel';
+    cancelButton.textContent = actions?.decline ? actions?.decline.label : 'Cancel';
     cancelButton.style.cssText = `
       background: transparent;
       color: #333;
@@ -106,7 +106,7 @@ export async function renderPopup(
       transition: background .15s ease;
     `;
     cancelButton.onclick = () => {
-        emit('popup_clicked', surveyId, { action: 'cancel' });
+        emit('popup_clicked', surveyId, {action: 'cancel'});
         onClose();
     };
 
@@ -125,7 +125,7 @@ export async function renderPopup(
     `;
     submitButton.onclick = () => {
         if (!surveyCompletedEmitted) {
-            emit('popup_clicked', surveyId, { action: 'manual_send' });
+            emit('popup_clicked', surveyId, {action: 'manual_send'});
             // Dispara envío nativo si existe
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (formInstance as any)?.send?.();
@@ -172,57 +172,54 @@ export async function renderPopup(
             setLoading(false);
             return;
         }
-        magicfeedback.init({ debug: true, env: 'prod' });
+        magicfeedback.init({debug: true, env: 'prod'});
         formInstance = magicfeedback.form(surveyId, productId);
 
         interface TypedGenerateOptions {
-          addButton: boolean;
-          getMetaData: boolean;
-          onLoadedEvent?: () => void;
-          beforeSubmitEvent?: () => void;
-          afterSubmitEvent?: (args: { error?: string }) => void;
-          onFinishEvent?: () => void;
-          onBackEvent?: () => void;
+            addButton: boolean;
+            getMetaData: boolean;
+            onLoadedEvent?: () => void;
+            beforeSubmitEvent?: () => void;
+            afterSubmitEvent?: (args: { error?: string, completed: boolean }) => void;
+            onBackEvent?: () => void;
         }
+
         const generateOptions: TypedGenerateOptions = {
-          addButton: false,
-          getMetaData: true,
+            addButton: false,
+            getMetaData: true,
         };
         generateOptions.onLoadedEvent = () => {
-          emit('popup_clicked', surveyId, { action: 'loaded' });
-          setLoading(false); // esto hace visible el formulario y oculta el spinner
+            emit('popup_clicked', surveyId, {action: 'loaded'});
+            setLoading(false); // esto hace visible el formulario y oculta el spinner
         };
         generateOptions.beforeSubmitEvent = () => {
-          setLoading(true);
-          emit('popup_clicked', surveyId, { action: 'before_submit' });
+            setLoading(true);
+            emit('popup_clicked', surveyId, {action: 'before_submit'});
         };
-        generateOptions.afterSubmitEvent = ({ error }) => {
+        generateOptions.afterSubmitEvent = ({error, completed}) => {
             setLoading(false);
-          if (error) {
-            emit('popup_clicked', surveyId, { action: 'submit_error', error });
-            return;
-          }
-        };
-        generateOptions.onFinishEvent = () => {
-            console.log('finish');
-          if (!surveyCompletedEmitted) {
-            emit('survey_completed', surveyId, { action: 'completed' });
-            surveyCompletedEmitted = true;
-          }
-          onClose();
+            if (error) {
+                emit('popup_clicked', surveyId, {action: 'submit_error', error});
+                return;
+            }
+            if (completed) {
+                emit('survey_completed', surveyId, {action: 'completed'});
+                surveyCompletedEmitted = true;
+                onClose();
+            }
         };
         generateOptions.onBackEvent = () => {
-          emit('popup_clicked', surveyId, { action: 'back' });
-          // onClose();
+            emit('popup_clicked', surveyId, {action: 'back'});
+            // onClose();
         };
 
         // Ejecutar generación con opciones tipadas
         formInstance.generate(formDivId, generateOptions)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .catch((err: any) => {
-            console.error('[MagicFeedback] Error generating form:', err);
-            setLoading(false);
-          });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .catch((err: any) => {
+                console.error('[MagicFeedback] Error generating form:', err);
+                setLoading(false);
+            });
     } catch (e) {
         console.error('[MagicFeedback] Exception initializing form:', e);
         setLoading(false);
