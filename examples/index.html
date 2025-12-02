@@ -441,6 +441,8 @@
     const popupDefinitions = [
         {
             id: 'popup-demo-1',
+            title: 'Welcome! Quick feedback?',
+            message: '<p>Your quick opinion helps us improve 🚀</p>',
             trigger: {type: 'time_on_page', value: 0.1, condition: [{answered: false, cooldownDays: 1}]},
             actions: {
                 accept: {label: 'Answer', surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0'},
@@ -452,6 +454,8 @@
         },
         {
             id: 'popup-demo-2',
+            title: 'Experience survey',
+            message: '<p>We care about your experience while browsing.</p>',
             trigger: {type: 'scroll', value: 50},
             actions: {
                 accept: {label: 'Participate', surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119'},
@@ -463,6 +467,8 @@
         },
         {
             id: 'popup-demo-3',
+            title: 'Got questions? Help us improve',
+            message: '<p>Before contacting us, would you answer a quick question?</p>',
             trigger: {type: 'time_on_page', value: 99999}, // effectively disabled for auto triggers; will be shown on click
             actions: {
                 accept: {label: 'Sure', surveyId: '06442e60-cf6a-11f0-893f-e3a18837a917'},
