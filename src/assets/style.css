@@ -50,16 +50,22 @@
 }
 
 .magicfeedback-label {
-    margin-bottom: 25px;
-    margin-top: 20px;
-    font-weight: 400;
+    font-weight: 600;
     font-family: inherit;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: #212529;
     text-align: start;
     word-wrap: break-word;
     white-space: normal;
-
+}
+.magicfeedback-sublabel{
+    font-weight: 400;
+    font-family: inherit;
+    font-size: 1rem;
+    color: #6c757d;
+    text-align: start;
+    word-wrap: break-word;
+    white-space: normal;
 }
 
 .magicfeedback-checkbox {
@@ -84,8 +90,8 @@
     justify-content: flex-start;
     flex-wrap: wrap;
     width: 100%;
-    margin-right: 5px;
-    padding: 5px;
+    margin-top: 10px;
+    gap: 10px;
 }
 
 .magicfeedback-checkbox-container,
@@ -94,11 +100,12 @@
     flex-direction: row;
     justify-content: flex-start;
     align-items: center;
-    margin: 5px;
+    margin: 0 2px;
     padding: 5px 0;
     background-color: #fff;
     border-radius: 5px;
     box-shadow: 0 0 3px #ccc;
+    width: calc(100% - 10px);
 }
 
 input::-webkit-outer-spin-button,
@@ -124,7 +131,7 @@ input::-webkit-inner-spin-button {
     font-size: 16px;
     color: #212529;
     text-align: start;
-    width: 100%;
+    width: auto;
 }
 
 p {
@@ -158,7 +165,7 @@ textarea,
 select {
     box-sizing: border-box;
     padding: 10px;
-    margin: 10px 0;
+    margin: 20px 0 10px 0;
     width: 100%;
     border: 2px solid #ccc; /* Default border color - you can customize this */
     border-radius: 5px;
@@ -530,7 +537,7 @@ input.error, select.error {
     .magicfeedback-rating-number-option {
         max-width: 100%;
         height: 55px;
-        margin: 5px 0;
+        margin: 5px;
     }
 }
 
@@ -629,7 +636,7 @@ input.error, select.error {
 .magicfeedback-success-message,
 .magicfeedback-info-message,
 .magicfeedback-start-message {
-    margin: 35px 5px;
+    margin: 10px 5px;
 }
 
 .magicfeedback-success-message p,

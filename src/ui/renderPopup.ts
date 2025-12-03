@@ -11,7 +11,7 @@ function ensureMagicFeedbackStyles(popup: HTMLElement) {
     }
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://cdn.jsdelivr.net/npm/@magicfeedback/native/dist/styles/index.css';
+    link.href = 'https://cdn.jsdelivr.net/npm/@magicfeedback/native/dist/assets/style.css';
     link.setAttribute(DATA_ATTR, 'true');
     // Colocar al inicio del popup para cargar primero los estilos específicos
     popup.appendChild(link);
@@ -40,7 +40,7 @@ function ensureResponsiveStyles(popup: HTMLElement) {
       .deepdots-popup {
         width: 100% !important;
         max-width: 100% !important;
-        height: 100vh !important;
+        height: 90vh !important;
         max-height: 100vh !important;
         border-radius: 0 !important;
         padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 16px !important;
@@ -48,7 +48,7 @@ function ensureResponsiveStyles(popup: HTMLElement) {
       }
       .deepdots-popup .mf-spinner-circle { width: 32px; height: 32px; border-width: 4px; }
       .deepdots-popup button { font-size: 16px !important; }
-      .deepdots-popup-footer { flex-direction: column !important; gap: 12px !important; }
+      .deepdots-popup-footer { flex-direction: column-reverse !important; gap: 12px !important; }
       .deepdots-popup-footer button { width: 100%; }
     }
     @media (max-width: 400px) {
@@ -93,37 +93,45 @@ export async function renderPopup(
       max-width: 600px;
       width: 90%;
       min-height: 200px;
-      max-height: 80vh; /* límite general del popup */
-      overflow: hidden; /* quita scroll del contenedor principal */
     `;
 
     // Sección header (solo botón cerrar)
     const header = document.createElement('div');
     header.className = 'deepdots-popup-header';
-    header.style.cssText = 'display:flex; justify-content:flex-end; align-items:center; width:100%; margin-bottom:8px;';
+    header.style.cssText = 'display:flex; justify-content:flex-end; align-items:center; width:100%;';
 
     // Botón de cierre (X)
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', 'Close popup');
-    closeBtn.innerHTML = '&times;';
+    closeBtn.innerHTML = `
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
     closeBtn.style.cssText = `
       background:transparent;
       border:none;
-      font-size:22px;
-      line-height:1;
+      width:32px;
+      height:32px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius: 8px;
       cursor:pointer;
-      color:#555;
+      color:#111;
       padding:4px;
-      transition: color .15s ease, transform .15s ease;
+      transition: color .15s ease, transform .15s ease, background .15s ease;
       box-shadow: none;
     `;
     closeBtn.onmouseenter = () => {
-        closeBtn.style.color = '#111';
-        closeBtn.style.transform = 'scale(1.1)';
+        closeBtn.style.color = '#000000';
+        closeBtn.style.background = 'rgba(0,0,0,0.06)';
+        closeBtn.style.transform = 'scale(1.06)';
     };
     closeBtn.onmouseleave = () => {
-        closeBtn.style.color = '#555';
+        closeBtn.style.color = '#111';
+        closeBtn.style.background = 'transparent';
         closeBtn.style.transform = 'scale(1)';
     };
     closeBtn.onclick = () => {
@@ -135,6 +143,16 @@ export async function renderPopup(
     ensureMagicFeedbackStyles(popup);
     ensureSpinnerStyles(popup);
     ensureResponsiveStyles(popup);
+
+    const containerContent = document.createElement('div');
+    containerContent.className = 'deepdots-popup-container-conetent';
+    containerContent.style.cssText = `
+    display:flex; 
+    flex-direction:column; 
+    padding: 0 20px 12px 20px;
+      max-height: 80vh; /* límite general del popup */
+      overflow: hidden; /* quita scroll del contenedor principal */
+`
 
     // Sección principal (main) - Contenedor formulario + spinner
     const main = document.createElement('div');
@@ -164,7 +182,7 @@ export async function renderPopup(
     const footer = document.createElement('div');
     footer.className = 'deepdots-popup-footer';
     footer.setAttribute('data-actions-wrapper', 'true');
-    footer.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:24px; width:100%;';
+    footer.style.cssText = 'display:flex; flex-direction: row-reverse ;justify-content:space-between; align-items:center; gap:8px; margin-top:24px; width:100%;';
 
     const cancelButton = document.createElement('button');
     cancelButton.textContent = actions?.decline ? actions?.decline.label : 'Cancel';
@@ -182,6 +200,7 @@ export async function renderPopup(
         emit('popup_clicked', surveyId, {action: 'cancel'});
         onClose();
     };
+    cancelButton.style.display = 'none';
 
     const submitButton = document.createElement('button');
     submitButton.textContent = actions?.accept ? actions.accept.label : 'Complete Survey';
@@ -208,10 +227,12 @@ export async function renderPopup(
     footer.appendChild(cancelButton);
     footer.appendChild(submitButton);
 
+    containerContent.appendChild(main);
+    containerContent.appendChild(footer);
+
     // Ensamblar popup
     popup.appendChild(header);
-    popup.appendChild(main);
-    popup.appendChild(footer);
+    popup.appendChild(containerContent);
 
     container.innerHTML = '';
     container.appendChild(popup);
@@ -277,7 +298,7 @@ export async function renderPopup(
                 if (available > 120) { // asegurar un mínimo razonable
                     main.style.maxHeight = available + 'px';
                 } */
-            } catch(e) {
+            } catch (e) {
                 // silencioso
             }
             // Personalización del popup basada en formData.style
@@ -305,44 +326,69 @@ export async function renderPopup(
                     cancelButton.style.color = '#333';
                 }
                 if (s.logo) {
-                    // Insertar logo si existe
-                    const logoImg = document.createElement('img');
-                    logoImg.src = s.logo;
-                    logoImg.alt = 'Logo';
-                    logoImg.style.cssText = 'max-height:40px; max-width:100%; object-fit:contain;';
-                    if (s.logoSize) {
-                        switch (s.logoSize) {
-                            case 'small':
-                                logoImg.style.maxHeight = '30px';
-                                break;
-                            case 'medium':
-                                logoImg.style.maxHeight = '50px';
-                                break;
-                            case 'large':
-                                logoImg.style.maxHeight = '70px';
-                                break;
+                    if (!document.getElementById('deepdots-popup-logo')) {
+                        // Insertar logo si existe
+                        const logoImg = document.createElement('img');
+                        logoImg.id = 'deepdots-popup-logo';
+                        logoImg.src = s.logo;
+                        logoImg.alt = 'Logo';
+                        logoImg.style.cssText = 'max-height:40px; max-width:100%; object-fit:contain;';
+                        if (s.logoSize) {
+                            switch (s.logoSize) {
+                                case 'small':
+                                    logoImg.style.maxHeight = '30px';
+                                    break;
+                                case 'medium':
+                                    logoImg.style.maxHeight = '50px';
+                                    break;
+                                case 'large':
+                                    logoImg.style.maxHeight = '70px';
+                                    break;
+                            }
                         }
-                    }
-                    if (s.logoPosition) {
-                        switch (s.logoPosition) {
-                            case 'left':
-                                logoImg.style.margin = '0 16px 16px 0';
-                                logoImg.style.display = 'block';
-                                logoImg.style.marginLeft = '0';
-                                break;
-                            case 'right':
-                                logoImg.style.margin = '0 0 16px 16px';
-                                logoImg.style.display = 'block';
-                                logoImg.style.marginLeft = 'auto';
-                                break;
-                            case 'center':
-                                logoImg.style.margin = '0 auto 16px auto';
-                                logoImg.style.display = 'block';
-                                break;
+                        if (s.logoPosition) {
+                            switch (s.logoPosition) {
+                                case 'left':
+                                    logoImg.style.margin = '0 16px 42px 0';
+                                    logoImg.style.display = 'block';
+                                    logoImg.style.marginLeft = '0';
+                                    break;
+                                case 'right':
+                                    logoImg.style.margin = '0 0 42px 16px';
+                                    logoImg.style.display = 'block';
+                                    logoImg.style.marginLeft = 'auto';
+                                    break;
+                                case 'center':
+                                    logoImg.style.margin = '0 auto 42px auto';
+                                    logoImg.style.display = 'block';
+                                    break;
+                            }
                         }
+                        // Insertar antes del main si no existe ya
+                        containerContent.insertBefore(logoImg, main);
                     }
-                    // Insertar antes del main
-                    popup.insertBefore(logoImg, main);
+                }
+
+                if (s.startMessage && s.startMessage !== '') {
+                    if (submitButton.textContent === 'Start Survey') {
+                        // Cambiar texto botón submit
+                        submitButton.textContent = actions?.accept ? actions.accept.label : 'Complete Survey';
+                        // Cambiar acción botón submit para envío
+                        submitButton.onclick = () => {
+                            if (!surveyCompletedEmitted) {
+                                emit('popup_clicked', surveyId, {action: 'manual_send'});
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (formInstance as any)?.send?.();
+                            }
+                        };
+
+                    } else {
+                        submitButton.onclick = () => {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (formInstance as any)?.startForm?.();
+                        }
+                        submitButton.textContent = 'Start Survey';
+                    }
                 }
             }
 
