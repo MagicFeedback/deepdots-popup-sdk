@@ -119,10 +119,10 @@ export interface PopupActionComplete {
 
 /** Conjunto de acciones disponibles en el popup */
 export interface PopupActions {
-    accept: PopupActionAccept;
-    decline: PopupActionDecline;
-    complete: PopupActionComplete;
-    start: PopupActionStart;
+    accept?: PopupActionAccept;
+    decline?: PopupActionDecline;
+    complete?: PopupActionComplete;
+    start?: PopupActionStart;
 }
 
 /** Estilos configurables del popup */
@@ -145,10 +145,10 @@ export interface PopupDefinition {
     title: string;
     message: string; // HTML seguro renderizado (se recomienda sanitizar afuera)
     trigger: PopupTrigger;
-    actions: PopupActions;
+    actions?: PopupActions;
     surveyId: string;
     productId: string;
-    style: PopupStyle;
+    style?: PopupStyle;
     segments?: PopupSegments;
 }
 
