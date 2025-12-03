@@ -1,6 +1,5 @@
 import {DeepdotsEventType, PopupActions, FormData} from '../types';
 import magicfeedback from "@magicfeedback/native";
-import "@magicfeedback/native/dist/styles/index.css";
 
 // Inserta la hoja de estilos de MagicFeedback directamente en el popup para garantizar estilos incluso si el bundler no la inyecta globalmente.
 function ensureMagicFeedbackStyles(popup: HTMLElement) {
@@ -11,7 +10,7 @@ function ensureMagicFeedbackStyles(popup: HTMLElement) {
     }
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://cdn.jsdelivr.net/npm/@magicfeedback/native/dist/assets/style.css';
+    link.href = 'https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk/dist/assets/style.css';
     link.setAttribute(DATA_ATTR, 'true');
     // Colocar al inicio del popup para cargar primero los estilos específicos
     popup.appendChild(link);
@@ -48,12 +47,15 @@ function ensureResponsiveStyles(popup: HTMLElement) {
       }
       .deepdots-popup .mf-spinner-circle { width: 32px; height: 32px; border-width: 4px; }
       .deepdots-popup button { font-size: 16px !important; }
+      .deepdots-popup-header button { width:48px; height:48px; }
+      .deepdots-popup-header button svg { width:26px; height:26px; }
       .deepdots-popup-footer { flex-direction: column-reverse !important; gap: 12px !important; }
       .deepdots-popup-footer button { width: 100%; }
     }
     @media (max-width: 400px) {
       .deepdots-popup { padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)) 12px !important; }
-      .deepdots-popup button { padding: 10px 14px !important; }
+      .deepdots-popup-header button { width:48px; height:48px; }
+      .deepdots-popup-header button svg { width:26px; height:26px; }
     }
     @media (orientation: landscape) and (max-height: 480px) {
       .deepdots-popup {
@@ -78,6 +80,7 @@ export async function renderPopup(
     onClose: () => void
 ): Promise<void> {
     let surveyCompletedEmitted = false;
+    let stylesInjected = false;
     // Crear popup base
     const popup = document.createElement('div');
     popup.className = 'deepdots-popup';
@@ -122,7 +125,7 @@ export async function renderPopup(
       color:#111;
       padding:4px;
       transition: color .15s ease, transform .15s ease, background .15s ease;
-      box-shadow: none;
+      box-shadow: none !important;
     `;
     closeBtn.onmouseenter = () => {
         closeBtn.style.color = '#000000';
@@ -157,10 +160,10 @@ export async function renderPopup(
     // Sección principal (main) - Contenedor formulario + spinner
     const main = document.createElement('div');
     main.className = 'deepdots-popup-main';
-    main.style.cssText = 'display:flex; flex-direction:column; width:100%; flex-grow:1; overflow-y:auto;';
+    main.style.cssText = 'display:flex; flex-direction:column; width:100%; max-height:80vh; overflow-y:auto;';
 
     const formWrapper = document.createElement('div');
-    formWrapper.style.cssText = 'position:relative; min-height:150px; width:100%;';
+    formWrapper.style.cssText = 'width:100%; flex: 1 1 auto;';
 
     const spinnerEl = document.createElement('div');
     spinnerEl.className = 'mf-spinner';
@@ -182,28 +185,96 @@ export async function renderPopup(
     const footer = document.createElement('div');
     footer.className = 'deepdots-popup-footer';
     footer.setAttribute('data-actions-wrapper', 'true');
-    footer.style.cssText = 'display:flex; flex-direction: row-reverse ;justify-content:space-between; align-items:center; gap:8px; margin-top:24px; width:100%;';
+    footer.style.cssText = 'display:flex; flex-direction: row-reverse ;justify-content:space-between; align-items:center; gap:8px; margin-top:auto; width:100%; padding-top:16px;';
 
-    const cancelButton = document.createElement('button');
-    cancelButton.textContent = actions?.decline ? actions?.decline.label : 'Cancel';
-    cancelButton.style.cssText = `
+    // Botones
+    const backButton = document.createElement('button');
+    backButton.textContent = 'Back';
+    backButton.style.cssText = `
       background: transparent;
       color: #333;
-      border: 1px solid #ddd;
-      padding: 10px 16px;
+      border: 1px solid #999;
+      padding: 12px 24px;
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
-      transition: background .15s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: filter .15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
     `;
-    cancelButton.onclick = () => {
-        emit('popup_clicked', surveyId, {action: 'cancel'});
+    backButton.onmouseenter = () => {
+        backButton.style.filter = 'brightness(0.9)';
+    }
+    backButton.onmouseleave = () => {
+        backButton.style.filter = 'brightness(1)';
+    }
+    backButton.onclick = () => {
+        emit('popup_clicked', surveyId, {action: 'back'});
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (formInstance as any)?.back?.();
+    };
+
+    // Boton start survyes, solo aprece cuando la encuesta empieza con mensaje de inicio
+    // Width de 100% para que ocupe todo el espacio disponible
+    const startButton = document.createElement('button');
+    startButton.textContent = actions?.start ? actions.start.label : 'Start survey';
+    startButton.style.cssText = `
+      background: #1E293B;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: filter .15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    `;
+    startButton.onclick = () => {
+        emit('popup_clicked', surveyId, {action: 'start_survey'});
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (formInstance as any)?.startForm?.();
+    };
+
+    // Botón cerrar popup, solo aparece al terminar la encuesta
+    // Width de 100% para que ocupe todo el espacio disponible
+    const closeButton = document.createElement('button');
+    closeButton.textContent = actions?.complete ? actions.complete.label : 'Complete survey';
+    closeButton.style.cssText = `
+      background: #1E293B;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: filter .15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    `;
+    closeButton.onmouseenter = () => {
+        closeButton.style.filter = 'brightness(0.9)';
+    }
+    closeButton.onmouseleave = () => {
+        closeButton.style.filter = 'brightness(1)';
+    }
+    closeButton.onclick = () => {
+        emit('popup_clicked', surveyId, {action: 'complete'});
         onClose();
     };
-    cancelButton.style.display = 'none';
 
+    // Boton send, si es primera pagina ocupara el espacio completo pero si no estara al lado derecho
     const submitButton = document.createElement('button');
-    submitButton.textContent = actions?.accept ? actions.accept.label : 'Complete Survey';
+    submitButton.textContent = actions?.accept ? actions.accept.label : 'Send';
     submitButton.style.cssText = `
       background: #1E293B;
       color: #fff;
@@ -214,6 +285,10 @@ export async function renderPopup(
       font-size: 14px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       transition: filter .15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
     `;
     submitButton.onclick = () => {
         if (!surveyCompletedEmitted) {
@@ -224,11 +299,70 @@ export async function renderPopup(
         }
     };
 
-    footer.appendChild(cancelButton);
-    footer.appendChild(submitButton);
+    backButton.style.display = 'none';
+    startButton.style.display = 'none';
+    submitButton.style.display = 'none';
+    closeButton.style.display = 'none';
 
+    // Insertar botones dentro del footer en orden visual (row-reverse deja primario a la derecha)
+    footer.appendChild(backButton);
+    footer.appendChild(closeButton);
+    footer.appendChild(submitButton);
+    footer.appendChild(startButton);
+
+    // Añadir footer al main y main al containerContent
+    main.appendChild(footer);
     containerContent.appendChild(main);
-    containerContent.appendChild(footer);
+
+    // Helper para controlar visibilidad de botones según estado
+    type ViewState = 'loading' | 'start' | 'in_progress_first' | 'in_progress_next' | 'completed' | 'error';
+
+    function updateButtons(state: ViewState) {
+        // Por defecto, ocultar todos
+        backButton.style.display = 'none';
+        startButton.style.display = 'none';
+        submitButton.style.display = 'none';
+        closeButton.style.display = 'none';
+        // Reset widths por estado
+        backButton.style.width = '';
+        startButton.style.width = '';
+        submitButton.style.width = '';
+        closeButton.style.width = '';
+
+        switch (state) {
+            case 'loading':
+                // Footer se ocultará desde setLoading
+                break;
+            case 'start':
+                // Solo botón Start a ancho completo
+                startButton.style.display = 'inline-flex';
+                startButton.style.width = '100%';
+                break;
+            case 'in_progress_first':
+                // Solo botón Send (lado derecho), ancho auto
+                submitButton.style.display = 'inline-flex';
+                submitButton.style.width = '';
+                setLoading(false);
+                break;
+            case 'in_progress_next':
+                // Mostrar Back (izquierda) + Send (derecha)
+                backButton.style.display = 'inline-flex';
+                submitButton.style.display = 'inline-flex';
+                setLoading(false);
+                break;
+            case 'completed':
+                // Mostrar Close/Complete a ancho completo como acción principal
+                closeButton.style.display = 'inline-flex';
+                closeButton.style.width = '100%';
+                setLoading(false);
+                break;
+            case 'error':
+                // En error, permitir cerrar (ancho auto)
+                closeButton.style.display = 'inline-flex';
+                setLoading(false);
+                break;
+        }
+    }
 
     // Ensamblar popup
     popup.appendChild(header);
@@ -244,10 +378,19 @@ export async function renderPopup(
         if (!isLoading) {
             formHost.style.visibility = 'visible';
         }
-        cancelButton.disabled = false;
+        // Ocultar totalmente los botones cuando está cargando
+        footer.style.display = isLoading ? 'none' : 'flex';
+        // Ajustar estados de los botones por si se muestran
+        backButton.disabled = isLoading;
+        startButton.disabled = isLoading;
+        closeButton.disabled = isLoading;
         submitButton.disabled = isLoading;
         submitButton.style.opacity = isLoading ? '0.6' : '1';
         submitButton.style.cursor = isLoading ? 'not-allowed' : 'pointer';
+        // No sobrescribir el estado de botones al finalizar la carga.
+        if (isLoading) {
+            updateButtons('loading');
+        }
     }
 
     // Estado inicial
@@ -275,7 +418,8 @@ export async function renderPopup(
             addButton: boolean;
             getMetaData: boolean;
             onLoadedEvent?: (args: {
-                formData: FormData
+                formData: FormData,
+                progress?: number, total?: number
             }) => void;
             beforeSubmitEvent?: () => void;
             afterSubmitEvent?: (args: { error?: string, completed: boolean, progress: number, total: number }) => void;
@@ -286,7 +430,7 @@ export async function renderPopup(
             addButton: false,
             getMetaData: true,
         };
-        generateOptions.onLoadedEvent = ({formData}) => {
+        generateOptions.onLoadedEvent = ({formData, progress}) => {
             // Calcular altura disponible y aplicarla al main (restando header + footer + paddings)
             try {
                 /*
@@ -303,7 +447,8 @@ export async function renderPopup(
             }
             // Personalización del popup basada en formData.style
             const s = formData?.style;
-            if (s) {
+            if (s && !stylesInjected) {
+                stylesInjected = true;
                 // Fondo del contenedor popup
                 if (s.boxBackgroundColor) {
                     popup.style.background = s.boxBackgroundColor;
@@ -313,17 +458,25 @@ export async function renderPopup(
                     // 'top' => start, 'center' => center
                     main.style.justifyContent = s.contentAlign === 'center' ? 'center' : 'flex-start';
                 }
-                // Botón primario (submit)
+                // Botón primario (submit, start)
                 if (s.buttonPrimaryColor) {
                     submitButton.style.background = s.buttonPrimaryColor;
                     submitButton.style.border = 'none';
                     submitButton.style.color = '#fff';
+
+                    startButton.style.background = s.buttonPrimaryColor;
+                    startButton.style.border = 'none';
+                    startButton.style.color = '#fff';
+
+                    closeButton.style.background = s.buttonPrimaryColor;
+                    closeButton.style.border = 'none';
+                    closeButton.style.color = '#fff';
                 }
-                // Botón secundario (cancel)
+                // Botón secundario (back)
                 if (s.buttonSecondaryColor) {
-                    cancelButton.style.background = 'transparent';
-                    cancelButton.style.border = `1px solid ${s.buttonSecondaryColor}`;
-                    cancelButton.style.color = '#333';
+
+                    backButton.style.color = '#fff';
+                    backButton.style.border = `1px solid ${s.buttonSecondaryColor}`;
                 }
                 if (s.logo) {
                     if (!document.getElementById('deepdots-popup-logo')) {
@@ -370,65 +523,53 @@ export async function renderPopup(
                 }
 
                 if (s.startMessage && s.startMessage !== '') {
-                    if (submitButton.textContent === 'Start Survey') {
-                        // Cambiar texto botón submit
-                        submitButton.textContent = actions?.accept ? actions.accept.label : 'Complete Survey';
-                        // Cambiar acción botón submit para envío
-                        submitButton.onclick = () => {
-                            if (!surveyCompletedEmitted) {
-                                emit('popup_clicked', surveyId, {action: 'manual_send'});
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (formInstance as any)?.send?.();
-                            }
-                        };
-
-                    } else {
-                        submitButton.onclick = () => {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (formInstance as any)?.startForm?.();
-                        }
-                        submitButton.textContent = 'Start Survey';
-                    }
+                    // Si hay mensaje de inicio, mostrar botón Start inicialmente
+                    console.log(s.startMessage);
+                    updateButtons('start');
+                } else {
+                    // Si no hay mensaje de inicio, mostrar estado de primera página (solo Send)
+                    updateButtons('in_progress_first');
                 }
+            } else {
+                // Sin estilos, asumir primera página normal
+                updateButtons('in_progress_first');
             }
 
             emit('popup_clicked', surveyId, {action: 'loaded'});
-            setLoading(false); // esto hace visible el formulario y oculta el spinner
+            setLoading(false); // hace visible el formulario y oculta el spinner
         };
         generateOptions.beforeSubmitEvent = () => {
             setLoading(true);
             emit('popup_clicked', surveyId, {action: 'before_submit'});
         };
         generateOptions.afterSubmitEvent = ({error, completed, total, progress}) => {
-            setLoading(false);
+            // setLoading(false);
             if (error) {
                 emit('popup_clicked', surveyId, {action: 'submit_error', error});
+                updateButtons('error');
                 return;
             }
             if (completed) {
                 emit('survey_completed', surveyId, {action: 'completed'});
                 surveyCompletedEmitted = true;
-                onClose();
+                updateButtons('completed');
+                // El botón close permitirá cerrar manualmente
+                return;
             }
-            // Si totla es mas de 1 y progress menor, es envío parcial, por lo que cambairemos el boton de cancel por back y llamara a onBackEvent
-            if (total > 1 && progress < total) {
-                cancelButton.textContent = 'Back';
-                cancelButton.onclick = () => {
-                    emit('popup_clicked', surveyId, {action: 'back'});
-                    formInstance.back();
-
-                }
+            // Control de multi-página: si total > 1 y progress < total estamos en páginas siguientes
+            if (total > 1 && progress > 0 && progress < total) {
+                updateButtons('in_progress_next');
+            } else {
+                updateButtons('in_progress_first');
             }
         };
         generateOptions.onBackEvent = ({progress}) => {
             emit('popup_clicked', surveyId, {action: 'back'});
-            // Restaurar botón cancel
+            // Si volvemos a la primera página, ocultar Back
             if (progress === 0) {
-                cancelButton.textContent = actions?.decline ? actions?.decline.label : 'Cancel';
-                cancelButton.onclick = () => {
-                    emit('popup_clicked', surveyId, {action: 'cancel'});
-                    onClose();
-                };
+                updateButtons('in_progress_first');
+            } else {
+                updateButtons('in_progress_next');
             }
         };
 

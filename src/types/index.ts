@@ -103,10 +103,26 @@ export interface PopupActionDecline {
     cooldownDays?: number; // opcional: no mostrar hasta pasado X días
 }
 
+/** Start Surveys Action */
+export interface PopupActionStart {
+    label: string;
+}
+
+/** Acción de completar (aceptar y completar encuesta automáticamente) */
+// Requiere que la encuesta soporte auto-completado vía parámetros
+export interface PopupActionComplete {
+    label: string;
+    surveyId: string; // id de la encuesta a lanzar
+    autoCompleteParams: Record<string, unknown>; // parámetros para auto-completar
+    cooldownDays?: number;
+}
+
 /** Conjunto de acciones disponibles en el popup */
 export interface PopupActions {
     accept: PopupActionAccept;
     decline: PopupActionDecline;
+    complete: PopupActionComplete;
+    start: PopupActionStart;
 }
 
 /** Estilos configurables del popup */
