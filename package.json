@@ -1,6 +1,6 @@
 {
   "name": "@magicfeedback/popup-sdk",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

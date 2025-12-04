@@ -10,7 +10,7 @@ function ensureMagicFeedbackStyles(popup: HTMLElement) {
     }
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk/dist/assets/style.css';
+    link.href = 'https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk/dist/assets/assets/style.css';
     link.setAttribute(DATA_ATTR, 'true');
     // Colocar al inicio del popup para cargar primero los estilos específicos
     popup.appendChild(link);
