@@ -108,7 +108,7 @@ export async function renderPopup(
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', 'Close popup');
     closeBtn.innerHTML = `
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     `;
@@ -165,6 +165,22 @@ export async function renderPopup(
     const formWrapper = document.createElement('div');
     formWrapper.style.cssText = 'width:100%; flex: 1 1 auto;';
 
+    // Contenedor de aviso de error de validación
+    const errorHint = document.createElement('div');
+    errorHint.className = 'deepdots-error-hint';
+    errorHint.style.cssText = `
+      display: none;
+      margin: 12px 0 0 0;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #FEF3C7; /* amber-100 */
+      color: #92400E; /* amber-700 */
+      border: 1px solid #FCD34D; /* amber-300 */
+      font-size: 13px;
+    `;
+    errorHint.setAttribute('role', 'alert');
+    errorHint.setAttribute('aria-live', 'polite');
+
     const spinnerEl = document.createElement('div');
     spinnerEl.className = 'mf-spinner';
     spinnerEl.setAttribute('role', 'status');
@@ -180,6 +196,8 @@ export async function renderPopup(
     formWrapper.appendChild(spinnerEl);
     formWrapper.appendChild(formHost);
     main.appendChild(formWrapper);
+    // Insertar el hint justo antes del footer
+    main.appendChild(errorHint);
 
     // Sección footer (acciones) - botones en extremos
     const footer = document.createElement('div');
@@ -272,7 +290,7 @@ export async function renderPopup(
         onClose();
     };
 
-    // Boton send, si es primera pagina ocupara el espacio completo pero si no estara al lado derecho
+    // Botón send, si es primera pagina ocupara el espacio completo pero si no estara al lado derecho
     const submitButton = document.createElement('button');
     submitButton.textContent = actions?.accept ? actions.accept.label : 'Send';
     submitButton.style.cssText = `
@@ -358,7 +376,7 @@ export async function renderPopup(
                 break;
             case 'error':
                 // En error, permitir cerrar (ancho auto)
-                closeButton.style.display = 'inline-flex';
+                // closeButton.style.display = 'inline-flex';
                 setLoading(false);
                 break;
         }
@@ -430,7 +448,7 @@ export async function renderPopup(
             addButton: false,
             getMetaData: true,
         };
-        generateOptions.onLoadedEvent = ({formData, progress}) => {
+        generateOptions.onLoadedEvent = ({formData}) => {
             // Calcular altura disponible y aplicarla al main (restando header + footer + paddings)
             try {
                 /*
@@ -543,20 +561,36 @@ export async function renderPopup(
             emit('popup_clicked', surveyId, {action: 'before_submit'});
         };
         generateOptions.afterSubmitEvent = ({error, completed, total, progress}) => {
-            // setLoading(false);
-            if (error) {
-                emit('popup_clicked', surveyId, {action: 'submit_error', error});
-                updateButtons('error');
+            // No cambiar estado de loading aquí; lo gestiona cada transición
+            // Normalizar el error a texto seguro
+            const errText = error ? (typeof error === 'string' ? error : ((error as unknown as {message?: string}).message ?? String(error))) : '';
+            if (errText) {
+                // Desactivar loading para que se vean los botones
+                setLoading(false);
+                // Caso específico: error de pregunta obligatoria
+                if (errText.toLowerCase().includes('no response')) {
+                    errorHint.textContent = 'Please answer the required question to continue.';
+                    errorHint.style.display = 'block';
+                    emit('popup_clicked', surveyId, {action: 'validation_error_required'});
+                    updateButtons('in_progress_next');
+                    return;
+                }
+                // Otros errores: mostrar mensaje genérico y permitir cerrar
+                errorHint.textContent = 'An error occurred while submitting. Please try again or close the popup.';
+                errorHint.style.display = 'block';
+                emit('popup_clicked', surveyId, {action: 'submit_error', error: errText});
+                // updateButtons('error');
                 return;
             }
+            // Limpiar hint si no hay error
+            errorHint.style.display = 'none';
+            setLoading(false);
             if (completed) {
                 emit('survey_completed', surveyId, {action: 'completed'});
                 surveyCompletedEmitted = true;
                 updateButtons('completed');
-                // El botón close permitirá cerrar manualmente
                 return;
             }
-            // Control de multi-página: si total > 1 y progress < total estamos en páginas siguientes
             if (total > 1 && progress > 0 && progress < total) {
                 updateButtons('in_progress_next');
             } else {
