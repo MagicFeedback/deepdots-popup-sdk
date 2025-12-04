@@ -123,6 +123,7 @@ export interface PopupActions {
     decline?: PopupActionDecline;
     complete?: PopupActionComplete;
     start?: PopupActionStart;
+    back?: PopupActionDecline;
 }
 
 /** Estilos configurables del popup */

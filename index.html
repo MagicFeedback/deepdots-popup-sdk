@@ -540,13 +540,17 @@
             message: '<p>Your quick opinion helps us improve 🚀</p>',
             trigger: {type: 'time_on_page', value: 0.1, condition: [{answered: false, cooldownDays: 1}]},
             actions: {
-                accept: {label: 'Answer', surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0'},
-                decline: {label: 'Close', cooldownDays: 1}
+                accept: {label: 'Næste', surveyId: 'eeb4e590-d0eb-11f0-b3ab-f13d725acff5'},
+                decline: {label: 'Tæt', cooldownDays: 1},
+                complete: {label: 'Indsend' },
+                start: {label: 'Start' },
+                back: {label: 'Tilbage' }
             },
-            surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',
-            productId: '02b809f20e024bce47c57f123cff8735',
+            surveyId: 'eeb4e590-d0eb-11f0-b3ab-f13d725acff5',
+            productId: 'e5c8241506ac83ddcf061a01f5b0f567',
             segments: {lang: ['en'], path: ['/']}
         },
+        /*
         {
             id: 'popup-demo-2',
             title: 'Experience survey',
@@ -574,12 +578,18 @@
             style: {theme: 'light', position: 'bottom-left', imageUrl: null},
             segments: {lang: ['en'], path: ['/']}
         },
+        */
         {
             id: 'popup-danske-spil',
             title: 'Danske Spil Feedback',
             message: '<p>Help us enhance the gaming experience. Share your thoughts!</p>',
             trigger: {type: 'time_on_page', value: 99999, condition: [{answered: false, cooldownDays: 1}]}, // solo manual via botón
-            actions: {},
+            actions: {
+                accept: {label: 'Næste', surveyId: 'eeb4e590-d0eb-11f0-b3ab-f13d725acff5'},
+                decline: {label: 'Tæt', cooldownDays: 1},
+                complete: {label: 'Fuldfør undersøgelsen' },
+                start: {label: 'Start undersøgelse' }
+            },
             surveyId: '596c9af0-cf92-11f0-bbea-6f0493bd7ba7',
             productId: 'e5c8241506ac83ddcf061a01f5b0f567',
             style: {theme: 'light', position: 'bottom-right', imageUrl: null},
@@ -611,12 +621,12 @@
 
 
     document.getElementById('contact').onclick = () => {
-        sdk.show(popupDefinitions[2]);
+        // sdk.show(popupDefinitions[2]);
     }
     const danskeBtn = document.getElementById('danske-spil-btn');
     if (danskeBtn) {
         danskeBtn.onclick = () => {
-            sdk.show(popupDefinitions[3]);
+            sdk.show(popupDefinitions[1]);
         };
     }
 </script>

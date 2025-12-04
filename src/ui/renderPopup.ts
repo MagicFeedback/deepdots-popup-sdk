@@ -189,7 +189,7 @@ export async function renderPopup(
 
     // Botones
     const backButton = document.createElement('button');
-    backButton.textContent = 'Back';
+    backButton.textContent = actions?.back ? actions.back.label : 'Back';
     backButton.style.cssText = `
       background: transparent;
       color: #333;
@@ -305,9 +305,9 @@ export async function renderPopup(
     closeButton.style.display = 'none';
 
     // Insertar botones dentro del footer en orden visual (row-reverse deja primario a la derecha)
+    footer.appendChild(submitButton);
     footer.appendChild(backButton);
     footer.appendChild(closeButton);
-    footer.appendChild(submitButton);
     footer.appendChild(startButton);
 
     // Añadir footer al main y main al containerContent

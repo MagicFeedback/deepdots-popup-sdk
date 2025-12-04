@@ -409,6 +409,7 @@ input.error, select.error {
 
     margin: 15px 0;
     padding: 0;
+    padding-top: 45px !important;
 
     list-style: none;
     font-size: 1.5rem;
