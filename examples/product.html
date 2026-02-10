@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Deepdots Popup SDK - Product Route</title>
+    <link rel="stylesheet" href="../src/assets/style.css"/>
+    <style>
+        :root {
+            --primary: #0e172d;
+            --secondary: #4f46e5;
+            --text: #172036;
+            --muted: #61728c;
+            --bg: #f7f9fc;
+            --border: #e5e9f2;
+            --card: #ffffff;
+            --shadow: 0 8px 24px rgba(14, 23, 45, 0.08);
+            --shadow-hover: 0 12px 32px rgba(14, 23, 45, 0.12);
+            --radius: 14px;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+        }
+
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 28px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: saturate(180%) blur(6px);
+        }
+
+        .navbar .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .navbar img.logo {
+            height: 36px;
+            width: auto;
+            object-fit: cover;
+        }
+
+        .navbar nav a {
+            margin: 0 12px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .navbar nav a:hover {
+            color: var(--primary);
+            opacity: 1;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 28px;
+            align-items: center;
+            padding: 48px 28px;
+            margin: 28px auto;
+            max-width: 1080px;
+        }
+
+        .hero h1 {
+            margin: 0 0 8px;
+            font-size: 32px;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            color: var(--muted);
+            font-size: 16px;
+        }
+
+        .hero img {
+            width: 100%;
+            border-radius: var(--radius);
+            object-fit: cover;
+            box-shadow: var(--shadow);
+        }
+
+        .section {
+            max-width: 1080px;
+            margin: 28px auto;
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .section > h2 {
+            margin: 0 0 16px;
+            letter-spacing: -0.01em;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+            transition: box-shadow .2s ease, transform .2s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .card img {
+            width: 100%;
+            height: 170px;
+            object-fit: cover;
+        }
+
+        .card .content {
+            padding: 16px;
+        }
+
+        .card .content h3 {
+            margin: 0 0 6px;
+            font-size: 18px;
+        }
+
+        .card .content p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            padding: 3px 8px;
+            font-size: 11px;
+            border-radius: 999px;
+            margin-left: 6px;
+        }
+
+        .card-link {
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-link:focus-visible {
+            outline: 2px solid var(--secondary);
+            outline-offset: 2px;
+        }
+
+        button {
+            appearance: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+
+        button:not(.secondary):not(.outline) {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: var(--shadow);
+        }
+
+        button.secondary {
+            background: var(--secondary);
+            color: #fff;
+            box-shadow: var(--shadow);
+        }
+
+        button.outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--border);
+        }
+
+        button:hover {
+            filter: brightness(1.05);
+        }
+
+        button.outline:hover {
+            border-color: var(--primary);
+            background: rgba(14, 23, 45, 0.04);
+        }
+
+        .event-log {
+            max-height: 200px;
+            overflow: auto;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: #fbfcff;
+        }
+
+        .event {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            color: #334155;
+            padding: 4px 0;
+        }
+
+        .demo-panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .demo-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .demo-note {
+            color: var(--muted);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            background: rgba(79, 70, 229, 0.12);
+            color: var(--secondary);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        @media (max-width: 960px) {
+            .hero {
+                grid-template-columns: 1fr;
+                padding: 32px 20px;
+            }
+
+            .hero img {
+                margin-top: 16px;
+            }
+
+            .section {
+                padding: 20px;
+                margin: 20px auto;
+            }
+
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 14px;
+            }
+
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .navbar {
+                padding: 12px 16px;
+            }
+
+            .navbar nav a {
+                margin: 0 8px;
+            }
+
+            .hero {
+                padding: 24px 16px;
+            }
+
+            .hero h1 {
+                font-size: 26px;
+            }
+
+            .hero p {
+                font-size: 14px;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .card img {
+                height: 140px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .hero h1 {
+                font-size: 22px;
+            }
+
+            .card .content h3 {
+                font-size: 16px;
+            }
+
+            .navbar img.logo {
+                height: 30px;
+            }
+        }
+    </style>
+    <script type="importmap">
+        {
+          "imports": {
+            "@magicfeedback/popup-sdk": "../dist/index.mjs"
+          }
+        }
+    </script>
+</head>
+<body>
+<header class="navbar">
+    <div class="brand">
+        <img class="logo" src="https://deepdots.com/wp-content/uploads/2025/10/deepdots-logo-1.webp"
+             alt="Deepdots Logo"/>
+    </div>
+    <nav>
+        <a href="./index.html">Home</a>
+        <a href="#details">Details</a>
+        <a href="#pricing">Pricing</a>
+        <a id="contact" style="cursor: pointer">Contact</a>
+    </nav>
+</header>
+
+<main>
+    <section class="hero">
+        <div>
+            <h1>Product Route Demo</h1>
+            <p>This page lives on a different path so you can verify route segmentation and exit intent behavior.</p>
+        </div>
+        <img src="https://picsum.photos/seed/product-route/800/500" alt="Product preview"/>
+    </section>
+
+    <section id="details" class="section">
+        <h2>Product details</h2>
+        <div class="cards">
+            <article class="card">
+                <img src="https://picsum.photos/seed/details-1/600/400" alt="Detail A"/>
+                <div class="content">
+                    <h3>Focused insights</h3>
+                    <p>Trigger contextual surveys on critical product decisions.</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/details-2/600/400" alt="Detail B"/>
+                <div class="content">
+                    <h3>Route segmentation</h3>
+                    <p>Show different popups by path, language, and persona.</p>
+                </div>
+            </article>
+            <a class="card card-link" href="./index.html">
+                <img src="https://picsum.photos/seed/details-3/600/400" alt="Return home"/>
+                <div class="content">
+                    <h3>Return to Home</h3>
+                    <p>Navigate back to test home page triggers and scroll popups.</p>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <section id="pricing" class="section">
+        <h2>Pricing spotlight</h2>
+        <div class="cards">
+            <article class="card">
+                <img src="https://picsum.photos/seed/pricing-1/600/400" alt="Pricing 1"/>
+                <div class="content">
+                    <h3>Starter plan</h3>
+                    <p>Ideal for teams beginning to collect targeted feedback.</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/pricing-2/600/400" alt="Pricing 2"/>
+                <div class="content">
+                    <h3>Growth plan</h3>
+                    <p>Advanced segmentation and multiple active popups.</p>
+                </div>
+            </article>
+            <article class="card">
+                <img src="https://picsum.photos/seed/pricing-3/600/400" alt="Pricing 3"/>
+                <div class="content">
+                    <h3>Enterprise</h3>
+                    <p>Dedicated support for large scale deployments.</p>
+                </div>
+            </article>
+        </div>
+    </section>
+</main>
+
+<footer class="footer" style="text-align:center;color:#7c8eaa;padding:28px;">
+    <p>Deepdots SDK Demo</p>
+</footer>
+
+<script type="module">
+    import {initDemoSdk} from './demo-sdk.js';
+
+    const modePill = document.getElementById('mode-pill');
+    const eventLog = document.getElementById('event-log');
+    const {sdk} = initDemoSdk({modeLabelEl: modePill, eventLogEl: eventLog});
+
+    sdk.autoLaunch();
+</script>
+</body>
+</html>
