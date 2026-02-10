@@ -163,7 +163,7 @@ describe('DeepdotsPopups', () => {
           id: 'p1',
           title: 'Title',
           message: '<p>Msg</p>',
-          trigger: { type: 'time_on_page', value: 0.01 }, // 10ms
+          triggers: { type: 'time_on_page', value: 0.01 }, // 10ms
           actions: { accept: { label: 'Go', surveyId: 's1' }, decline: { label: 'No' } },
           surveyId: 's1',
           productId: 'prod',
@@ -200,7 +200,7 @@ describe('DeepdotsPopups', () => {
           id: 'p-answered',
           title: 'Answered check',
           message: '<p>Msg</p>',
-          trigger: { type: 'time_on_page', value: 0.01, condition: [{ answered: false, cooldownDays: 1 }] },
+          triggers: { type: 'time_on_page', value: 0.01, condition: [{ answered: false, cooldownDays: 1 }] },
           actions: { accept: { label: 'Go', surveyId: 'survey-ans' }, decline: { label: 'No' } },
           surveyId: 'survey-ans',
           productId: 'prod',
@@ -222,7 +222,7 @@ describe('DeepdotsPopups', () => {
           id: 'p-cooldown',
           title: 'Cooldown check',
           message: '<p>Msg</p>',
-          trigger: { type: 'time_on_page', value: 0.01, condition: [{ answered: false, cooldownDays: 7 }] },
+          triggers: { type: 'time_on_page', value: 0.01, condition: [{ answered: false, cooldownDays: 7 }] },
           actions: { accept: { label: 'Go', surveyId: 'survey-cool' }, decline: { label: 'No' } },
           surveyId: 'survey-cool',
           productId: 'prod',

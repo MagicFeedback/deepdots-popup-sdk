@@ -7,10 +7,10 @@ export interface EnvironmentVariables {
 
 const ENVIRONMENT_MAP: Record<"development" | "production", EnvironmentVariables> = {
   development: {
-    apiBaseUrl: 'https://api-dev.magicfeedback.com',
+    apiBaseUrl: 'https://api-dev.deepdots.com',
   },
   production: {
-    apiBaseUrl: 'https://api.magicfeedback.com',
+    apiBaseUrl: 'https://api.deepdots.com',
   },
 };
 

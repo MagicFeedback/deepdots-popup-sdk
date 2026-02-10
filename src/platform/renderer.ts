@@ -11,7 +11,8 @@ export interface PopupRenderer {
     productId: string,
     actions: PopupActions | undefined,
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
-    onClose: () => void
+    onClose: () => void,
+    env?: string
   ): void;
   /** Ocultar popup */
   hide(): void;
@@ -53,11 +54,12 @@ export class BrowserPopupRenderer implements PopupRenderer {
     productId: string,
     actions: PopupActions | undefined,
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
-    onClose: () => void
+    onClose: () => void,
+    env: string = 'production'
   ): void {
     if (!this.container) this.init();
     if (!this.container) return; // aún sin DOM
-    renderPopup(this.container, surveyId, productId, actions, emit, onClose);
+    renderPopup(this.container, surveyId, productId, actions, emit, onClose, env);
   }
 
   hide(): void {

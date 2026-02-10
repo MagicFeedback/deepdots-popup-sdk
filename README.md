@@ -25,7 +25,7 @@ popups.init({
             id: 'popup-123',
             title: 'Help us improve?',
             message: '<p>Take a quick survey and share your thoughts.</p>',
-            trigger: {type: 'time_on_page', value: 5, condition: [{answered: false, cooldownDays: 7}]},
+            triggers: {type: 'time_on_page', value: 5, condition: [{answered: false, cooldownDays: 7}]},
             actions: {
                 accept: {label: 'Take Survey', surveyId: 'survey-abc'},
                 decline: {label: 'Not Now', cooldownDays: 7}
@@ -38,12 +38,8 @@ popups.init({
     ]
 });
 
-// Show a popup immediately
-popups.show({
-    surveyId: 'survey-abc',
-    productId: 'product-xyz',
-    data: {source: 'homepage'}
-});
+// Start triggers
+popups.autoLaunch();
 
 // Listen to events
 popups.on('popup_shown', (ev) => console.log('Shown:', ev));
@@ -53,8 +49,8 @@ popups.on('survey_completed', (ev) => console.log('Completed:', ev));
 
 ## Features
 
-- ✅ Simple API: initialize and show popups with minimal code
-- ✅ Auto-launch triggers: time, scroll, exit intent
+- ✅ Simple API: initialize and launch popups with minimal code
+- ✅ Auto-launch triggers: time, scroll, exit intent, click
 - ✅ Automatic trigger derivation from popup definitions (`time_on_page` → internal `time` in ms)
 - ✅ Conditions & cooldowns: prevent display if already answered or within cooldown window
 - ✅ Event system: `popup_shown`, `popup_clicked`, `survey_completed`
@@ -98,13 +94,14 @@ popups.showByPopupId('popup-123');
 ```
 
 #### `configureTriggers(triggers: TriggerConfig[]): void`
-Registers manual triggers.
+Registers manual triggers. Most apps should use `autoLaunch()` and popup definitions instead.
 
 ```typescript
 popups.configureTriggers([
   { type: 'time', value: 5000, surveyId: 'survey-1' },
   { type: 'scroll', value: 60, surveyId: 'survey-2' },
-  { type: 'exit', surveyId: 'survey-3' }
+  { type: 'exit', surveyId: 'survey-3' },
+  { type: 'click', value: 'cta-button', surveyId: 'survey-4' }
 ]);
 ```
 
@@ -149,7 +146,8 @@ sdk.init({ mode: 'client', popups: [...] });
 When using `client` mode you can preload definitions. In `server` mode a fake fetch creates sample definitions. Trigger types in definitions:
 - `time_on_page` (seconds) → mapped automatically to internal `time` trigger (milliseconds)
 - `scroll` (percentage scrolled)
-- `exit` (exit intent)
+- `exit` (route/navigation exit intent)
+- `click` (element id, string)
 
 Structure:
 
@@ -158,9 +156,9 @@ interface PopupDefinition {
   id: string;
   title: string;
   message: string; // HTML string
-  trigger: {
-    type: 'time_on_page' | 'scroll' | 'exit';
-    value: number; // seconds (time_on_page) or percentage (scroll)
+  triggers: {
+    type: 'time_on_page' | 'scroll' | 'exit' | 'click';
+    value: number | string; // seconds, percentage, or element id for click
     condition?: { answered: boolean; cooldownDays: number }[];
   };
   actions: {
@@ -204,11 +202,16 @@ interface DeepdotsEvent {
 ```typescript
 { type: 'time', value: 5000, surveyId: 'survey-1' }          // after 5s
 { type: 'scroll', value: 50, surveyId: 'survey-2' }          // at 50% scroll
-{ type: 'exit', surveyId: 'survey-3' }                       // exit intent
+{ type: 'exit', surveyId: 'survey-3' }                       // navigation exit intent
+{ type: 'click', value: 'cta-button', surveyId: 'survey-4' } // click on element id
 ```
 
 ## Automatic Trigger Derivation
 When definitions are loaded, each `time_on_page` trigger is converted to `{ type: 'time', value: seconds * 1000 }`. You just call `autoLaunch()` and derived triggers start.
+
+## Trigger Behavior Notes
+- `exit` fires on navigation intent (link clicks or SPA route changes). It does not depend on mouse leaving the viewport.
+- `click` expects a DOM element id in `value`. The handler attaches on `DOMContentLoaded` if the element isn't available immediately.
 
 ## Styling & Container
 Browser renderer creates a container `#deepdots-popup-container` with an overlay. Override styles via global CSS (e.g. `.deepdots-popup`, `#deepdots-popup-container`). The layout is intentionally minimal.

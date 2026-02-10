@@ -145,13 +145,14 @@
             height: 170px;
             object-fit: cover;
         }
+
         /* Ajuste específico para no deformar el logo de Danske Spil */
         .card img.danske-spil-logo {
-            height: auto;               /* no fuerza altura fija */
-            max-height: 170px;          /* límite para mantener proporción dentro de la tarjeta */
-            object-fit: contain;        /* evita recortes o deformaciones */
-            background-color: #1e2933;  /* fondo de contraste */
-            padding: 12px;              /* respiración alrededor del logo */
+            height: auto; /* no fuerza altura fija */
+            max-height: 170px; /* límite para mantener proporción dentro de la tarjeta */
+            object-fit: contain; /* evita recortes o deformaciones */
+            background-color: #1e2933; /* fondo de contraste */
+            padding: 12px; /* respiración alrededor del logo */
         }
 
         .card .content {
@@ -225,6 +226,67 @@
             margin-left: 6px;
         }
 
+        .card-link {
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-link:focus-visible {
+            outline: 2px solid var(--secondary);
+            outline-offset: 2px;
+        }
+
+        .demo-panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .demo-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .demo-note {
+            color: var(--muted);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            background: rgba(79, 70, 229, 0.12);
+            color: var(--secondary);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .route-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--secondary);
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
         /* Buttons */
         button {
             appearance: none;
@@ -281,35 +343,90 @@
 
         /* Responsive layout tweaks */
         @media (max-width: 960px) {
-            .hero { grid-template-columns: 1fr; padding: 32px 20px; }
-            .hero img { margin-top: 16px; }
-            .section { padding: 20px; margin: 20px auto; }
-            .cards { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+            .hero {
+                grid-template-columns: 1fr;
+                padding: 32px 20px;
+            }
+
+            .hero img {
+                margin-top: 16px;
+            }
+
+            .section {
+                padding: 20px;
+                margin: 20px auto;
+            }
+
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 14px;
+            }
+
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
         }
+
         @media (max-width: 640px) {
-            .navbar { padding: 12px 16px; }
-            .navbar nav a { margin: 0 8px; }
-            .hero { padding: 24px 16px; }
-            .hero h1 { font-size: 26px; }
-            .hero p { font-size: 14px; }
-            .cards { grid-template-columns: 1fr; gap: 12px; }
-            .card img { height: 140px; }
-            .card img.danske-spil-logo { max-height: 140px; }
-            .blog-list { grid-template-columns: 1fr; }
+            .navbar {
+                padding: 12px 16px;
+            }
+
+            .navbar nav a {
+                margin: 0 8px;
+            }
+
+            .hero {
+                padding: 24px 16px;
+            }
+
+            .hero h1 {
+                font-size: 26px;
+            }
+
+            .hero p {
+                font-size: 14px;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .card img {
+                height: 140px;
+            }
+
+            .card img.danske-spil-logo {
+                max-height: 140px;
+            }
+
+            .blog-list {
+                grid-template-columns: 1fr;
+            }
         }
+
         @media (max-width: 400px) {
-            .hero h1 { font-size: 22px; }
-            .card .content h3 { font-size: 16px; }
-            .navbar img.logo { height: 30px; }
+            .hero h1 {
+                font-size: 22px;
+            }
+
+            .card .content h3 {
+                font-size: 16px;
+            }
+
+            .navbar img.logo {
+                height: 30px;
+            }
         }
     </style>
     <script type="importmap">
-    {
-      "imports": {
-        "@magicfeedback/popup-sdk": "../dist/index.mjs"
-      }
-    }
-  </script>
+        {
+          "imports": {
+            "@magicfeedback/popup-sdk": "../dist/index.mjs"
+          }
+        }
+    </script>
 </head>
 <body>
 <header class="navbar">
@@ -318,6 +435,9 @@
              alt="Deepdots Logo"/>
     </div>
     <nav>
+        <a href="#features">Features</a>
+        <a href="#customers">Customers</a>
+        <a href="./product.html">Product page</a>
         <a id="contact" style="cursor: pointer">Contact</a>
     </nav>
 </header>
@@ -328,6 +448,9 @@
             <h1>Understand your users with delightful popups</h1>
             <p>Gather rich feedback at the right time and place. Our SDK lets you trigger surveys with precision and
                 style.</p>
+            <div class="actions">
+                <button id="btn-test" class="secondary">Test Click Trigger</button>
+            </div>
         </div>
         <img src="https://picsum.photos/seed/product-hero/800/500" alt="Product preview"/>
     </section>
@@ -335,13 +458,14 @@
     <section id="features" class="section">
         <h2>Powerful features</h2>
         <div class="cards">
-            <article class="card">
+            <a class="card card-link" href="./product.html">
                 <img src="https://picsum.photos/seed/feature-a/600/400" alt="Feature A"/>
                 <div class="content">
                     <h3>Smart triggers</h3>
-                    <p>Time on page, scroll depth, custom events, and more.</p>
+                    <p>Time on page, scroll depth, exit intent, and more.</p>
+                    <span class="route-cta">Open product route -></span>
                 </div>
-            </article>
+            </a>
             <article class="card">
                 <img src="https://picsum.photos/seed/feature-b/600/400" alt="Feature B"/>
                 <div class="content">
@@ -463,10 +587,12 @@
         <h2>DANSKE SPIL</h2>
         <div class="cards">
             <article class="card">
-                <img class="danske-spil-logo" src="https://ds-static.dk/-/media/f49775fcb7f54c2c99a8950a6e0a5779.svg?la=da&hash=4BE6350B5588D80E8B603420C886649AAC7EF99C" alt="Danske Spil Logo" />
+                <img class="danske-spil-logo"
+                     src="https://ds-static.dk/-/media/f49775fcb7f54c2c99a8950a6e0a5779.svg?la=da&hash=4BE6350B5588D80E8B603420C886649AAC7EF99C"
+                     alt="Danske Spil Logo"/>
                 <div class="content" style="flex-grow: 1;">
                     <h3>Danske Spil</h3>
-                    <p>Your feedback helps us level up the experience.</p>
+                    <p>Your feedback helps us level up the experience. This popup also fires on exit intent.</p>
                     <button id="danske-spil-btn" class="secondary" style="margin-top: 8px">Give Feedback</button>
                 </div>
             </article>
@@ -479,104 +605,14 @@
 </footer>
 
 <script type="module">
-    import {DeepdotsPopups} from '@magicfeedback/popup-sdk';
+    import {initDemoSdk} from './demo-sdk.js';
 
-    const popupDefinitions = [
-        {
-            id: 'popup-demo-1',
-            title: 'Welcome! Quick feedback?',
-            message: '<p>Your quick opinion helps us improve 🚀</p>',
-            trigger: {type: 'time_on_page', value: 0.1, condition: [{answered: false, cooldownDays: 1}]},
-            actions: {
-                accept: {label: 'Næste', surveyId: 'eeb4e590-d0eb-11f0-b3ab-f13d725acff5'},
-                decline: {label: 'Tæt', cooldownDays: 1},
-                complete: {label: 'Indsend' },
-                start: {label: 'Start' },
-                back: {label: 'Tilbage' }
-            },
-            surveyId: 'eeb4e590-d0eb-11f0-b3ab-f13d725acff5',
-            productId: 'e5c8241506ac83ddcf061a01f5b0f567',
-            segments: {lang: ['en'], path: ['/']}
-        },
-        /*
-        {
-            id: 'popup-demo-2',
-            title: 'Experience survey',
-            message: '<p>We care about your experience while browsing.</p>',
-            trigger: {type: 'scroll', value: 50},
-            actions: {
-                accept: {label: 'Participate', surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119'},
-                decline: {label: 'Not now'}
-            },
-            surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119',
-            productId: '02b809f20e024bce47c57f123cff8735',
-            segments: {lang: ['en'], path: ['/']}
-        },
-        {
-            id: 'popup-demo-3',
-            title: 'Got questions? Help us improve',
-            message: '<p>Before contacting us, would you answer a quick question?</p>',
-            trigger: {type: 'time_on_page', value: 99999}, // effectively disabled for auto triggers; will be shown on click
-            actions: {
-                accept: {label: 'Sure', surveyId: '06442e60-cf6a-11f0-893f-e3a18837a917'},
-                decline: {label: 'No thanks'}
-            },
-            surveyId: '06442e60-cf6a-11f0-893f-e3a18837a917',
-            productId: '02b809f20e024bce47c57f123cff8735',
-            style: {theme: 'light', position: 'bottom-left', imageUrl: null},
-            segments: {lang: ['en'], path: ['/']}
-        },
-        */
-        {
-            id: 'popup-danske-spil',
-            title: 'Danske Spil Feedback',
-            message: '<p>Help us enhance the gaming experience. Share your thoughts!</p>',
-            trigger: {type: 'time_on_page', value: 99999, condition: [{answered: false, cooldownDays: 1}]}, // solo manual via botón
-            actions: {
-                accept: {label: 'Næste', surveyId: 'eeb4e590-d0eb-11f0-b3ab-f13d725acff5'},
-                decline: {label: 'Tæt', cooldownDays: 1},
-                complete: {label: 'Fuldfør undersøgelsen' },
-                start: {label: 'Start undersøgelse' }
-            },
-            surveyId: '596c9af0-cf92-11f0-bbea-6f0493bd7ba7',
-            productId: 'e5c8241506ac83ddcf061a01f5b0f567',
-            style: {theme: 'light', position: 'bottom-right', imageUrl: null},
-            segments: {lang: ['en'], path: ['/']}
-        }
-    ];
+    const modePill = document.getElementById('mode-pill');
+    const eventLog = document.getElementById('event-log');
+    const {sdk} = initDemoSdk({modeLabelEl: modePill, eventLogEl: eventLog});
 
-    const sdk = new DeepdotsPopups();
-    sdk.init({mode: 'client', debug: true, popups: popupDefinitions});
     // Enable AutoLaunch by default on page load
     sdk.autoLaunch();
-
-    /*
-
-    const logEl = document.getElementById('event-log');
-
-    function logEvent(ev) {
-        const line = document.createElement('div');
-        line.className = 'event';
-        line.textContent = `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type} - survey:${ev.surveyId}`;
-        logEl.appendChild(line);
-        logEl.scrollTop = logEl.scrollHeight;
-    }
-    // sdk.on('popup_shown', logEvent);
-    // sdk.on('popup_clicked', logEvent);
-    // sdk.on('survey_completed', logEvent);
-
-    */
-
-
-    document.getElementById('contact').onclick = () => {
-        // sdk.show(popupDefinitions[2]);
-    }
-    const danskeBtn = document.getElementById('danske-spil-btn');
-    if (danskeBtn) {
-        danskeBtn.onclick = () => {
-            sdk.show(popupDefinitions[1]);
-        };
-    }
 </script>
 </body>
 </html>

@@ -77,7 +77,8 @@ export async function renderPopup(
     productId: string,
     actions: PopupActions | undefined,
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
-    onClose: () => void
+    onClose: () => void,
+    env: string = 'production'
 ): Promise<void> {
     let surveyCompletedEmitted = false;
     let stylesInjected = false;
@@ -429,7 +430,7 @@ export async function renderPopup(
             setLoading(false);
             return;
         }
-        magicfeedback.init({debug: true, env: 'prod'});
+        magicfeedback.init({debug: true, env: env === 'production' ? 'prod' : 'dev'});
         formInstance = magicfeedback.form(surveyId, productId);
 
         interface TypedGenerateOptions {

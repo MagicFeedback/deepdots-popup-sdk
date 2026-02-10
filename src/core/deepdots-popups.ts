@@ -8,7 +8,7 @@ import {
 import {renderPopup} from '../ui/renderPopup';
 import {setupTrigger} from '../triggers';
 import {resolveEnvironment} from '../config/env';
-import { PopupRenderer, createDefaultRenderer } from '../platform/renderer';
+import {PopupRenderer, createDefaultRenderer} from '../platform/renderer';
 
 /**
  * Main class for managing survey popups
@@ -26,6 +26,10 @@ export class DeepdotsPopups {
 
     private answeredSurveys: Set<string> = new Set();
     private lastShown: Map<string, number> = new Map(); // popupId -> timestamp mostrado
+    private surveyToPopupId: Map<string, string> = new Map(); // surveyId -> popupId
+
+    private baseUrl: string = '';
+    private env: 'production' | 'development' = 'production';
 
     /** Initialize the SDK with configuration */
     init(config: DeepdotsInitParams): void {
@@ -36,12 +40,15 @@ export class DeepdotsPopups {
 
         const env = resolveEnvironment(config.nodeEnv);
 
+        this.baseUrl = env.apiBaseUrl;
+        this.env = config.nodeEnv || 'production';
+
         this.config = {
             apiKey: config.apiKey || undefined,
-            baseUrl: env.apiBaseUrl,
             mode: config.mode || 'client',
             debug: config.debug || false,
             popups: config.popups || [],
+            userId: config.userId || undefined,
         } as DeepdotsConfig;
 
         this.initialized = true;
@@ -99,8 +106,9 @@ export class DeepdotsPopups {
         if (isDefinition) {
             const def = options as PopupDefinition;
             this.log('Showing popup (definition)', def);
+            this.surveyToPopupId.set(def.surveyId, def.id);
             this.renderPopup(def.surveyId, def.productId, def.actions);
-            this.emitEvent('popup_shown', def.surveyId);
+            this.emitEvent('popup_shown', def.surveyId, {popupId: def.id});
         } else {
             const opt = options as { surveyId: string; productId: string; data?: Record<string, unknown> };
             this.log('Showing popup (legacy options)', opt);
@@ -132,9 +140,10 @@ export class DeepdotsPopups {
     private configureTriggersFromDefinitions(): void {
         const derived: TriggerConfig[] = [];
         const validDefs = this.validatePopupDefinitions(this.popupDefinitions);
+        console.log('validDefs', validDefs);
         validDefs.forEach(def => {
-            if (!def.trigger) return;
-            const t = def.trigger;
+            if (!def.triggers) return;
+            const t = def.triggers;
             let type: TriggerConfig['type'];
             switch (t.type) {
                 case 'time_on_page':
@@ -146,12 +155,15 @@ export class DeepdotsPopups {
                 case 'exit':
                     type = 'exit';
                     break;
+                case 'click':
+                    type = 'click';
+                    break;
                 default:
                     this.debug('Unsupported trigger type', t.type);
                     return;
             }
-            const value = type === 'time' ? (t.value * 1000) : t.value;
-            derived.push({ type, value, surveyId: def.surveyId });
+            const value = type === 'time' && typeof t.value === 'number' ? (t.value * 1000) : t.value;
+            derived.push({type, value, surveyId: def.surveyId});
         });
         if (derived.length) {
             this.configureTriggers(derived);
@@ -175,10 +187,59 @@ export class DeepdotsPopups {
     }
 
     private shouldShow(def: PopupDefinition): boolean {
+        if (!this.matchesSegmentsPath(def)) {
+            return false;
+        }
         // Evaluar condiciones del trigger
-        const conditions = def.trigger.condition || [];
+        const conditions = def.triggers.condition || [];
         if (!conditions.length) return true;
         return conditions.every(c => this.evaluateCondition(def, c));
+    }
+
+    private matchesSegmentsPath(def: PopupDefinition): boolean {
+        const paths = def.segments?.path;
+        if (!paths || paths.length === 0) return true;
+        if (typeof window === 'undefined' || !window.location) {
+            this.debug('No window.location available for path comparison', {popupId: def.id, paths});
+            return true;
+        }
+
+        const currentPath = window.location.pathname || '';
+        const currentHref = window.location.href || '';
+
+        const normalize = (value: string): string => {
+            if (value.length > 1 && value.endsWith('/')) return value.slice(0, -1);
+            return value;
+        };
+
+        const normalizedPath = normalize(currentPath);
+        const normalizedHref = normalize(currentHref);
+
+        const matches = paths.some(rawCandidate => {
+            const candidate = normalize(rawCandidate);
+            let match = false;
+            if (candidate.startsWith('http://') || candidate.startsWith('https://')) {
+                match = normalizedHref === candidate;
+            } else if (candidate.startsWith('/')) {
+                match = normalizedHref.includes(candidate);
+            } else {
+                match = normalizedPath === candidate;
+            }
+            this.debug('Path comparison', {
+                popupId: def.id,
+                candidate,
+                currentPath: normalizedPath,
+                currentHref: normalizedHref,
+                match,
+            });
+            return match;
+        });
+
+        if (!matches) {
+            this.debug('No path match for popup', {popupId: def.id, paths, currentPath: normalizedPath});
+        }
+
+        return matches;
     }
 
     private evaluateCondition(def: PopupDefinition, condition: PopupTriggerCondition): boolean {
@@ -202,32 +263,62 @@ export class DeepdotsPopups {
         this.answeredSurveys.add(surveyId);
     }
 
-    /** Simula fetch al servidor para obtener popups */
+    /** Fetch al servidor para obtener popups */
     private async fetchPopupsFromServer(): Promise<PopupDefinition[]> {
-        // Simulación: red 50ms
-        await new Promise(res => setTimeout(res, 50));
-        return this.generateFakePopups();
+        const apiKey = this.config?.apiKey;
+        const baseUrl = this.baseUrl;
+        if (!apiKey || !baseUrl) {
+            this.log('Missing apiKey or baseUrl. Skipping popups fetch.');
+            return [];
+        }
+        const endpoint = `${baseUrl}/sdk/${encodeURIComponent(apiKey)}/popups`;
+        try {
+            const response = await fetch(endpoint);
+            if (!response.ok) {
+                this.log('Failed to fetch popups', response.status, response.statusText);
+                return [];
+            }
+            const raw = await response.text();
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                this.log('Unexpected popups payload', parsed);
+                return [];
+            }
+            console.log('res: ', parsed, this.validatePopupDefinitions(parsed))
+            return parsed;
+        } catch (error) {
+            this.log('Error fetching popups', error);
+            return [];
+        }
     }
 
-    /** Genera datos fake para pruebas en modo server */
-    private generateFakePopups(): PopupDefinition[] {
-        return [
-            {
-                id: 'popup-123',
-                title: 'Would you like to help us improve?',
-                message: '<p>Take a quick survey and share your thoughts.</p>',
-                trigger: { type: 'time_on_page', value: 1, condition: [{ answered: false, cooldownDays: 7 }] },
-                actions: {
-                    accept: { label: 'Take Survey', surveyId: 'survey-abc' },
-                    decline: { label: 'Not Now', cooldownDays: 7 }
-                },
-                surveyId: 'survey-abc',
-                productId: 'product-xyz',
-                style: { theme: 'light', position: 'bottom-right', imageUrl: null },
-                segments: { lang: ['en'], path: ['/checkout'] }
+    /** Notifica eventos de popup a la API */
+    private async postPopupEvent(status: 'opened' | 'completed', popupId: string, userId?: string): Promise<void> {
+        const apiKey = this.config?.apiKey;
+        const baseUrl = this.baseUrl;
+        if (!apiKey || !baseUrl) {
+            return;
+        }
+        const endpoint = `${baseUrl}/sdk/popups`;
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    publicKey: apiKey,
+                    status,
+                    popupId,
+                    userId: userId || undefined,
+                }),
+            });
+            if (!response.ok) {
+                this.log('Failed to post popup event', response.status, response.statusText);
             }
-        ];
+        } catch (error) {
+            this.log('Error posting popup event', error);
+        }
     }
+
 
     /** Add an event listener */
     on(eventType: DeepdotsEventType, listener: EventListener): void {
@@ -271,12 +362,24 @@ export class DeepdotsPopups {
     private renderPopup(surveyId: string, productId: string, actions?: PopupActions): void {
         // Nuevo camino: usar renderer
         if (this.renderer) {
-            this.renderer.show(surveyId, productId, actions, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
+            this.renderer.show(
+                surveyId,
+                productId,
+                actions, (type, id, payload) => this.emitEvent(type, id, payload),
+                () => this.hidePopup(),
+                this.env
+            );
             return;
         }
         // Fallback legacy
         if (!this.popupContainer) return;
-        renderPopup(this.popupContainer, surveyId,productId, actions, (type, id, payload) => this.emitEvent(type, id, payload), () => this.hidePopup());
+        renderPopup(
+            this.popupContainer,
+            surveyId, productId,
+            actions, (type, id, payload) => this.emitEvent(type, id, payload),
+            () => this.hidePopup(),
+            this.env
+        );
     }
 
     /** Hide the popup */
@@ -297,6 +400,16 @@ export class DeepdotsPopups {
         this.log('Event emitted', event);
         if (type === 'survey_completed') {
             this.markSurveyAnswered(surveyId);
+        }
+        if (type === 'popup_shown' || type === 'survey_completed') {
+            const popupIdFromData = data?.popupId as string | undefined;
+            const popupId = popupIdFromData || this.surveyToPopupId.get(surveyId);
+            if (popupId) {
+                const userIdFromData = data?.userId as string | undefined;
+                void this.postPopupEvent(type === 'popup_shown' ? 'opened' : 'completed', popupId, userIdFromData || this.config?.userId);
+            } else {
+                this.debug('No popupId available to post event', {type, surveyId});
+            }
         }
         const listeners = this.listeners.get(type);
         if (listeners) {
@@ -333,11 +446,45 @@ export class DeepdotsPopups {
     // Type guards
     private isPopupDefinition(value: unknown): value is PopupDefinition {
         if (typeof value !== 'object' || value === null) return false;
-        const v = value as Partial<PopupDefinition>;
-        return typeof v.id === 'string' && typeof v.title === 'string' && typeof v.message === 'string' && typeof v.surveyId === 'string' && typeof v.productId === 'string' && !!v.trigger; // removed redundant typeof v.trigger.type
+        const v = value as Partial<PopupDefinition> & {
+            triggers?: PopupDefinition['triggers'];
+            conditions?: PopupTriggerCondition[];
+        };
+
+        const trigger = v.triggers || v.triggers;
+        if (!trigger) return false;
+
+        return typeof v.id === 'string'
+            && typeof v.title === 'string'
+            && typeof v.message === 'string'
+            && typeof v.surveyId === 'string'
+            && typeof v.productId === 'string';
+    }
+
+    private normalizePopupDefinition(def: unknown): PopupDefinition | null {
+        if (typeof def !== 'object' || def === null) return null;
+        const raw = def as Partial<PopupDefinition> & {
+            triggers?: PopupDefinition['triggers'];
+            conditions?: PopupTriggerCondition[];
+        };
+
+        const trigger = raw.triggers || raw.triggers;
+        if (!trigger) return null;
+
+        const condition = trigger.condition ?? raw.conditions ?? [];
+
+        return {
+            ...(raw as PopupDefinition),
+            triggers: {
+                ...trigger,
+                condition,
+            },
+        } as PopupDefinition;
     }
 
     private validatePopupDefinitions(defs: unknown[]): PopupDefinition[] {
-        return defs.filter(d => this.isPopupDefinition(d)) as PopupDefinition[];
+        return defs
+            .map(def => this.normalizePopupDefinition(def))
+            .filter((def): def is PopupDefinition => !!def && this.isPopupDefinition(def));
     }
 }
