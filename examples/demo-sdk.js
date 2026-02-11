@@ -1,8 +1,5 @@
 import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
 
-// const HOME_PATHS = ['/examples/index.html', '/index.html'];
-// const PRODUCT_PATHS = ['/examples/product.html', '/product.html'];
-
 function formatLogLine(event) {
   const time = new Date(event.timestamp).toLocaleTimeString();
   const action = event?.data?.action ? ` (${event.data.action})` : '';
@@ -10,16 +7,14 @@ function formatLogLine(event) {
 }
 
 export function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
-  //const params = new URLSearchParams(window.location.search);
-  const mode = 'server'; // params.get('mode') === 'server' ? 'server' : 'client';
+  const mode = 'server';
 
   const sdk = new DeepdotsPopups();
   sdk.init({
     mode,
     nodeEnv: 'development',
     debug: true,
-    apiKey: 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5', // mode === 'server' ? 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5' : undefined,
-    popups: undefined
+    apiKey: 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5'
   });
 
   if (modeLabelEl) {
