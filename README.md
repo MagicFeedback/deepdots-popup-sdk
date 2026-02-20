@@ -50,7 +50,7 @@ popups.on('survey_completed', (ev) => console.log('Completed:', ev));
 ## Features
 
 - ✅ Simple API: initialize and launch popups with minimal code
-- ✅ Auto-launch triggers: time, scroll, exit intent, click
+- ✅ Auto-launch triggers: time, scroll, exit intent, click, event (host-controlled)
 - ✅ Automatic trigger derivation from popup definitions (`time_on_page` → internal `time` in ms)
 - ✅ Conditions & cooldowns: prevent display if already answered or within cooldown window
 - ✅ Event system: `popup_shown`, `popup_clicked`, `survey_completed`
@@ -100,8 +100,9 @@ Registers manual triggers. Most apps should use `autoLaunch()` and popup definit
 popups.configureTriggers([
   { type: 'time', value: 5000, surveyId: 'survey-1' },
   { type: 'scroll', value: 60, surveyId: 'survey-2' },
-  { type: 'exit', surveyId: 'survey-3' },
-  { type: 'click', value: 'cta-button', surveyId: 'survey-4' }
+  { type: 'exit', value: 10, surveyId: 'survey-3' },
+  { type: 'click', value: 'cta-button', surveyId: 'survey-4' },
+  { type: 'event', value: 'search', surveyId: 'survey-5' }
 ]);
 ```
 
@@ -112,8 +113,15 @@ Starts automatic trigger evaluation. If popups are not yet loaded (server mode) 
 popups.autoLaunch();
 ```
 
-#### `triggerSurvey(surveyId: string): void`
+#### `triggerSurvey(surveyId: string, popupId?: string): void`
 Evaluates conditions and, if allowed, shows a popup for the specified survey. Used internally by trigger handlers; you normally don’t call this directly.
+
+#### `triggerEvent(eventName: string): void`
+Evaluates popups with `triggers.type = 'event'` and matching `triggers.value`, then shows the first eligible popup.
+
+```typescript
+popups.triggerEvent('search');
+```
 
 #### `markSurveyAnswered(surveyId: string): void`
 Marks a survey as answered to satisfy conditions like `{ answered: false }`.
@@ -148,6 +156,7 @@ When using `client` mode you can preload definitions. In `server` mode a fake fe
 - `scroll` (percentage scrolled)
 - `exit` (route/navigation exit intent)
 - `click` (element id, string)
+- `event` (host app controlled event name)
 
 Structure:
 
@@ -157,8 +166,8 @@ interface PopupDefinition {
   title: string;
   message: string; // HTML string
   triggers: {
-    type: 'time_on_page' | 'scroll' | 'exit' | 'click';
-    value: number | string; // seconds, percentage, or element id for click
+    type: 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
+    value: number | string; // seconds, percentage, click id, or event name
     condition?: { answered: boolean; cooldownDays: number }[];
   };
   actions: {
@@ -202,16 +211,19 @@ interface DeepdotsEvent {
 ```typescript
 { type: 'time', value: 5000, surveyId: 'survey-1' }          // after 5s
 { type: 'scroll', value: 50, surveyId: 'survey-2' }          // at 50% scroll
-{ type: 'exit', surveyId: 'survey-3' }                       // navigation exit intent
+{ type: 'exit', value: 10, surveyId: 'survey-3' }            // show 10s after leaving matched route
 { type: 'click', value: 'cta-button', surveyId: 'survey-4' } // click on element id
+{ type: 'event', value: 'search', surveyId: 'survey-5' }     // host app emits event
 ```
 
 ## Automatic Trigger Derivation
 When definitions are loaded, each `time_on_page` trigger is converted to `{ type: 'time', value: seconds * 1000 }`. You just call `autoLaunch()` and derived triggers start.
 
 ## Trigger Behavior Notes
-- `exit` fires on navigation intent (link clicks or SPA route changes). It does not depend on mouse leaving the viewport.
+- `exit` queues when the user leaves a matched route and is rendered on the destination route after `value` seconds.
+- `exit` supports full navigation and SPA route changes (hash/history), and keeps pending exits in `sessionStorage`.
 - `click` expects a DOM element id in `value`. The handler attaches on `DOMContentLoaded` if the element isn't available immediately.
+- `event` is host-driven: call `popups.triggerEvent('event-name')` when your app-level behavior conditions are met.
 
 ## Styling & Container
 Browser renderer creates a container `#deepdots-popup-container` with an overlay. Override styles via global CSS (e.g. `.deepdots-popup`, `#deepdots-popup-container`). The layout is intentionally minimal.

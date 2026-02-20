@@ -12,6 +12,9 @@ export function setupTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): vo
     case 'exit':
       setupExitTrigger(popups, trigger);
       break;
+    case 'event':
+      setupEventTrigger(popups, trigger);
+      break;
     case 'click':
       setupClickTrigger(popups, trigger);
       break;
@@ -21,7 +24,7 @@ export function setupTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): vo
 function setupTimeTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
   const delay = trigger.value || 5000;
   setTimeout(() => {
-    popups.triggerSurvey(trigger.surveyId);
+    popups.triggerSurvey(trigger.surveyId, trigger.popupId);
   }, delay);
   popups.debug(`Time trigger set for ${delay}ms`);
 }
@@ -31,7 +34,7 @@ function setupScrollTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): voi
   const handler = () => {
     const scrollPercentage = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
     if (scrollPercentage >= threshold) {
-      popups.triggerSurvey(trigger.surveyId);
+      popups.triggerSurvey(trigger.surveyId, trigger.popupId);
       window.removeEventListener('scroll', handler);
     }
   };
@@ -40,96 +43,122 @@ function setupScrollTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): voi
 }
 
 function setupExitTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
-  let fired = false;
-  let lastUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const historyRef = typeof window !== 'undefined' ? window.history : null;
-  const originalPushState = historyRef ? historyRef.pushState.bind(historyRef) : null;
-  const originalReplaceState = historyRef ? historyRef.replaceState.bind(historyRef) : null;
+  if (typeof window === 'undefined') return;
 
-  const cleanup = () => {
-    document.removeEventListener('click', handleNavClick, true);
-    window.removeEventListener('popstate', handlePopState);
-    if (historyRef && originalPushState) historyRef.pushState = originalPushState;
-    if (historyRef && originalReplaceState) historyRef.replaceState = originalReplaceState;
+  const delaySeconds = parseExitDelaySeconds(trigger.value);
+  const historyRef = window.history;
+  const originalPushState = historyRef.pushState.bind(historyRef);
+  const originalReplaceState = historyRef.replaceState.bind(historyRef);
+
+  let lastUrl = normalizeUrl(window.location.href);
+  let lastQueuedKey = '';
+  let lastQueuedAt = 0;
+
+  const queueLeave = (fromRaw: string, toRaw: string) => {
+    const from = normalizeUrl(fromRaw);
+    const to = normalizeUrl(toRaw);
+    if (!from || !to || from === to) return;
+
+    const key = `${from}=>${to}`;
+    const now = Date.now();
+    if (key === lastQueuedKey && now - lastQueuedAt < 150) return;
+    lastQueuedKey = key;
+    lastQueuedAt = now;
+    popups.queueExitPopup(trigger.surveyId, delaySeconds, from, trigger.popupId);
   };
 
-  const fireOnce = () => {
-    if (fired) return;
-    fired = true;
-    popups.triggerSurvey(trigger.surveyId);
-    cleanup();
+  const handleNavigation = (to: string) => {
+    const from = lastUrl;
+    queueLeave(from, to);
+    lastUrl = normalizeUrl(to);
   };
 
-  const handleNavClick = (e: MouseEvent) => {
-    if (fired) return;
-    if (e.defaultPrevented) return;
-    if (e.button !== 0) return;
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const handleDocumentClick = (event: MouseEvent) => {
+    if (event.defaultPrevented) return;
+    if (event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
-    const target = (e.target as Element | null)?.closest?.('a');
-    if (!target) return;
-    const href = target.getAttribute('href');
-    if (!href || href.startsWith('#')) return;
-    const targetAttr = target.getAttribute('target');
-    if (targetAttr && targetAttr !== '_self') return;
+    const anchor = (event.target as Element | null)?.closest?.('a');
+    if (!(anchor instanceof HTMLAnchorElement)) return;
 
-    let url: URL;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+      return;
+    }
+    const target = anchor.getAttribute('target');
+    if (target && target !== '_self') return;
+
+    let destination: URL;
     try {
-      url = new URL(href, window.location.href);
+      destination = new URL(href, window.location.href);
     } catch {
       return;
     }
-    if (url.origin !== window.location.origin) return;
 
-    e.preventDefault();
-    fireOnce();
+    if (destination.origin !== window.location.origin) return;
+    queueLeave(window.location.href, destination.href);
   };
 
-  const shouldBlockUrl = (rawUrl?: string | URL | null): boolean => {
-    if (!rawUrl) return false;
-    let url: URL;
-    try {
-      url = rawUrl instanceof URL ? rawUrl : new URL(rawUrl, window.location.href);
-    } catch {
-      return false;
-    }
-    if (url.origin !== window.location.origin) return false;
-    if (url.href === window.location.href) return false;
-    return true;
+  const handleHashChange = (event: HashChangeEvent) => {
+    const to = event.newURL || window.location.href;
+    const from = event.oldURL || lastUrl;
+    queueLeave(from, to);
+    lastUrl = normalizeUrl(to);
   };
 
   const handlePopState = () => {
-    if (fired) return;
-    fireOnce();
-    if (historyRef && originalPushState && lastUrl) {
-      originalPushState(null, document.title, lastUrl);
-    }
+    handleNavigation(window.location.href);
   };
 
-  if (historyRef && originalPushState && originalReplaceState) {
-    historyRef.pushState = function (data: any, unused: string, url?: string | URL | null) {
-      if (!fired && shouldBlockUrl(url)) {
-        fireOnce();
-        return;
-      }
-      const result = originalPushState(data, unused, url as any);
-      lastUrl = window.location.href;
-      return result;
-    };
-    historyRef.replaceState = function (data: any, unused: string, url?: string | URL | null) {
-      if (!fired && shouldBlockUrl(url)) {
-        fireOnce();
-        return;
-      }
-      const result = originalReplaceState(data, unused, url as any);
-      lastUrl = window.location.href;
-      return result;
-    };
-  }
+  historyRef.pushState = function (data: any, unused: string, url?: string | URL | null) {
+    const from = window.location.href;
+    const result = originalPushState(data, unused, url as any);
+    queueLeave(from, window.location.href);
+    lastUrl = normalizeUrl(window.location.href);
+    return result;
+  };
 
-  document.addEventListener('click', handleNavClick, true);
+  historyRef.replaceState = function (data: any, unused: string, url?: string | URL | null) {
+    const from = window.location.href;
+    const result = originalReplaceState(data, unused, url as any);
+    queueLeave(from, window.location.href);
+    lastUrl = normalizeUrl(window.location.href);
+    return result;
+  };
+
+  document.addEventListener('click', handleDocumentClick, true);
+  window.addEventListener('hashchange', handleHashChange);
   window.addEventListener('popstate', handlePopState);
-  popups.debug('Exit intent trigger set (navigation/spa)');
+  popups.debug('Exit trigger set (deferred to next route)', {
+    surveyId: trigger.surveyId,
+    delaySeconds,
+  });
+}
+
+function setupEventTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
+  // Event triggers are manually fired by host application using popups.triggerEvent(name).
+  popups.debug('Event trigger registered', {
+    popupId: trigger.popupId,
+    surveyId: trigger.surveyId,
+    eventName: String(trigger.value || ''),
+  });
+}
+
+function parseExitDelaySeconds(value?: number | string): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, value);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.max(0, parsed);
+  }
+  return 0;
+}
+
+function normalizeUrl(value: string): string {
+  if (!value) return '';
+  const withoutIndex = value.replace(/\/index\.html(?=($|[?#]))/i, '');
+  return withoutIndex.length > 1 && withoutIndex.endsWith('/') ? withoutIndex.slice(0, -1) : withoutIndex;
 }
 
 function setupClickTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
@@ -147,7 +176,7 @@ function setupClickTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void
     }
     const handler = (e: MouseEvent) => {
       if (e.defaultPrevented) return;
-      popups.triggerSurvey(trigger.surveyId);
+      popups.triggerSurvey(trigger.surveyId, trigger.popupId);
       el.removeEventListener('click', handler);
     };
     el.addEventListener('click', handler);

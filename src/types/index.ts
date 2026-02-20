@@ -34,12 +34,14 @@ export interface DeepdotsConfig {
  * Options for configuring survey triggers
  */
 export interface TriggerConfig {
-    /** Trigger type: 'time' (delay), 'scroll' (scroll percentage), 'exit' (exit intent), 'click' (element id) */
-    type: 'time' | 'scroll' | 'exit' | 'click';
-    /** Value for the trigger (milliseconds for time, percentage for scroll, element id for click) */
+    /** Trigger type: 'time' (delay), 'scroll' (scroll percentage), 'exit' (route exit), 'click' (element id), 'event' (host event) */
+    type: 'time' | 'scroll' | 'exit' | 'click' | 'event';
+    /** Value for the trigger (milliseconds for time, percentage for scroll, seconds for exit, element id for click, event name for event) */
     value?: number | string;
     /** Survey ID to show when triggered */
     surveyId: string;
+    /** Optional popup definition id (used to disambiguate repeated survey ids) */
+    popupId?: string;
 }
 
 /**
@@ -78,7 +80,7 @@ export interface DeepdotsEvent {
 export type EventListener = (event: DeepdotsEvent) => void;
 
 /** Tipo de trigger específico para definiciones de popup remotas */
-export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click';
+export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
 
 /** Condición adicional para la activación del popup */
 export interface PopupTriggerCondition {
@@ -89,7 +91,7 @@ export interface PopupTriggerCondition {
 /** Trigger asociado a la definición del popup */
 export interface PopupTrigger {
     type: PopupTriggerType;
-    value: number | string; // segundos en página, porcentaje scroll o id elemento para click
+    value: number | string; // segundos en página, porcentaje scroll, id de click o nombre del evento
     condition?: PopupTriggerCondition[]; // lista de condiciones compuestas
 }
 

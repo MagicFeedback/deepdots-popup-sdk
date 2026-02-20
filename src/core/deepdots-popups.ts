@@ -10,6 +10,15 @@ import {setupTrigger} from '../triggers';
 import {resolveEnvironment} from '../config/env';
 import {PopupRenderer, createDefaultRenderer} from '../platform/renderer';
 
+const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
+
+interface DeferredExitPopup {
+    id: string;
+    surveyId: string;
+    dueAt: number;
+    sourceUrl: string;
+}
+
 /**
  * Main class for managing survey popups
  */
@@ -27,6 +36,7 @@ export class DeepdotsPopups {
     private answeredSurveys: Set<string> = new Set();
     private lastShown: Map<string, number> = new Map(); // popupId -> timestamp mostrado
     private surveyToPopupId: Map<string, string> = new Map(); // surveyId -> popupId
+    private deferredExitTimers: number[] = [];
 
     private baseUrl: string = '';
     private env: 'production' | 'development' = 'production';
@@ -62,6 +72,7 @@ export class DeepdotsPopups {
             this.popupDefinitions = this.config.popups || [];
             this.popupsLoaded = true;
             this.configureTriggersFromDefinitions();
+            this.processDeferredExitQueue();
         } else {
             // Modo server: simulamos fetch
             this.fetchPopupsFromServer().then(defs => {
@@ -69,6 +80,7 @@ export class DeepdotsPopups {
                 this.popupsLoaded = true;
                 this.log('Popups loaded from server (fake)', defs);
                 this.configureTriggersFromDefinitions();
+                this.processDeferredExitQueue();
                 if (this.pendingAutoLaunch) {
                     this.startTriggers();
                 }
@@ -97,7 +109,6 @@ export class DeepdotsPopups {
 
     /** Show a popup immediately (supports legacy ShowOptions and new PopupDefinition) */
     show(options: PopupDefinition | { surveyId: string; productId: string; data?: Record<string, unknown> }): void {
-        console.log('Show popup called with options:', options);
         if (!this.initialized) {
             throw new Error('SDK not initialized. Call init() first.');
         }
@@ -140,7 +151,7 @@ export class DeepdotsPopups {
     private configureTriggersFromDefinitions(): void {
         const derived: TriggerConfig[] = [];
         const validDefs = this.validatePopupDefinitions(this.popupDefinitions);
-        console.log('validDefs', validDefs);
+        this.debug('Validated popup definitions', validDefs);
         validDefs.forEach(def => {
             if (!def.triggers) return;
             const t = def.triggers;
@@ -158,12 +169,15 @@ export class DeepdotsPopups {
                 case 'click':
                     type = 'click';
                     break;
+                case 'event':
+                    type = 'event';
+                    break;
                 default:
                     this.debug('Unsupported trigger type', t.type);
                     return;
             }
             const value = type === 'time' && typeof t.value === 'number' ? (t.value * 1000) : t.value;
-            derived.push({type, value, surveyId: def.surveyId});
+            derived.push({type, value, surveyId: def.surveyId, popupId: def.id});
         });
         if (derived.length) {
             this.configureTriggers(derived);
@@ -171,23 +185,57 @@ export class DeepdotsPopups {
     }
 
     /** Lógica para evaluar condiciones antes de mostrar una encuesta */
-    triggerSurvey(surveyId: string): void {
-        // Encontrar popup por surveyId
-        const def = this.popupDefinitions.find(p => p.surveyId === surveyId);
+    triggerSurvey(surveyId: string, popupId?: string): void {
+        const def = this.findPopupDefinition(surveyId, popupId);
         if (!def) {
-            this.debug('No popup definition for surveyId', surveyId);
+            this.debug('No popup definition for trigger', {surveyId, popupId});
             return;
         }
         if (!this.shouldShow(def)) {
             this.debug('Conditions prevented showing popup', def.id);
             return;
         }
+        this.showDefinition(def);
+    }
+
+    /** Trigger popups configured with trigger.type = 'event' and matching trigger.value */
+    public triggerEvent(eventName: string): void {
+        if (!this.initialized) {
+            throw new Error('SDK not initialized. Call init() first.');
+        }
+        const normalized = String(eventName || '').trim();
+        if (!normalized) {
+            this.debug('Ignoring empty event trigger name');
+            return;
+        }
+
+        const candidates = this.popupDefinitions.filter(def => {
+            const triggerType = def.triggers?.type;
+            const triggerValue = String(def.triggers?.value ?? '').trim();
+            return triggerType === 'event' && triggerValue === normalized;
+        });
+
+        if (!candidates.length) {
+            this.debug('No event popup definitions found', {eventName: normalized});
+            return;
+        }
+
+        const matched = candidates.find(def => this.shouldShow(def));
+        if (!matched) {
+            this.debug('Event popup blocked by conditions/segments', {eventName: normalized});
+            return;
+        }
+
+        this.showDefinition(matched);
+    }
+
+    private showDefinition(def: PopupDefinition): void {
         this.show(def);
         this.lastShown.set(def.id, Date.now());
     }
 
-    private shouldShow(def: PopupDefinition): boolean {
-        if (!this.matchesSegmentsPath(def)) {
+    private shouldShow(def: PopupDefinition, pathUrl?: string, skipPathCheck = false): boolean {
+        if (!skipPathCheck && !this.matchesSegmentsPath(def, pathUrl)) {
             return false;
         }
         // Evaluar condiciones del trigger
@@ -196,7 +244,7 @@ export class DeepdotsPopups {
         return conditions.every(c => this.evaluateCondition(def, c));
     }
 
-    private matchesSegmentsPath(def: PopupDefinition): boolean {
+    private matchesSegmentsPath(def: PopupDefinition, pathUrl?: string): boolean {
         const paths = def.segments?.path;
         if (!paths || paths.length === 0) return true;
         if (typeof window === 'undefined' || !window.location) {
@@ -204,19 +252,12 @@ export class DeepdotsPopups {
             return true;
         }
 
-        const currentPath = window.location.pathname || '';
-        const currentHref = window.location.href || '';
-
-        const normalize = (value: string): string => {
-            if (value.length > 1 && value.endsWith('/')) return value.slice(0, -1);
-            return value;
-        };
-
-        const normalizedPath = normalize(currentPath);
-        const normalizedHref = normalize(currentHref);
+        const normalizedHref = this.normalizeUrl(pathUrl || window.location.href || '');
+        const currentUrl = this.safeParseUrl(normalizedHref);
+        const normalizedPath = this.normalizeUrl(currentUrl?.pathname || window.location.pathname || '');
 
         const matches = paths.some(rawCandidate => {
-            const candidate = normalize(rawCandidate);
+            const candidate = this.normalizeUrl(rawCandidate);
             let match = false;
             if (candidate.startsWith('http://') || candidate.startsWith('https://')) {
                 match = normalizedHref === candidate;
@@ -263,15 +304,157 @@ export class DeepdotsPopups {
         this.answeredSurveys.add(surveyId);
     }
 
+    /** Queue an exit popup so it can render after navigation */
+    public queueExitPopup(surveyId: string, delaySeconds: number, sourceUrl?: string, popupId?: string): void {
+        const def = this.findPopupDefinition(surveyId, popupId);
+        if (!def) {
+            this.debug('No popup definition for exit trigger', {surveyId, popupId});
+            return;
+        }
+
+        const originUrl = sourceUrl || (typeof window !== 'undefined' ? window.location.href : '');
+        if (!originUrl) {
+            this.debug('Exit popup skipped: missing source URL', {surveyId});
+            return;
+        }
+
+        if (!this.shouldShow(def, originUrl)) {
+            this.debug('Exit popup skipped by conditions/path', {popupId: def.id, sourceUrl: originUrl});
+            return;
+        }
+
+        const safeDelayMs = Number.isFinite(delaySeconds) ? Math.max(0, delaySeconds * 1000) : 0;
+        const deferred: DeferredExitPopup = {
+            id: def.id,
+            surveyId: def.surveyId,
+            sourceUrl: this.normalizeUrl(originUrl),
+            dueAt: Date.now() + safeDelayMs,
+        };
+
+        const queue = this.getDeferredExitQueue().filter(item => !(item.id === deferred.id && item.sourceUrl === deferred.sourceUrl));
+        queue.push(deferred);
+        this.setDeferredExitQueue(queue);
+        this.scheduleDeferredExitPopup(deferred);
+        this.debug('Exit popup queued', deferred);
+    }
+
+    private processDeferredExitQueue(): void {
+        const queue = this.getDeferredExitQueue();
+        if (!queue.length) return;
+
+        const pending: DeferredExitPopup[] = [];
+        const now = Date.now();
+        queue.forEach(item => {
+            const def = this.popupDefinitions.find(p => p.id === item.id && p.surveyId === item.surveyId);
+            if (!def) {
+                return;
+            }
+            if (item.dueAt <= now) {
+                this.tryShowDeferredExitPopup(item);
+                return;
+            }
+            pending.push(item);
+            this.scheduleDeferredExitPopup(item);
+        });
+        this.setDeferredExitQueue(pending);
+    }
+
+    private scheduleDeferredExitPopup(item: DeferredExitPopup): void {
+        if (typeof window === 'undefined') return;
+        const delay = Math.max(0, item.dueAt - Date.now());
+        const timer = window.setTimeout(() => this.tryShowDeferredExitPopup(item), delay);
+        this.deferredExitTimers.push(timer);
+    }
+
+    private tryShowDeferredExitPopup(item: DeferredExitPopup): void {
+        const def = this.popupDefinitions.find(p => p.id === item.id && p.surveyId === item.surveyId);
+        if (!def) {
+            this.removeDeferredExitPopup(item);
+            return;
+        }
+
+        const currentUrl = typeof window !== 'undefined' ? this.normalizeUrl(window.location.href || '') : '';
+        if (!currentUrl || currentUrl === this.normalizeUrl(item.sourceUrl)) {
+            // Route did not change as expected; skip this queued exit popup.
+            this.removeDeferredExitPopup(item);
+            this.debug('Exit popup dropped because route did not change', item);
+            return;
+        }
+
+        if (!this.shouldShow(def, undefined, true)) {
+            this.removeDeferredExitPopup(item);
+            this.debug('Exit popup skipped at render-time conditions', item);
+            return;
+        }
+
+        this.showDefinition(def);
+        this.removeDeferredExitPopup(item);
+    }
+
+    private findPopupDefinition(surveyId: string, popupId?: string): PopupDefinition | undefined {
+        if (popupId) {
+            const byId = this.popupDefinitions.find(p => p.id === popupId);
+            if (byId) return byId;
+        }
+        return this.popupDefinitions.find(p => p.surveyId === surveyId);
+    }
+
+    private removeDeferredExitPopup(item: DeferredExitPopup): void {
+        const queue = this.getDeferredExitQueue().filter(entry => !(entry.id === item.id && entry.sourceUrl === item.sourceUrl));
+        this.setDeferredExitQueue(queue);
+    }
+
+    private getDeferredExitQueue(): DeferredExitPopup[] {
+        if (typeof window === 'undefined') return [];
+        try {
+            const raw = window.sessionStorage.getItem(EXIT_QUEUE_STORAGE_KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return parsed
+                .filter((entry: unknown): entry is DeferredExitPopup => {
+                    if (typeof entry !== 'object' || entry === null) return false;
+                    const item = entry as Partial<DeferredExitPopup>;
+                    return typeof item.id === 'string'
+                        && typeof item.surveyId === 'string'
+                        && typeof item.sourceUrl === 'string'
+                        && typeof item.dueAt === 'number'
+                        && Number.isFinite(item.dueAt);
+                })
+                .map(item => ({
+                    ...item,
+                    sourceUrl: this.normalizeUrl(item.sourceUrl),
+                }));
+        } catch {
+            return [];
+        }
+    }
+
+    private setDeferredExitQueue(queue: DeferredExitPopup[]): void {
+        if (typeof window === 'undefined') return;
+        try {
+            if (!queue.length) {
+                window.sessionStorage.removeItem(EXIT_QUEUE_STORAGE_KEY);
+                return;
+            }
+            window.sessionStorage.setItem(EXIT_QUEUE_STORAGE_KEY, JSON.stringify(queue));
+        } catch {
+            // Ignore storage errors in host environments that block storage access.
+        }
+    }
+
     /** Fetch al servidor para obtener popups */
     private async fetchPopupsFromServer(): Promise<PopupDefinition[]> {
         const apiKey = this.config?.apiKey;
         const baseUrl = this.baseUrl;
+        const userId = this.config?.userId;
         if (!apiKey || !baseUrl) {
             this.log('Missing apiKey or baseUrl. Skipping popups fetch.');
             return [];
         }
-        const endpoint = `${baseUrl}/sdk/${encodeURIComponent(apiKey)}/popups`;
+        const filter = userId ? { where: { userId } } : null;
+        const query = filter ? `?filter=${encodeURIComponent(JSON.stringify(filter))}` : '';
+        const endpoint = `${baseUrl}/sdk/${encodeURIComponent(apiKey)}/popups${query}`;
         try {
             const response = await fetch(endpoint);
             if (!response.ok) {
@@ -284,7 +467,7 @@ export class DeepdotsPopups {
                 this.log('Unexpected popups payload', parsed);
                 return [];
             }
-            console.log('res: ', parsed, this.validatePopupDefinitions(parsed))
+            this.debug('Fetched popups payload', parsed);
             return parsed;
         } catch (error) {
             this.log('Error fetching popups', error);
@@ -440,6 +623,21 @@ export class DeepdotsPopups {
         this.renderer = renderer;
         if (this.initialized && this.renderer.init) {
             this.renderer.init();
+        }
+    }
+
+    private normalizeUrl(value: string): string {
+        if (!value) return '';
+        const withoutIndex = value.replace(/\/index\.html(?=($|[?#]))/i, '');
+        return withoutIndex.length > 1 && withoutIndex.endsWith('/') ? withoutIndex.slice(0, -1) : withoutIndex;
+    }
+
+    private safeParseUrl(url: string): URL | null {
+        if (!url) return null;
+        try {
+            return new URL(url, typeof window !== 'undefined' ? window.location.href : undefined);
+        } catch {
+            return null;
         }
     }
 
