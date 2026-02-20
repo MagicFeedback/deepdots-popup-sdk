@@ -1,0 +1,121 @@
+<section class="home-shell">
+  <aside class="left-menu">
+    <section>
+      <h2>CASINO</h2>
+      <ul>
+        <li><button type="button">Alle spil</button></li>
+        <li><button type="button">Mest populære</button></li>
+        <li><button type="button">Bordspil</button></li>
+        <li><button type="button">Jackpotspil</button></li>
+      </ul>
+    </section>
+    <section>
+      <h2>SE OGSÅ</h2>
+      <ul>
+        <li><button id="btn-side-search" type="button">Find spil</button></li>
+        <li><button type="button">Indbetal</button></li>
+        <li><button type="button">Hæv</button></li>
+      </ul>
+    </section>
+  </aside>
+
+  <section class="content-column">
+    <button id="btn-open-search" class="search-pill" type="button" aria-label="Open search">
+      🔎 Hvad vil du gerne spille?
+    </button>
+
+    <section class="hero-zone">
+      <article class="hero-feature">
+        <p class="hero-kicker">DAGENS LANCERING</p>
+        <h1>Knights vs Barbarians</h1>
+        <p>
+          Demo journey for popup orchestration in a real casino flow:
+          eligibility comes from API and surveys are only launched in safe moments.
+        </p>
+        <p class="home-user-note">Demo user: <strong id="home-user"></strong></p>
+        <div class="hero-actions">
+          <button type="button">Start Session</button>
+          <button class="ghost" type="button">Reset</button>
+          <button class="ghost" type="button">Sync API</button>
+        </div>
+      </article>
+
+      <aside class="hero-side-list">
+        <article>
+          <span class="thumb"></span>
+          <div>
+            <strong>Mest populære</strong>
+            <p>Sugar Rush Super Scatter</p>
+          </div>
+        </article>
+        <article>
+          <span class="thumb"></span>
+          <div>
+            <strong>Har du prøvet?</strong>
+            <p>Le Fisherman</p>
+          </div>
+        </article>
+        <article>
+          <span class="thumb"></span>
+          <div>
+            <strong>Jag jackpotten</strong>
+            <p>Bison Rising Megaways</p>
+          </div>
+        </article>
+      </aside>
+    </section>
+
+    <section class="section-block">
+      <header>
+        <h2>Nye spil</h2>
+        <span>Se alle</span>
+      </header>
+      <div class="game-grid">
+        <article class="game-card">
+          <div class="cover cover-neon"></div>
+          <h3>Knights vs Barbarians</h3>
+          <p>Min. 1 kr</p>
+          <button type="button" data-game-id="knights-vs-barbarians">Play Demo Round</button>
+        </article>
+        <article class="game-card">
+          <div class="cover cover-arcanum"></div>
+          <h3>Arcanum</h3>
+          <p>Min. 1 kr</p>
+          <button type="button" data-game-id="arcanum">Play Demo Round</button>
+        </article>
+        <article class="game-card">
+          <div class="cover cover-fortune"></div>
+          <h3>Action Boost Fortune</h3>
+          <p>Min. 2 kr</p>
+          <button type="button" data-game-id="action-boost-fortune">Play Demo Round</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block">
+      <header>
+        <h2>Jackpots</h2>
+        <span>Se alle</span>
+      </header>
+      <div class="jackpot-grid">
+        <article class="jackpot-card blue">Jackpot Must Go</article>
+        <article class="jackpot-card cyan">Diamond Link</article>
+        <article class="jackpot-card green">Rapid Fire Jackpots</article>
+      </div>
+    </section>
+  </section>
+
+  <div id="home-search-overlay" class="search-overlay hidden" role="dialog" aria-modal="true">
+    <div class="search-modal">
+      <div class="search-modal-head">
+        <label class="search-input-wrap" for="home-search-input">
+          <span>🔎</span>
+          <input id="home-search-input" type="text" placeholder="Hvad vil du gerne spille?" />
+        </label>
+        <button id="btn-close-search" class="search-close" type="button">LUK</button>
+      </div>
+      <h3>Populære søgninger</h3>
+      <div id="home-search-grid" class="search-game-grid"></div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Casino SDK Demo</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="utility-bar">
+  <span>14:40</span>
+  <span id="sdk-status" class="utility-brand">Danske Spil demo environment</span>
+  <span>Spil med omtanke</span>
+</div>
+
+<header class="main-nav">
+  <div class="nav-left">
+    <button class="nav-icon" type="button" aria-label="Menu">☰</button>
+    <span class="brand-title">CASINO</span>
+  </div>
+  <nav class="nav-center" aria-label="Primary">
+    <button class="nav-tab active" type="button">Casino</button>
+    <button class="nav-tab" type="button">Live Casino</button>
+    <button class="nav-tab" type="button">Alle spil</button>
+    <button class="nav-tab" type="button">Favoritter</button>
+    <button class="nav-tab" type="button">Mere</button>
+  </nav>
+  <div class="nav-right">
+    <button class="nav-icon" type="button" aria-label="Profile">👤</button>
+    <button id="btn-nav-login" class="nav-login" type="button">Log ind</button>
+  </div>
+</header>
+
+<main id="app" class="app-shell"></main>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
