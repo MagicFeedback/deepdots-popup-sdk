@@ -1,8 +1,8 @@
 const USERS = [
-  { id: 'user_eligible', label: 'Demo user A' },
-  { id: 'user_cooldown', label: 'Demo user B' },
-  { id: 'user_blocked', label: 'Demo user C' },
-  { id: 'user_search_ready', label: 'Demo user D' },
+  { id: 'user_a', label: 'Demo user A' },
+  { id: 'user_b', label: 'Demo user B' },
+  { id: 'user_c', label: 'Demo user C' },
+  { id: 'user_d', label: 'Demo user D' },
 ];
 
 const GAMES = [
@@ -151,7 +151,7 @@ export function bindView(route, context) {
   }
 }
 
-function bindLoginView({ root, state, navigate, onUserChange = NOOP }) {
+function bindLoginView({ root, state, navigate, onUserChange = NOOP, onCasinoLogin = NOOP }) {
   const select = root.querySelector('#login-user-select');
   const button = root.querySelector('#btn-enter-home');
   const label = root.querySelector('#login-selected-user');
@@ -180,6 +180,7 @@ function bindLoginView({ root, state, navigate, onUserChange = NOOP }) {
   }
 
   button?.addEventListener('click', () => {
+    onCasinoLogin(state.userId);
     navigate('home');
   });
 }
