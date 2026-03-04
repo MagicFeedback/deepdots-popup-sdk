@@ -1,8 +1,16 @@
 # MagicFeedback Popup SDK
 
-TypeScript SDK to render and manage survey popups for MagicFeedback.
+TypeScript SDK for loading and displaying MagicFeedback surveys as popups in browser apps.
 
-> Current package name: `@magicfeedback/popup-sdk`
+Package name: `@magicfeedback/popup-sdk`
+
+## What It Does
+
+- Loads popup definitions from the Deepdots API (`server` mode) or from inline definitions (`client` mode)
+- Triggers popups by time on page, scroll depth, click, route exit, or host-driven events
+- Emits lifecycle events so the host app can track popup activity
+- Supports route targeting through `segments.path`
+- Falls back to a no-op renderer outside the browser
 
 ## Installation
 
@@ -10,194 +18,298 @@ TypeScript SDK to render and manage survey popups for MagicFeedback.
 npm install @magicfeedback/popup-sdk
 ```
 
-## Quick Start
+## Recommended Setup
 
-```typescript
-import {DeepdotsPopups} from '@magicfeedback/popup-sdk';
+`server` mode is the recommended setup for real client integrations. Popup definitions are managed remotely and the SDK fetches them at runtime.
 
-// Basic initialization
+```ts
+import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
+
 const popups = new DeepdotsPopups();
+
 popups.init({
-    debug: true,                       // enable verbose logging
-    mode: 'client',                    // 'client' (preloaded definitions) | 'server' (fake async load for now)
-    popups: [                          // optional in client mode
-        {
-            id: 'popup-123',
-            title: 'Help us improve?',
-            message: '<p>Take a quick survey and share your thoughts.</p>',
-            triggers: {type: 'time_on_page', value: 5, condition: [{answered: false, cooldownDays: 7}]},
-            actions: {
-                accept: {label: 'Take Survey', surveyId: 'survey-abc'},
-                decline: {label: 'Not Now', cooldownDays: 7}
-            },
-            surveyId: 'survey-abc',
-            productId: 'product-xyz',
-            style: {theme: 'light', position: 'bottom-right', imageUrl: null},
-            segments: {lang: ['en'], path: ['/checkout']}
-        }
-    ]
+  mode: 'server',
+  nodeEnv: 'production',
+  apiKey: 'YOUR_PUBLIC_API_KEY',
+  userId: 'customer-123',
+  debug: false,
 });
 
-// Start triggers
-popups.autoLaunch();
-
-// Listen to events
-popups.on('popup_shown', (ev) => console.log('Shown:', ev));
-popups.on('popup_clicked', (ev) => console.log('Clicked:', ev));
-popups.on('survey_completed', (ev) => console.log('Completed:', ev));
-```
-
-## Features
-
-- ✅ Simple API: initialize and launch popups with minimal code
-- ✅ Auto-launch triggers: time, scroll, exit intent, click, event (host-controlled)
-- ✅ Automatic trigger derivation from popup definitions (`time_on_page` → internal `time` in ms)
-- ✅ Conditions & cooldowns: prevent display if already answered or within cooldown window
-- ✅ Event system: `popup_shown`, `popup_clicked`, `survey_completed`
-- ✅ Renderer abstraction: browser, React Native stub, SSR-friendly no-op
-- ✅ TypeScript: full type definitions
-- ✅ Lightweight: zero runtime dependencies for core logic
-- ✅ Framework agnostic: works in vanilla JS or any framework
-
-## API Reference
-
-### Class: `DeepdotsPopups`
-Main class for configuring and displaying survey popups.
-
-#### `init(config: DeepdotsInitParams): void`
-Initializes the SDK. Must be called before other methods.
-
-```typescript
-popups.init({
-  apiKey: 'your-key',          // optional
-  nodeEnv: 'production',       // optional: influences internal baseUrl
-  mode: 'client',              // 'client' or 'server'
-  debug: false,                // verbose logging
-  popups: [ /* PopupDefinition[] (client mode only) */ ]
+popups.on('popup_shown', (event) => {
+  console.log('Popup shown', event);
 });
-```
 
-In `server` mode popups are (currently) loaded via a simulated async fetch; triggers derived after load will start when `autoLaunch()` runs or once loading completes.
+popups.on('survey_completed', (event) => {
+  console.log('Survey completed', event);
+});
 
-#### `show(options: ShowOptions): void`
-Displays a popup for a survey immediately. `productId` is required.
-
-```typescript
-popups.show({ surveyId: 'survey-xyz', productId: 'product-123', data: { plan: 'pro' } });
-```
-
-#### `showByPopupId(popupId: string): void`
-Displays a popup using its definition `id` (internally maps to `surveyId` + `productId`).
-
-```typescript
-popups.showByPopupId('popup-123');
-```
-
-#### `configureTriggers(triggers: TriggerConfig[]): void`
-Registers manual triggers. Most apps should use `autoLaunch()` and popup definitions instead.
-
-```typescript
-popups.configureTriggers([
-  { type: 'time', value: 5000, surveyId: 'survey-1' },
-  { type: 'scroll', value: 60, surveyId: 'survey-2' },
-  { type: 'exit', value: 10, surveyId: 'survey-3' },
-  { type: 'click', value: 'cta-button', surveyId: 'survey-4' },
-  { type: 'event', value: 'search', surveyId: 'survey-5' }
-]);
-```
-
-#### `autoLaunch(): void`
-Starts automatic trigger evaluation. If popups are not yet loaded (server mode) call is deferred until load completes.
-
-```typescript
 popups.autoLaunch();
 ```
 
-#### `triggerSurvey(surveyId: string, popupId?: string): void`
-Evaluates conditions and, if allowed, shows a popup for the specified survey. Used internally by trigger handlers; you normally don’t call this directly.
+Notes:
 
-#### `triggerEvent(eventName: string): void`
-Evaluates popups with `triggers.type = 'event'` and matching `triggers.value`, then shows the first eligible popup.
+- `mode: 'server'` fetches popup definitions from Deepdots.
+- `nodeEnv: 'production'` uses `https://api.deepdots.com`.
+- `nodeEnv: 'development'` uses `https://api-dev.deepdots.com`.
+- `userId` is optional, but recommended when popups are targeted per user.
+- `autoLaunch()` can be called immediately after `init()`. In `server` mode, the SDK waits until remote popups are loaded.
 
-```typescript
+## When To Use Each Mode
+
+- `server`: production integrations where popup definitions are managed remotely.
+- `client`: local demos, QA, hardcoded fallback flows, and integration testing without API calls.
+
+## Real Use Cases From `examples/`
+
+### 1. Remote website integration
+
+Files:
+
+- `examples/index.html`
+- `examples/product.html`
+- `examples/demo-sdk.js`
+
+This flow initializes the SDK in `server` mode, auto-launches popups on page load, and logs popup events in the page UI. It is the closest example to a standard website integration.
+
+### 2. Host-driven business event trigger
+
+Files:
+
+- `examples/clients/casino/sdk.js`
+- `examples/clients/casino/sdk-trigger-event-example.js`
+
+This flow tracks search behavior in the host app and calls:
+
+```ts
+sdk.triggerEvent('search');
+```
+
+Use this pattern when popup logic depends on product behavior instead of plain DOM triggers. In the casino demo, the popup is shown after repeated searches with low intent signals.
+
+### 3. Route-exit popup after navigation
+
+Files:
+
+- `examples/index.html`
+- `examples/product.html`
+
+Exit triggers are queued when the user leaves a matching route and rendered on the next route after the configured delay. This is useful for "before you go" feedback flows that should appear after navigation, not before it.
+
+### 4. Inline client-mode sandbox
+
+File:
+
+- `examples/demo.html`
+
+This example uses local popup definitions and is useful for validating trigger behavior without hitting the API.
+
+## Client Mode Example
+
+Use `client` mode when you want to preload popup definitions yourself.
+
+```ts
+import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
+
+const popupDefinitions = [
+  {
+    id: 'popup-home-5s',
+    title: 'Help us improve',
+    message: '<p>Thanks for visiting our homepage.</p>',
+    triggers: {
+      type: 'time_on_page',
+      value: 5,
+      condition: [{ answered: false, cooldownDays: 7 }],
+    },
+    actions: {
+      accept: {
+        label: 'Open survey',
+        surveyId: 'survey-home-001',
+      },
+    },
+    surveyId: 'survey-home-001',
+    productId: 'product-main',
+    segments: {
+      path: ['/', '/pricing', '/#/home'],
+    },
+  },
+];
+
+const popups = new DeepdotsPopups();
+
+popups.init({
+  mode: 'client',
+  debug: true,
+  popups: popupDefinitions,
+});
+
+popups.autoLaunch();
+```
+
+Important:
+
+- The property name is `triggers`, not `trigger`.
+- `time_on_page` values are defined in seconds.
+- `segments.path` can contain full URLs, path fragments such as `/pricing`, or hash routes such as `/#/home`.
+
+## API Essentials
+
+### `init(config)`
+
+Initializes the SDK.
+
+```ts
+popups.init({
+  mode: 'server',
+  apiKey: 'YOUR_PUBLIC_API_KEY',
+  userId: 'customer-123',
+  nodeEnv: 'production',
+  debug: false,
+});
+```
+
+Config fields:
+
+- `apiKey?: string`
+- `userId?: string`
+- `nodeEnv?: 'development' | 'production'`
+- `mode?: 'server' | 'client'`
+- `debug?: boolean`
+- `popups?: PopupDefinition[]`
+
+### `autoLaunch()`
+
+Starts the triggers derived from the popup definitions loaded during `init()`.
+
+```ts
+popups.autoLaunch();
+```
+
+### `triggerEvent(eventName)`
+
+Shows the first eligible popup whose definition contains:
+
+```ts
+triggers: { type: 'event', value: eventName }
+```
+
+Example:
+
+```ts
 popups.triggerEvent('search');
 ```
 
-#### `markSurveyAnswered(surveyId: string): void`
-Marks a survey as answered to satisfy conditions like `{ answered: false }`.
+### `show({ surveyId, productId })`
 
-```typescript
-popups.markSurveyAnswered('survey-xyz');
+Shows a popup immediately without waiting for a trigger.
+
+```ts
+popups.show({
+  surveyId: 'survey-home-001',
+  productId: 'product-main',
+});
 ```
 
-#### `on(type, listener)` / `off(type, listener)`
-Add or remove event listeners.
+### `showByPopupId(popupId)`
 
-```typescript
-const handler = (ev) => console.log(ev);
-popups.on('popup_shown', handler);
-popups.off('popup_shown', handler);
+Shows a popup definition by id. This is useful when multiple popups reuse the same `surveyId`.
+
+```ts
+popups.showByPopupId('popup-home-5s');
 ```
 
-#### `setRenderer(renderer: PopupRenderer): void`
-Inject a custom renderer (e.g. native mobile). If called after `init` and the renderer has `init()`, it's invoked automatically.
+### `markSurveyAnswered(surveyId)`
 
-```typescript
-import { ReactNativePopupRenderer } from './my-native-renderer';
-const sdk = new DeepdotsPopups();
-sdk.setRenderer(new ReactNativePopupRenderer());
-sdk.init({ mode: 'client', popups: [...] });
+Marks a survey as answered so conditions like `{ answered: false }` stop matching.
+
+```ts
+popups.markSurveyAnswered('survey-home-001');
 ```
 
-## Popup Definitions
+### `on(eventType, listener)` / `off(eventType, listener)`
 
-When using `client` mode you can preload definitions. In `server` mode a fake fetch creates sample definitions. Trigger types in definitions:
-- `time_on_page` (seconds) → mapped automatically to internal `time` trigger (milliseconds)
-- `scroll` (percentage scrolled)
-- `exit` (route/navigation exit intent)
-- `click` (element id, string)
-- `event` (host app controlled event name)
+Subscribe or unsubscribe from SDK events.
 
-Structure:
+```ts
+const onShown = (event) => console.log(event);
 
-```typescript
+popups.on('popup_shown', onShown);
+popups.off('popup_shown', onShown);
+```
+
+## Supported Trigger Types
+
+Popup definitions use these trigger types:
+
+- `time_on_page`: shows after N seconds on the page
+- `scroll`: shows after reaching a scroll percentage
+- `click`: shows after clicking the element with the given DOM id
+- `exit`: shows after leaving a matching route and waiting N seconds on the destination route
+- `event`: shows when the host app calls `triggerEvent(name)`
+
+## Popup Definition Shape
+
+`client` mode accepts popup definitions with this structure:
+
+```ts
 interface PopupDefinition {
   id: string;
   title: string;
-  message: string; // HTML string
+  message: string;
   triggers: {
     type: 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
-    value: number | string; // seconds, percentage, click id, or event name
-    condition?: { answered: boolean; cooldownDays: number }[];
+    value: number | string;
+    condition?: Array<{
+      answered: boolean;
+      cooldownDays: number;
+    }>;
   };
-  actions: {
-    accept: { label: string; surveyId: string };
-    decline: { label: string; cooldownDays?: number };
+  actions?: {
+    accept?: {
+      label: string;
+      surveyId: string;
+    };
+    start?: {
+      label: string;
+    };
+    back?: {
+      label: string;
+    };
+    complete?: {
+      label: string;
+      surveyId: string;
+      autoCompleteParams: Record<string, unknown>;
+      cooldownDays?: number;
+    };
+    decline?: {
+      label: string;
+      cooldownDays?: number;
+    };
   };
   surveyId: string;
   productId: string;
-  style: {
+  style?: {
     theme: 'light' | 'dark';
     position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
     imageUrl: string | null;
   };
-  segments?: { lang?: string[]; path?: string[]; [key: string]: unknown };
+  segments?: {
+    path?: string[];
+    [key: string]: unknown;
+  };
 }
 ```
 
-### Conditions
-- `answered: false` → show only if survey not yet completed
-- `cooldownDays: N` → do not show again until N days have passed since last display (per popup definition `id`)
-
 ## Events
 
-Emitted events:
+The SDK emits:
+
 - `popup_shown`
-- `popup_clicked` (first interaction / initial rendering)
+- `popup_clicked`
 - `survey_completed`
 
 Payload:
-```typescript
+
+```ts
 interface DeepdotsEvent {
   type: 'popup_shown' | 'popup_clicked' | 'survey_completed';
   surveyId: string;
@@ -206,114 +318,50 @@ interface DeepdotsEvent {
 }
 ```
 
-## Trigger Types (Manual Mode)
+`data` often contains values such as:
 
-```typescript
-{ type: 'time', value: 5000, surveyId: 'survey-1' }          // after 5s
-{ type: 'scroll', value: 50, surveyId: 'survey-2' }          // at 50% scroll
-{ type: 'exit', value: 10, surveyId: 'survey-3' }            // show 10s after leaving matched route
-{ type: 'click', value: 'cta-button', surveyId: 'survey-4' } // click on element id
-{ type: 'event', value: 'search', surveyId: 'survey-5' }     // host app emits event
+- `popupId`
+- `action`
+- `userId`
+
+`popup_clicked` is a general interaction event. Depending on the flow, `data.action` can contain values such as `loaded`, `start_survey`, `manual_send`, `back`, `complete`, or `close_icon`.
+
+## Important Behavior Notes
+
+- `segments.path` is the only segment currently evaluated by the SDK runtime.
+- `exit` triggers work across anchor navigation, hash navigation, `history.pushState()`, and `history.replaceState()`.
+- Pending `exit` popups are stored in `sessionStorage` until they are shown or discarded.
+- The default browser renderer uses MagicFeedback forms and applies button labels from `actions.accept`, `actions.start`, `actions.back`, and `actions.complete`.
+- `title`, `message`, and `style` belong to the popup definition contract, but the current browser renderer focuses on the embedded form and does not render those fields as standalone popup copy/layout controls.
+- `actions.decline` is accepted in the definition shape, but the current browser renderer does not render a dedicated decline button or enforce `decline.cooldownDays`.
+- In browser mode, the SDK creates `#deepdots-popup-container` and injects the shared popup stylesheet from jsDelivr.
+
+## Running The Examples Locally
+
+```bash
+npm install
+npm run build
+python3 -m http.server 4173
 ```
 
-## Automatic Trigger Derivation
-When definitions are loaded, each `time_on_page` trigger is converted to `{ type: 'time', value: seconds * 1000 }`. You just call `autoLaunch()` and derived triggers start.
+Then open:
 
-## Trigger Behavior Notes
-- `exit` queues when the user leaves a matched route and is rendered on the destination route after `value` seconds.
-- `exit` supports full navigation and SPA route changes (hash/history), and keeps pending exits in `sessionStorage`.
-- `click` expects a DOM element id in `value`. The handler attaches on `DOMContentLoaded` if the element isn't available immediately.
-- `event` is host-driven: call `popups.triggerEvent('event-name')` when your app-level behavior conditions are met.
+- `http://localhost:4173/examples/index.html`
+- `http://localhost:4173/examples/product.html`
+- `http://localhost:4173/examples/demo.html`
+- `http://localhost:4173/examples/clients/casino/index.html`
 
-## Styling & Container
-Browser renderer creates a container `#deepdots-popup-container` with an overlay. Override styles via global CSS (e.g. `.deepdots-popup`, `#deepdots-popup-container`). The layout is intentionally minimal.
-
-## Renderer Architecture
-
-The SDK decouples core logic (triggers, conditions, events) from UI rendering.
-
-- `BrowserPopupRenderer`: default when DOM is available.
-- `ReactNativePopupRenderer` (stub): demonstrates how to bridge events in RN (does not render real UI here).
-- `NoopPopupRenderer`: used in SSR / test environments without a DOM.
-
-Detection for React Native uses `navigator.product === 'ReactNative'`.
-
-### Creating a Native Renderer
-```typescript
-class MyNativeRenderer implements PopupRenderer {
-  init() { /* prepare modal/store */ }
-  show(surveyId, productId, data, emit, onClose) {
-    // 1. Display native modal
-    // 2. Render equivalent UI
-    // 3. Call emit('popup_clicked', surveyId, data) on first interaction
-  }
-  hide() { /* close modal */ }
-}
-
-const sdk = new DeepdotsPopups();
-sdk.setRenderer(new MyNativeRenderer());
-sdk.init({ mode: 'client', popups: [...] });
-```
-
-### WebView (Cordova / Capacitor / RN / Flutter)
-1. Build the bundle: `npm run build`.
-2. Load `dist/` in a WebView.
-3. Bridge events: `window.ReactNativeWebView.postMessage(JSON.stringify(ev))`.
-4. Initialize: `popups.init({...}); popups.autoLaunch();`.
-
-Example event forwarding:
-```javascript
-function forward(ev) {
-  window.ReactNativeWebView?.postMessage(JSON.stringify(ev));
-}
-popups.on('popup_shown', forward);
-popups.on('survey_completed', forward);
-```
-
-## Types
-Import types directly:
-
-```typescript
-import type {
-  DeepdotsConfig,
-  TriggerConfig,
-  ShowOptions,
-  DeepdotsEvent,
-  DeepdotsEventType,
-  EventListener,
-} from '@magicfeedback/popup-sdk';
-```
-
-## Example Demo
-See `examples/demo.html` for a runnable browser demo (uses client mode + fake definitions). To try it:
-1. Build the project (`npm run build`).
-2. Open `examples/demo.html` in a browser.
-3. Use buttons to show popups and observe console + event log.
+Using a local HTTP server is recommended. Some browser module imports and navigation flows do not behave correctly when opening the files directly with `file://`.
 
 ## Development
 
 ```bash
-npm install          # install dependencies
-npm run build        # build (CJS + ESM + d.ts)
-npm run build:watch  # watch build
-npm run lint         # eslint
-npm test             # run vitest
-npm run test:watch   # watch tests
+npm run build
+npm run build:watch
+npm run lint
+npm test
 ```
 
-Publishing uses `prepublishOnly` to ensure a fresh build.
-
-## Notes & Limitations
-- `server` mode currently simulates fetch; real network integration pending.
-- `apiKey` is reserved for future authenticated endpoints.
-- React Native renderer provided is a stub (example only).
-- Sanitization of `message` HTML should be handled upstream if untrusted.
-
-## Contributing
-Issues & PRs welcome: https://github.com/MagicFeedback/deepdots-popup-sdk
-
 ## License
-MIT
 
-## Support
-Open issues on the GitHub repository or contact maintainers.
+MIT
