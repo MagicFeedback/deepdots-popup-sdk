@@ -1,5 +1,5 @@
 // Cambia este valor para probar la build local o la última versión publicada en npm.
-const SDK_SOURCE = 'local'; // 'local' | 'package_latest'
+const SDK_SOURCE = 'package_latest'; // 'local' | 'package_latest'
 
 const SDK_SOURCE_URLS = {
   local: '../dist/index.mjs',
