@@ -420,13 +420,6 @@
             }
         }
     </style>
-    <script type="importmap">
-        {
-          "imports": {
-            "@magicfeedback/popup-sdk": "https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.0.11/dist/index.mjs"
-          }
-        }
-    </script>
 </head>
 <body>
 <header class="navbar">
@@ -609,10 +602,12 @@
 
     const modePill = document.getElementById('mode-pill');
     const eventLog = document.getElementById('event-log');
-    const {sdk} = initDemoSdk({modeLabelEl: modePill, eventLogEl: eventLog});
+    const {sdk} = await initDemoSdk({modeLabelEl: modePill, eventLogEl: eventLog});
 
     // Enable AutoLaunch by default on page load
     sdk.autoLaunch();
+
+    // Event on click
 </script>
 </body>
 </html>

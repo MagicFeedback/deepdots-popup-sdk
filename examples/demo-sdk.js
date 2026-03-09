@@ -1,4 +1,4 @@
-import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
+import { getSdkSource, loadPopupSdk } from './sdk-loader.js';
 
 function formatLogLine(event) {
   const time = new Date(event.timestamp).toLocaleTimeString();
@@ -6,8 +6,9 @@ function formatLogLine(event) {
   return `[${time}] ${event.type} - survey:${event.surveyId}${action}`;
 }
 
-export function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
+export async function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
   const mode = 'server';
+  const { DeepdotsPopups } = await loadPopupSdk();
 
   const sdk = new DeepdotsPopups();
   sdk.init({
@@ -18,7 +19,7 @@ export function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
   });
 
   if (modeLabelEl) {
-    modeLabelEl.textContent = mode;
+    modeLabelEl.textContent = `${mode} · ${getSdkSource()}`;
   }
 
   if (eventLogEl) {

@@ -592,6 +592,7 @@ export async function renderPopup(
                 updateButtons('completed');
                 return;
             }
+            emit('popup_clicked', surveyId, {action: 'partial'});
             if (total > 1 && progress > 0 && progress < total) {
                 updateButtons('in_progress_next');
             } else {

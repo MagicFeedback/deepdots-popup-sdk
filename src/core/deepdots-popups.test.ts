@@ -123,12 +123,7 @@ describe('DeepdotsPopups', () => {
       const listener = vi.fn();
       
       popups.on('survey_completed', listener);
-      popups.show({ surveyId: 'survey-1', productId: 'product-1' });
-      
-      // Click the submit button
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const completeButton = buttons.find(btn => btn.textContent === 'Send');
-      completeButton?.click();
+      (popups as any).emitEvent('survey_completed', 'survey-1', { action: 'completed' });
       
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -163,7 +158,7 @@ describe('DeepdotsPopups', () => {
           id: 'p1',
           title: 'Title',
           message: '<p>Msg</p>',
-          triggers: { type: 'time_on_page', value: 0.01 }, // 10ms
+          triggers: [{ type: 'time_on_page', value: 0.01 }], // 10ms
           actions: { accept: { label: 'Go', surveyId: 's1' }, decline: { label: 'No' } },
           surveyId: 's1',
           productId: 'prod',
@@ -179,7 +174,49 @@ describe('DeepdotsPopups', () => {
       });
     });
 
+    it('should show popup when one of multiple triggers matches', () => {
+      const popupDefs: PopupDefinition[] = [
+        {
+          id: 'p-multi',
+          title: 'Title',
+          message: '<p>Msg</p>',
+          triggers: [
+            { type: 'scroll', value: 95 },
+            { type: 'event', value: 'search' },
+          ],
+          actions: { accept: { label: 'Go', surveyId: 's-multi' }, decline: { label: 'No' } },
+          surveyId: 's-multi',
+          productId: 'prod',
+          style: { theme: 'light', position: 'bottom-right', imageUrl: null },
+        }
+      ];
+
+      popups.init({ mode: 'client', popups: popupDefs });
+      const listener = vi.fn();
+      popups.on('popup_shown', listener);
+      popups.autoLaunch();
+      popups.triggerEvent('search');
+
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'popup_shown',
+          surveyId: 's-multi',
+        }),
+      );
+    });
+
     it('should defer autoLaunch until server popups are loaded', async () => {
+      (popups as any).fetchPopupsFromServer = vi.fn().mockResolvedValue([
+        {
+          id: 'popup-123',
+          title: 'Deferred popup',
+          message: '<p>Msg</p>',
+          triggers: [{ type: 'time_on_page', value: 0.01 }],
+          actions: { accept: { label: 'Go', surveyId: 'survey-123' }, decline: { label: 'No' } },
+          surveyId: 'survey-123',
+          productId: 'prod',
+        },
+      ]);
       popups.init({ mode: 'server', debug: true });
       const listener = vi.fn();
       popups.on('popup_shown', listener);
@@ -194,21 +231,22 @@ describe('DeepdotsPopups', () => {
   });
 
   describe('conditions logic', () => {
-    it('should not show popup if answered condition prevents it', async () => {
+    it('should not show popup if completed cooldown prevents it', async () => {
       const popupDefs: PopupDefinition[] = [
         {
-          id: 'p-answered',
-          title: 'Answered check',
+          id: 'p-completed',
+          title: 'Completed cooldown check',
           message: '<p>Msg</p>',
-          triggers: { type: 'time_on_page', value: 0.01, condition: [{ answered: false, cooldownDays: 1 }] },
-          actions: { accept: { label: 'Go', surveyId: 'survey-ans' }, decline: { label: 'No' } },
-          surveyId: 'survey-ans',
+          triggers: [{ type: 'time_on_page', value: 0.01 }],
+          cooldown: [{ answered: 'COMPLETED', cooldownDays: 1 }],
+          actions: { accept: { label: 'Go', surveyId: 'survey-completed' }, decline: { label: 'No' } },
+          surveyId: 'survey-completed',
           productId: 'prod',
           style: { theme: 'light', position: 'bottom-right', imageUrl: null },
         }
       ];
       popups.init({ mode: 'client', popups: popupDefs });
-      popups.markSurveyAnswered('survey-ans');
+      popups.markSurveyAnswered('survey-completed');
       const listener = vi.fn();
       popups.on('popup_shown', listener);
       popups.autoLaunch();
@@ -222,7 +260,8 @@ describe('DeepdotsPopups', () => {
           id: 'p-cooldown',
           title: 'Cooldown check',
           message: '<p>Msg</p>',
-          triggers: { type: 'time_on_page', value: 0.01, condition: [{ answered: false, cooldownDays: 7 }] },
+          triggers: [{ type: 'time_on_page', value: 0.01 }],
+          cooldown: [{ answered: 'SHOWED', cooldownDays: 7 }],
           actions: { accept: { label: 'Go', surveyId: 'survey-cool' }, decline: { label: 'No' } },
           surveyId: 'survey-cool',
           productId: 'prod',
@@ -238,6 +277,32 @@ describe('DeepdotsPopups', () => {
       // intentar forzar segundo disparo manual
       popups.triggerSurvey('survey-cool');
       expect(listener).toHaveBeenCalledTimes(1); // no aumenta por cooldown
+    });
+
+    it('should respect partial cooldown before survey completion', () => {
+      const popupDefs: PopupDefinition[] = [
+        {
+          id: 'p-partial',
+          title: 'Partial cooldown check',
+          message: '<p>Msg</p>',
+          triggers: [{ type: 'event', value: 'search' }],
+          cooldown: [{ answered: 'PARTIAL', cooldownDays: 7 }],
+          actions: { accept: { label: 'Go', surveyId: 'survey-partial' }, decline: { label: 'No' } },
+          surveyId: 'survey-partial',
+          productId: 'prod',
+          style: { theme: 'light', position: 'bottom-right', imageUrl: null },
+        }
+      ];
+
+      popups.init({ mode: 'client', popups: popupDefs });
+      const listener = vi.fn();
+      popups.on('popup_shown', listener);
+      popups.autoLaunch();
+
+      (popups as any).emitEvent('popup_clicked', 'survey-partial', { action: 'partial' });
+      popups.triggerEvent('search');
+
+      expect(listener).not.toHaveBeenCalled();
     });
   });
 });

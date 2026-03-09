@@ -43,9 +43,9 @@
   <div class="content">
     <div class="section">
       <h2>Definiciones Fake <span class="badge">client mode</span></h2>
-      <p>Se precargan dos popups para demostrar los diferentes tipos de trigger y condiciones:</p>
+      <p>Se precargan dos popups para demostrar los diferentes tipos de trigger y cooldowns:</p>
       <ul>
-        <li><strong>Popup 1</strong>: Trigger <code>time_on_page</code> (3s) con cooldown 1 día y condición answered:false.</li>
+        <li><strong>Popup 1</strong>: Trigger <code>time_on_page</code> (3s) con cooldown de 1 día tras mostrarse y 30 días tras completarse.</li>
         <li><strong>Popup 2</strong>: Trigger <code>scroll</code> (40%) sin cooldown.</li>
       </ul>
       <p>Ambas encuestas usan IDs ficticios (<code>survey-001</code> y <code>survey-002</code>) y claves públicas fake para generar el formulario (<code>publicKey</code>).</p>
@@ -64,8 +64,10 @@
   </div>
 
   <script type="module">
-    // IMPORTACIÓN DEL SDK (usar build previo: npm run build)
-    import { DeepdotsPopups } from '../dist/index.mjs';
+    import { getSdkSource, loadPopupSdk } from './sdk-loader.js';
+
+    const { DeepdotsPopups } = await loadPopupSdk();
+    console.info('[demo] SDK source:', getSdkSource());
 
     // Definiciones fake de popups en modo client
     const popupDefinitions = [
@@ -73,7 +75,11 @@
         id: 'popup-demo-1',
         title: '¿Nos ayudas a mejorar?',
         message: '<p>Tu opinión rápida nos ayuda a crecer 🚀</p>',
-        triggers: { type: 'time_on_page', value: 3, condition: [{ answered: false, cooldownDays: 1 }] },
+        triggers: [{ type: 'time_on_page', value: 3 }],
+        cooldown: [
+          { answered: 'SHOWED', cooldownDays: 1 },
+          { answered: 'COMPLETED', cooldownDays: 30 }
+        ],
         actions: { accept: { label: 'Responder', surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0' }, decline: { label: 'Cerrar', cooldownDays: 1 } },
         surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',
         productId: '02b809f20e024bce47c57f123cff8735',
@@ -84,7 +90,7 @@
         id: 'popup-demo-2',
         title: 'Encuesta de experiencia',
         message: '<p>Nos interesa tu experiencia mientras navegas.</p>',
-        triggers: { type: 'scroll', value: 40 },
+        triggers: [{ type: 'scroll', value: 40 }],
         actions: { accept: { label: 'Participar', surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119' }, decline: { label: 'Ahora no' } },
         surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119',
         productId: '02b809f20e024bce47c57f123cff8735',
@@ -131,7 +137,7 @@
     document.getElementById('btn-mark-answered').onclick = () => {
       sdk.markSurveyAnswered('a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0');
       logEvent({ type: 'survey_completed', surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',productId:'02b809f20e024bce47c57f123cff8735', timestamp: Date.now(), data: { manual: true } });
-      alert('Marcada survey-001 como contestada. No se mostrará Popup 1 si la condición answered:false está activa.');
+      alert('Marcada survey-001 como contestada. No se mostrará Popup 1 mientras el cooldown de COMPLETED esté activo.');
     };
     document.getElementById('btn-force-survey').onclick = () => {
       sdk.triggerSurvey('dc278020-bb1c-11f0-aedb-5b3735c7e119');

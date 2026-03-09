@@ -8,11 +8,10 @@ function createExitDefinition(seconds: number): PopupDefinition {
     id: 'popup-exit-login',
     title: 'Exit popup',
     message: 'Exit flow',
-    triggers: {
+    triggers: [{
       type: 'exit',
       value: seconds,
-      condition: [],
-    },
+    }],
     surveyId: 'survey-exit-login',
     productId: 'product-1',
     segments: {

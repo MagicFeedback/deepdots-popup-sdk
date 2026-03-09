@@ -115,11 +115,13 @@ const popupDefinitions = [
     id: 'popup-home-5s',
     title: 'Help us improve',
     message: '<p>Thanks for visiting our homepage.</p>',
-    triggers: {
-      type: 'time_on_page',
-      value: 5,
-      condition: [{ answered: false, cooldownDays: 7 }],
-    },
+    triggers: [
+      { type: 'time_on_page', value: 5 },
+    ],
+    cooldown: [
+      { answered: 'SHOWED', cooldownDays: 7 },
+      { answered: 'COMPLETED', cooldownDays: 30 },
+    ],
     actions: {
       accept: {
         label: 'Open survey',
@@ -147,7 +149,7 @@ popups.autoLaunch();
 
 Important:
 
-- The property name is `triggers`, not `trigger`.
+- The property name is `triggers`, and it is now an array.
 - `time_on_page` values are defined in seconds.
 - `segments.path` can contain full URLs, path fragments such as `/pricing`, or hash routes such as `/#/home`.
 
@@ -189,7 +191,7 @@ popups.autoLaunch();
 Shows the first eligible popup whose definition contains:
 
 ```ts
-triggers: { type: 'event', value: eventName }
+triggers: [{ type: 'event', value: eventName }]
 ```
 
 Example:
@@ -219,7 +221,7 @@ popups.showByPopupId('popup-home-5s');
 
 ### `markSurveyAnswered(surveyId)`
 
-Marks a survey as answered so conditions like `{ answered: false }` stop matching.
+Marks a survey as answered so cooldown rules like `{ answered: 'COMPLETED', cooldownDays: 30 }` start applying.
 
 ```ts
 popups.markSurveyAnswered('survey-home-001');
@@ -255,14 +257,14 @@ interface PopupDefinition {
   id: string;
   title: string;
   message: string;
-  triggers: {
+  triggers: Array<{
     type: 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
     value: number | string;
-    condition?: Array<{
-      answered: boolean;
-      cooldownDays: number;
-    }>;
-  };
+  }>;
+  cooldown?: Array<{
+    answered: 'SHOWED' | 'PARTIAL' | 'COMPLETED';
+    cooldownDays: number;
+  }>;
   actions?: {
     accept?: {
       label: string;

@@ -82,9 +82,17 @@ export type EventListener = (event: DeepdotsEvent) => void;
 /** Tipo de trigger específico para definiciones de popup remotas */
 export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
 
+export type PopupTriggerConditionStatus = 'SHOWED' | 'PARTIAL' | 'COMPLETED';
+
+export const POPUP_TRIGGER_CONDITION_STATUSES: PopupTriggerConditionStatus[] = [
+    'SHOWED',
+    'PARTIAL',
+    'COMPLETED',
+];
+
 /** Condición adicional para la activación del popup */
 export interface PopupTriggerCondition {
-    answered: boolean; // si el usuario ya contestó la encuesta
+    answered: PopupTriggerConditionStatus; // estado de progreso del usuario en la encuesta
     cooldownDays: number; // días de enfriamiento antes de mostrar de nuevo
 }
 
@@ -92,7 +100,6 @@ export interface PopupTriggerCondition {
 export interface PopupTrigger {
     type: PopupTriggerType;
     value: number | string; // segundos en página, porcentaje scroll, id de click o nombre del evento
-    condition?: PopupTriggerCondition[]; // lista de condiciones compuestas
 }
 
 /** Acción de aceptar (abrir encuesta) */
@@ -149,7 +156,8 @@ export interface PopupDefinition {
     id: string;
     title: string;
     message: string; // HTML seguro renderizado (se recomienda sanitizar afuera)
-    triggers: PopupTrigger;
+    triggers: PopupTrigger[];
+    cooldown?: PopupTriggerCondition[];
     actions?: PopupActions;
     surveyId: string;
     productId: string;
