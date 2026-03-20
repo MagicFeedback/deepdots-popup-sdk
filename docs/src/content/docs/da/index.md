@@ -66,6 +66,7 @@ Start med disse sider:
 - [Server vs Client Mode](/da/guides/modes/)
 - [Examples](/da/guides/examples/)
 - [React Native](/da/reference/react-native/)
+- [Offentlig demo](../demo/)
 
 ## Hvis du kommer fra den tekniske integration
 
@@ -75,6 +76,7 @@ Start med disse sider:
 - [Quickstart](/da/getting-started/quickstart/)
 - [Popup Definition](/da/reference/popup-definition/)
 - [API](/da/reference/api/)
+- [Offentlig demo](../demo/)
 
 ## Vigtig note
 

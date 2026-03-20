@@ -10,6 +10,12 @@ description: Ejemplos reales incluidos en el repositorio.
 - `examples/demo.html`
 - `examples/clients/casino/index.html`
 
+## Demo publicada
+
+El despliegue publico en GitHub Pages publica la demo customer-facing en [`/demo/`](../../../demo/).
+
+El sandbox interno de `client` mode en `examples/demo.html` no se publica a proposito.
+
 ## Que demuestra cada uno
 
 - `examples/index.html` y `examples/product.html`: integracion web remota y exit popups entre rutas.

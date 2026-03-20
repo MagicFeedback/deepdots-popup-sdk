@@ -10,6 +10,12 @@ description: Reelle eksempler som følger med i repository'et.
 - `examples/demo.html`
 - `examples/clients/casino/index.html`
 
+## Publiceret demo
+
+Det offentlige GitHub Pages-deploy publicerer den kundevendte demo på [`/demo/`](../../../demo/).
+
+Det interne `client` mode-sandbox i `examples/demo.html` bliver med vilje ikke publiceret.
+
 ## Hvad de viser
 
 - `examples/index.html` og `examples/product.html`: remote web-integration og exit-popups mellem ruter.

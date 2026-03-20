@@ -66,6 +66,7 @@ Start with these pages:
 - [Server vs Client Mode](/guides/modes/)
 - [Examples](/guides/examples/)
 - [React Native](/reference/react-native/)
+- [Live demo](./demo/)
 
 ## If you come from the technical integration side
 
@@ -75,6 +76,7 @@ Start with these pages:
 - [Quickstart](/getting-started/quickstart/)
 - [Popup Definition](/reference/popup-definition/)
 - [API](/reference/api/)
+- [Live demo](./demo/)
 
 ## Important note
 
