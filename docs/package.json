@@ -1,0 +1,18 @@
+{
+  "name": "magicfeedback-popup-sdk-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.37.0",
+    "astro": "^5.18.1"
+  },
+  "overrides": {
+    "@astrojs/sitemap": "3.5.0",
+    "zod": "3.25.76"
+  }
+}

@@ -19,6 +19,8 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean && cp -R src/assets dist/assets",
     "build:watch": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "docs:dev": "npm --prefix docs run dev",
+    "docs:build": "npm --prefix docs run build",
     "lint": "eslint src --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest",
