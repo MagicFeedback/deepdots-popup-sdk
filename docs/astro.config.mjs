@@ -23,8 +23,8 @@ export default defineConfig({
   base,
   integrations: [
     starlight({
-      title: 'MagicFeedback Popup SDK',
-      description: 'Official documentation for the MagicFeedback popup SDK.',
+      title: 'Deepdots Popup SDK',
+      description: 'Official documentation for the Deepdots popup SDK.',
       disable404Route: true,
       defaultLocale: 'root',
       locales: {

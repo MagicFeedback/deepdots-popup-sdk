@@ -1,6 +1,6 @@
-# MagicFeedback Popup SDK
+# Deepdots Popup SDK
 
-TypeScript SDK for loading and displaying MagicFeedback surveys as popups in browser apps.
+TypeScript SDK for loading and displaying Deepdots surveys as popups in browser apps.
 
 Package name: `@magicfeedback/popup-sdk`
 
@@ -333,7 +333,7 @@ interface DeepdotsEvent {
 - `segments.path` is the only segment currently evaluated by the SDK runtime.
 - `exit` triggers work across anchor navigation, hash navigation, `history.pushState()`, and `history.replaceState()`.
 - Pending `exit` popups are stored in `sessionStorage` until they are shown or discarded.
-- The default browser renderer uses MagicFeedback forms and applies button labels from `actions.accept`, `actions.start`, `actions.back`, and `actions.complete`.
+- The default browser renderer uses Deepdots forms and applies button labels from `actions.accept`, `actions.start`, `actions.back`, and `actions.complete`.
 - `title`, `message`, and `style` belong to the popup definition contract, but the current browser renderer focuses on the embedded form and does not render those fields as standalone popup copy/layout controls.
 - `actions.decline` is accepted in the definition shape, but the current browser renderer does not render a dedicated decline button or enforce `decline.cooldownDays`.
 - In browser mode, the SDK creates `#deepdots-popup-container` and injects the shared popup stylesheet from jsDelivr.

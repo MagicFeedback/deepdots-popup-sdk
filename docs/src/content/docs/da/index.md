@@ -1,11 +1,11 @@
 ---
-title: MagicFeedback Popup SDK
+title: Deepdots Popup SDK
 description: Hvad SDK'et gør, hvilken forretningsværdi det giver, og hvordan det hjælper med at lancere feedback-popups uden særskilt specialudvikling.
 ---
 
-# MagicFeedback Popup SDK
+# Deepdots Popup SDK
 
-`MagicFeedback Popup SDK` gør det muligt at vise spørgeskemaer og feedback-formularer som popups i et website eller digitalt produkt, uden at man skal bygge et nyt popup-system til hvert initiativ.
+`Deepdots Popup SDK` gør det muligt at vise spørgeskemaer og feedback-formularer som popups i et website eller digitalt produkt, uden at man skal bygge et nyt popup-system til hvert initiativ.
 
 Denne side er skrevet som en kort oversigt for produktfolk, forretning, customer success og salg, som hurtigt vil forstå hvad løsningen gør, og hvornår den giver mening.
 
@@ -22,7 +22,7 @@ Uden et SDK som dette ender hvert use case ofte som særskilt udvikling med dupl
 
 ## Hvad gør det i praksis?
 
-- Viser MagicFeedback-undersøgelser som popups på websites.
+- Viser Deepdots-undersøgelser som popups på websites.
 - Gør det muligt at styre præcist hvornår en popup vises.
 - Understøtter aktivering via tid, scroll, klik, ruteforløb eller forretningshændelser.
 - Understøtter målretning på ruteniveau.

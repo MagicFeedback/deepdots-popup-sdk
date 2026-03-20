@@ -24,7 +24,7 @@
 </head>
 <body>
   <h1>🧪 Demo Deepdots Popup SDK</h1>
-  <p>Esta demo usa el SDK real en <strong>modo client</strong> con definiciones de popups fake y renderiza encuestas con MagicFeedback.</p>
+  <p>Esta demo usa el SDK real en <strong>modo client</strong> con definiciones de popups fake y renderiza encuestas con Deepdots.</p>
 
   <div class="controls">
     <button id="btn-show-popup1">Mostrar Popup 1</button>
@@ -124,7 +124,7 @@
     // Botones
     document.getElementById('btn-show-popup1').onclick = () => {
         console.log('clicked');
-      // mostramos con datos que incluyen publicKey fake para intentar generar MagicFeedback
+      // mostramos con datos que incluyen publicKey fake para intentar generar Deepdots
       sdk.show({ surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0', productId:'02b809f20e024bce47c57f123cff8735', data: { origen: 'boton_popup1' } });
     };
     document.getElementById('btn-show-popup2').onclick = () => {

@@ -1,11 +1,11 @@
 ---
-title: MagicFeedback Popup SDK
+title: Deepdots Popup SDK
 description: What the SDK does, the business value it provides, and how it helps teams launch feedback popups without building one-off solutions.
 ---
 
-# MagicFeedback Popup SDK
+# Deepdots Popup SDK
 
-The `MagicFeedback Popup SDK` lets teams show surveys and feedback forms as popups inside a website or digital product, without having to build a custom popup system for every initiative.
+The `Deepdots Popup SDK` lets teams show surveys and feedback forms as popups inside a website or digital product, without having to build a custom popup system for every initiative.
 
 This page is designed as a business-friendly overview for product, sales, customer success, and operations teams who want to quickly understand what the SDK solves and when it is useful.
 
@@ -22,7 +22,7 @@ Without an SDK like this, each use case often turns into ad hoc development, dup
 
 ## What does it do in practice?
 
-- Shows MagicFeedback surveys as popups inside the web experience.
+- Shows Deepdots surveys as popups inside the web experience.
 - Lets teams decide exactly when each popup appears.
 - Supports triggers based on time, scroll depth, click, route change, or business event.
 - Supports route-based targeting.
