@@ -1,23 +1,19 @@
 import {DeepdotsEventType, PopupActions, FormData} from '../types';
 import magicfeedback from "@magicfeedback/native";
+import magicfeedbackCss from '../assets/style.css';
 
 // Inserta la hoja de estilos de MagicFeedback directamente en el popup para garantizar estilos incluso si el bundler no la inyecta globalmente.
-function ensureMagicFeedbackStyles(popup: HTMLElement) {
-    const DATA_ATTR = 'data-magicfeedback-css';
-    // Evitar duplicar si ya existe en el documento (head) o dentro del popup
-    if (document.querySelector(`link[${DATA_ATTR}]`) || popup.querySelector(`link[${DATA_ATTR}]`)) {
-        return;
-    }
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk/dist/assets/assets/style.css';
-    link.setAttribute(DATA_ATTR, 'true');
-    // Colocar al inicio del popup para cargar primero los estilos específicos
-    popup.appendChild(link);
+function ensureMagicFeedbackStyles(_popup: HTMLElement) {
+    const STYLE_ID = 'magicfeedback-sdk-styles';
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = magicfeedbackCss;
+    document.head.appendChild(style);
 }
 
 // Añade estilos de spinner si no existen
-function ensureSpinnerStyles(popup: HTMLElement) {
+function ensureSpinnerStyles(_popup: HTMLElement) {
     if (document.getElementById('deepdots-spinner-styles')) return;
     const style = document.createElement('style');
     style.id = 'deepdots-spinner-styles';
@@ -26,10 +22,10 @@ function ensureSpinnerStyles(popup: HTMLElement) {
     .mf-spinner { display:flex; justify-content:center; align-items:center; padding:8px 0; }
     .mf-spinner-circle { width:28px; height:28px; border:3px solid #e0e6ed; border-top-color:#1E293B; border-radius:50%; animation: ddspin 0.9s linear infinite; }
   `;
-    popup.appendChild(style);
+    document.head.appendChild(style);
 }
 
-function ensureResponsiveStyles(popup: HTMLElement) {
+function ensureResponsiveStyles(_popup: HTMLElement) {
     if (document.getElementById('deepdots-responsive-styles')) return;
     const style = document.createElement('style');
     style.id = 'deepdots-responsive-styles';
@@ -37,11 +33,11 @@ function ensureResponsiveStyles(popup: HTMLElement) {
     /* Responsive adjustments */
     @media (max-width: 640px) {
       .deepdots-popup {
-        width: 100% !important;
-        max-width: 100% !important;
-        height: 90vh !important;
-        max-height: 100vh !important;
-        border-radius: 0 !important;
+        width: calc(100% - 24px) !important;
+        max-width: calc(100% - 24px) !important;
+        height: auto !important;
+        max-height: 90vh !important;
+        border-radius: 12px !important;
         padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 16px !important;
         box-sizing: border-box;
       }
@@ -65,7 +61,7 @@ function ensureResponsiveStyles(popup: HTMLElement) {
       }
     }
   `;
-    popup.appendChild(style);
+    document.head.appendChild(style);
 }
 
 /**
@@ -78,7 +74,8 @@ export async function renderPopup(
     actions: PopupActions | undefined,
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
     onClose: () => void,
-    env: string = 'production'
+    env: string = 'production',
+    userId?: string
 ): Promise<void> {
     let surveyCompletedEmitted = false;
     let stylesInjected = false;
@@ -430,8 +427,11 @@ export async function renderPopup(
             setLoading(false);
             return;
         }
-        magicfeedback.init({debug: true, env: env === 'production' ? 'prod' : 'dev'});
-        formInstance = magicfeedback.form(surveyId, productId);
+        magicfeedback.init({
+            debug: true,
+            env: env === 'production' ? 'prod' : 'dev'}
+        );
+        formInstance = magicfeedback.form(surveyId, productId, userId ? [{key: 'userId', value: [userId]}] : []);
 
         interface TypedGenerateOptions {
             addButton: boolean;
@@ -491,10 +491,10 @@ export async function renderPopup(
                     closeButton.style.border = 'none';
                     closeButton.style.color = '#fff';
                 }
-                // Botón secundario (back)
+                // Botón secundario (back) — outlined: fondo blanco, letra y borde del color secundario
                 if (s.buttonSecondaryColor) {
-
-                    backButton.style.color = '#fff';
+                    backButton.style.background = '#fff';
+                    backButton.style.color = s.buttonSecondaryColor;
                     backButton.style.border = `1px solid ${s.buttonSecondaryColor}`;
                 }
                 if (s.logo) {

@@ -10,7 +10,7 @@ import {
     PopupActions,
     PopupTrigger,
     PopupTriggerConditionStatus,
-    POPUP_TRIGGER_CONDITION_STATUSES,
+    POPUP_TRIGGER_CONDITION_STATUSES, POPUPSESSIONSTATUS,
 } from '../types';
 import { renderPopup } from '../ui/renderPopup';
 import { setupTrigger } from '../triggers';
@@ -246,6 +246,9 @@ export class DeepdotsPopups {
         if (!skipPathCheck && !this.matchesSegmentsPath(def, pathUrl)) {
             return false;
         }
+        if (!this.matchesSegmentsLang(def)) {
+            return false;
+        }
 
         const cooldowns = def.cooldown || [];
         if (cooldowns.length && !cooldowns.every((cooldown) => this.evaluateCooldown(def, cooldown))) {
@@ -255,6 +258,29 @@ export class DeepdotsPopups {
         const legacyConditions = def.legacyConditions || [];
         if (!legacyConditions.length) return true;
         return legacyConditions.every((condition) => this.evaluateLegacyCondition(def, condition));
+    }
+
+    private matchesSegmentsLang(def: PopupDefinition): boolean {
+        const langs = def.segments?.lang;
+        if (!langs || langs.length === 0) return true;
+
+        // navigator.language puede ser "en", "en-US", "da", "da-DK", etc.
+        const browserLang = (
+            typeof navigator !== 'undefined' ? navigator.language : ''
+        ).toLowerCase();
+
+        if (!browserLang) {
+            this.debug('No navigator.language available for lang comparison', { popupId: def.id, langs });
+            return true;
+        }
+
+        // Acepta si el idioma del browser empieza con alguno de los configurados
+        // ej: browser "en-US" coincide con segment "en"
+        const matches = langs.some((lang) => browserLang.startsWith(lang.toLowerCase()));
+        if (!matches) {
+            this.debug('Lang mismatch for popup', { popupId: def.id, langs, browserLang });
+        }
+        return matches;
     }
 
     private matchesSegmentsPath(def: PopupDefinition, pathUrl?: string): boolean {
@@ -504,7 +530,7 @@ export class DeepdotsPopups {
     }
 
     /** Notifica eventos de popup a la API */
-    private async postPopupEvent(status: 'opened' | 'completed', popupId: string, userId?: string): Promise<void> {
+    private async postPopupEvent(status: POPUPSESSIONSTATUS, popupId: string, userId?: string): Promise<void> {
         const apiKey = this.config?.apiKey;
         const baseUrl = this.baseUrl;
         if (!apiKey || !baseUrl) {
@@ -570,6 +596,7 @@ export class DeepdotsPopups {
 
     /** Render the popup UI */
     private renderPopup(surveyId: string, productId: string, actions?: PopupActions): void {
+        const userId = this.config?.userId;
         if (this.renderer) {
             this.renderer.show(
                 surveyId,
@@ -578,6 +605,7 @@ export class DeepdotsPopups {
                 (type, id, payload) => this.emitEvent(type, id, payload),
                 () => this.hidePopup(),
                 this.env,
+                userId,
             );
             return;
         }
@@ -591,6 +619,7 @@ export class DeepdotsPopups {
             (type, id, payload) => this.emitEvent(type, id, payload),
             () => this.hidePopup(),
             this.env,
+            userId,
         );
     }
 
@@ -622,7 +651,7 @@ export class DeepdotsPopups {
             const popupId = popupIdFromData || this.surveyToPopupId.get(surveyId);
             if (popupId) {
                 const userIdFromData = data?.userId as string | undefined;
-                void this.postPopupEvent(type === 'popup_shown' ? 'opened' : 'completed', popupId, userIdFromData || this.config?.userId);
+                void this.postPopupEvent(type === 'popup_shown' ? POPUPSESSIONSTATUS.SHOWED : POPUPSESSIONSTATUS.COMPLETED, popupId, userIdFromData || this.config?.userId);
             } else {
                 this.debug('No popupId available to post event', { type, surveyId });
             }

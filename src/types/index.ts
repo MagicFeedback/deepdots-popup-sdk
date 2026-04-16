@@ -212,3 +212,11 @@ export interface FormData {
     userId: string;
     style: FormStyle
 }
+
+export enum POPUPSESSIONSTATUS {
+    NONE = "NONE",
+    SHOWED = "SHOWED",
+    PARTIAL = "PARTIAL",
+    COMPLETED = "COMPLETED",
+    DEPRECATED = "DEPRECATED",
+}

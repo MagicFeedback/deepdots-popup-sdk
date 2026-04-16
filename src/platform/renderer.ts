@@ -12,7 +12,8 @@ export interface PopupRenderer {
     actions: PopupActions | undefined,
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
     onClose: () => void,
-    env?: string
+    env?: string,
+    userId?: string
   ): void;
   /** Ocultar popup */
   hide(): void;
@@ -27,6 +28,7 @@ export class NoopPopupRenderer implements PopupRenderer {
 /** Renderer para navegadores usando la implementación actual basada en renderPopup */
 export class BrowserPopupRenderer implements PopupRenderer {
   private container: HTMLElement | null = null;
+  private visible = false;
 
   init(): void {
     if (typeof document === 'undefined') return;
@@ -45,6 +47,8 @@ export class BrowserPopupRenderer implements PopupRenderer {
           justify-content: center;
           align-items: center;
         `;
+    }
+    if (!document.body.contains(this.container)) {
       document.body.appendChild(this.container);
     }
   }
@@ -55,14 +59,18 @@ export class BrowserPopupRenderer implements PopupRenderer {
     actions: PopupActions | undefined,
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
     onClose: () => void,
-    env: string = 'production'
+    env: string = 'production',
+    userId?: string
   ): void {
-    if (!this.container) this.init();
+    if (this.visible) return;
+    if (!this.container || !document.body.contains(this.container)) this.init();
     if (!this.container) return; // aún sin DOM
-    renderPopup(this.container, surveyId, productId, actions, emit, onClose, env);
+    this.visible = true;
+    renderPopup(this.container, surveyId, productId, actions, emit, onClose, env, userId);
   }
 
   hide(): void {
+    this.visible = false;
     if (this.container) {
       this.container.style.display = 'none';
       this.container.innerHTML = '';
