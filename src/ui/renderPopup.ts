@@ -431,7 +431,8 @@ export async function renderPopup(
             debug: true,
             env: env === 'production' ? 'prod' : 'dev'}
         );
-        formInstance = magicfeedback.form(surveyId, productId, userId ? [{key: 'userId', value: [userId]}] : []);
+        const profile = userId ? [{key: 'external-user-id', value: [userId]}] : []
+        formInstance = magicfeedback.form(surveyId, productId, profile, profile);
 
         interface TypedGenerateOptions {
             addButton: boolean;
