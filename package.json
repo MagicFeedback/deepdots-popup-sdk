@@ -25,7 +25,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build",
-    "publish": "npm publish --access public"
+    "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public"
   },
   "keywords": [
     "survey",
