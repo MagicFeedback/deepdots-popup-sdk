@@ -42,7 +42,7 @@ jobs:
           GITHUB_PAGES: "true"
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          BASE_PATH: /
+          BASE_PATH: /popup-sdk
           SITE_URL: https://docs.deepdots.com
           ASTRO_TELEMETRY_DISABLED: "1"
         run: npm run build
