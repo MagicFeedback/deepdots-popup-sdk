@@ -11,6 +11,7 @@ import {
     PopupTrigger,
     PopupTriggerConditionStatus,
     POPUP_TRIGGER_CONDITION_STATUSES, POPUPSESSIONSTATUS,
+    PopupStyle,
 } from '../types';
 import { renderPopup } from '../ui/renderPopup';
 import { setupTrigger } from '../triggers';
@@ -139,7 +140,7 @@ export class DeepdotsPopups {
             this.log('Showing popup (definition)', def);
             this.surveyToPopupId.set(def.surveyId, def.id);
             this.lastShown.set(def.id, Date.now());
-            this.renderPopup(def.surveyId, def.productId, def.actions);
+            this.renderPopup(def.surveyId, def.productId, def.actions, def.style);
             this.emitEvent('popup_shown', def.surveyId, { popupId: def.id });
         } else {
             const opt = options as { surveyId: string; productId: string; data?: Record<string, unknown> };
@@ -595,7 +596,7 @@ export class DeepdotsPopups {
     }
 
     /** Render the popup UI */
-    private renderPopup(surveyId: string, productId: string, actions?: PopupActions): void {
+    private renderPopup(surveyId: string, productId: string, actions?: PopupActions, style?: PopupStyle): void {
         const userId = this.config?.userId;
         if (this.renderer) {
             this.renderer.show(
@@ -606,6 +607,7 @@ export class DeepdotsPopups {
                 () => this.hidePopup(),
                 this.env,
                 userId,
+                style,
             );
             return;
         }
@@ -620,6 +622,7 @@ export class DeepdotsPopups {
             () => this.hidePopup(),
             this.env,
             userId,
+            style,
         );
     }
 

@@ -12,15 +12,22 @@ export async function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
 
   const sdk = new DeepdotsPopups();
   sdk.init({
-    mode,
-    nodeEnv: 'development',
-    debug: true,
-    apiKey: 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5'
+    mode, // "server"
+    apiKey: 'jFuQnhSBuC1f0IU6FHKyipjJ866zfEl8',
+    // userId: '1236'
   });
 
   if (modeLabelEl) {
     modeLabelEl.textContent = `${mode} · ${getSdkSource()}`;
   }
+
+  // btn click id="btn-test"
+  document.addEventListener('click', (ev) => {
+    const target = ev.target;
+    if (target.id === 'btn-test') {
+      sdk.triggerEvent('custom-event');
+    }
+  });
 
   if (eventLogEl) {
     const log = (ev) => {

@@ -140,8 +140,9 @@ export interface PopupActions {
 /** Estilos configurables del popup */
 export interface PopupStyle {
     theme: 'light' | 'dark';
-    position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
-    imageUrl: string | null;
+    position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
+    /** @deprecated No usado por el SDK — solo se conserva por compatibilidad con la API */
+    imageUrl?: string | null;
 }
 
 /** Segmentos o targeting para mostrar el popup */

@@ -1,4 +1,4 @@
-import {DeepdotsEventType, PopupActions} from '../types';
+import {DeepdotsEventType, PopupActions, PopupStyle} from '../types';
 import { renderPopup } from '../ui/renderPopup';
 import { isReactNativeEnv, createReactNativeRenderer } from './react-native-renderer';
 
@@ -13,7 +13,8 @@ export interface PopupRenderer {
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
     onClose: () => void,
     env?: string,
-    userId?: string
+    userId?: string,
+    style?: PopupStyle,
   ): void;
   /** Ocultar popup */
   hide(): void;
@@ -60,13 +61,14 @@ export class BrowserPopupRenderer implements PopupRenderer {
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
     onClose: () => void,
     env: string = 'production',
-    userId?: string
+    userId?: string,
+    style?: PopupStyle,
   ): void {
     if (this.visible) return;
     if (!this.container || !document.body.contains(this.container)) this.init();
     if (!this.container) return; // aún sin DOM
     this.visible = true;
-    renderPopup(this.container, surveyId, productId, actions, emit, onClose, env, userId);
+    renderPopup(this.container, surveyId, productId, actions, emit, onClose, env, userId, style);
   }
 
   hide(): void {

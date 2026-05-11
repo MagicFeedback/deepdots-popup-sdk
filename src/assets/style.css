@@ -101,8 +101,8 @@
     box-shadow: 0 0 3px #ccc;
 }
 
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
+.deepdots-popup input::-webkit-outer-spin-button,
+.deepdots-popup input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     -moz-appearance: textfield;
 }
@@ -127,12 +127,12 @@ input::-webkit-inner-spin-button {
     width: 100%;
 }
 
-p {
+.deepdots-popup p {
     margin-bottom: 0px;
     font-size: 12px;
 }
 
-h2 {
+.deepdots-popup h2 {
     line-height: 1.66;
     margin: 0;
     padding: 0;
@@ -145,17 +145,17 @@ h2 {
     margin-bottom: 40px;
 }
 
-h6 {
+.deepdots-popup h6 {
     margin-bottom: 1rem;
 }
 
-input[type="date"],
-input[type="text"],
-input[type="number"],
-input[type="email"],
-input[type="password"],
-textarea,
-select {
+.deepdots-popup input[type="date"],
+.deepdots-popup input[type="text"],
+.deepdots-popup input[type="number"],
+.deepdots-popup input[type="email"],
+.deepdots-popup input[type="password"],
+.deepdots-popup textarea,
+.deepdots-popup select {
     box-sizing: border-box;
     padding: 10px;
     margin: 10px 0;
@@ -170,7 +170,7 @@ select {
     -webkit-appearance: none;
 }
 
-select {
+.deepdots-popup select {
     background-image: linear-gradient(45deg, transparent 50%, gray 50%),
     linear-gradient(135deg, gray 50%, transparent 50%),
     linear-gradient(to right, #ccc, #ccc);
@@ -233,7 +233,7 @@ select {
     background-color: #cadff8;
 }
 
-input[type="radio"] {
+.deepdots-popup input[type="radio"] {
     padding: 20px;
     margin: 10px 0 10px 15px;
     width: 40px;
@@ -242,12 +242,12 @@ input[type="radio"] {
 }
 
 /* Style for focused input/select */
-input:focus, select:focus {
+.deepdots-popup input:focus, .deepdots-popup select:focus {
     border-color: #4CAF50; /* Highlight color when focused - you can customize this */
 }
 
 /* Style for invalid input (example: validation error) */
-input.error, select.error {
+.deepdots-popup input.error, .deepdots-popup select.error {
     border-color: #ff3333; /* Red color for error state - you can customize this */
 }
 

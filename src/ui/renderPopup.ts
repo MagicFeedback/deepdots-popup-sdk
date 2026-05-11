@@ -1,4 +1,4 @@
-import {DeepdotsEventType, PopupActions, FormData} from '../types';
+import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
 
@@ -75,10 +75,31 @@ export async function renderPopup(
     emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
     onClose: () => void,
     env: string = 'production',
-    userId?: string
+    userId?: string,
+    style?: PopupStyle,
 ): Promise<void> {
     let surveyCompletedEmitted = false;
     let stylesInjected = false;
+
+    const isDark = style?.theme === 'dark';
+    const theme = {
+        popupBg:          isDark ? '#1e1e1e' : '#fff',
+        textPrimary:      isDark ? '#f0f0f0' : '#111',
+        closeBtnHoverBg:  isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)',
+        closeBtnHoverColor: isDark ? '#fff' : '#000000',
+    };
+
+    const positionMap: Record<string, { justifyContent: string; alignItems: string; padding?: string; background: string }> = {
+        'center':       { justifyContent: 'center',     alignItems: 'center',                        background: 'rgba(0,0,0,0.5)' },
+        'bottom':       { justifyContent: 'center',     alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
+        'bottom-right': { justifyContent: 'flex-end',   alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
+        'bottom-left':  { justifyContent: 'flex-start', alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
+        'top':          { justifyContent: 'center',     alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
+        'top-right':    { justifyContent: 'flex-end',   alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
+        'top-left':     { justifyContent: 'flex-start', alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
+    };
+    const pos = positionMap[style?.position ?? 'center'] ?? positionMap['center'];
+
     // Crear popup base
     const popup = document.createElement('div');
     popup.className = 'deepdots-popup';
@@ -87,7 +108,7 @@ export async function renderPopup(
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
-      background: #fff;
+      background: ${theme.popupBg};
       border-radius: 8px;
       padding: 24px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -120,18 +141,18 @@ export async function renderPopup(
       justify-content:center;
       border-radius: 8px;
       cursor:pointer;
-      color:#111;
+      color:${theme.textPrimary};
       padding:4px;
       transition: color .15s ease, transform .15s ease, background .15s ease;
       box-shadow: none !important;
     `;
     closeBtn.onmouseenter = () => {
-        closeBtn.style.color = '#000000';
-        closeBtn.style.background = 'rgba(0,0,0,0.06)';
+        closeBtn.style.color = theme.closeBtnHoverColor;
+        closeBtn.style.background = theme.closeBtnHoverBg;
         closeBtn.style.transform = 'scale(1.06)';
     };
     closeBtn.onmouseleave = () => {
-        closeBtn.style.color = '#111';
+        closeBtn.style.color = theme.textPrimary;
         closeBtn.style.background = 'transparent';
         closeBtn.style.transform = 'scale(1)';
     };
@@ -387,6 +408,10 @@ export async function renderPopup(
     container.innerHTML = '';
     container.appendChild(popup);
     container.style.display = 'flex';
+    container.style.justifyContent = pos.justifyContent;
+    container.style.alignItems = pos.alignItems;
+    container.style.background = pos.background;
+    if (pos.padding) container.style.padding = pos.padding;
 
     // Gestión dinámica de loading
     function setLoading(isLoading: boolean) {
