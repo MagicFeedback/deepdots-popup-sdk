@@ -33,10 +33,8 @@ export function useDeepdotsPopups(userId?: string) {
     const popups = new DeepdotsPopups();
     popups.init({
       mode: 'server',
-      nodeEnv: 'production',
       apiKey: 'YOUR_PUBLIC_API_KEY',
       userId,
-      debug: false,
     });
 
     popups.autoLaunch();
@@ -74,7 +72,6 @@ export function DeepdotsProvider({ userId }: { userId?: string }) {
     const popups = new DeepdotsPopups();
     popups.init({
       mode: 'server',
-      nodeEnv: 'production',
       apiKey: process.env.NEXT_PUBLIC_DEEPDOTS_API_KEY!,
       userId,
     });
@@ -118,9 +115,7 @@ export function FeedbackButton() {
     const popups = new DeepdotsPopups();
     popups.init({
       mode: 'server',
-      nodeEnv: 'production',
       apiKey: 'YOUR_PUBLIC_API_KEY',
-      userId: 'customer-123',
     });
     popups.autoLaunch();
     popupsRef.current = popups;
