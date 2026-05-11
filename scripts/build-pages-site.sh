@@ -15,6 +15,9 @@ if [ -f "$ROOT_DIR/docs/public/CNAME" ]; then
   cp "$ROOT_DIR/docs/public/CNAME" "$SITE_DIR/CNAME"
 fi
 
+# Place the multi-SDK landing page at the site root.
+cp "$ROOT_DIR/scripts/pages-landing/index.html" "$SITE_DIR/index.html"
+
 # Copy the public demo files under /demo.
 cp "$ROOT_DIR/examples/index.html" "$SITE_DIR/demo/index.html"
 cp "$ROOT_DIR/examples/product.html" "$SITE_DIR/demo/product.html"

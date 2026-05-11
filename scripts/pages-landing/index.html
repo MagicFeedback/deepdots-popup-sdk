@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deepdots Developer Docs</title>
+    <meta
+      name="description"
+      content="Documentation hub for Deepdots SDKs and integrations."
+    />
+    <style>
+      :root {
+        color-scheme: dark light;
+        --bg: #0b0f14;
+        --fg: #e6edf3;
+        --muted: #8b96a3;
+        --card: #11171f;
+        --card-hover: #161e29;
+        --border: #1f2937;
+        --accent: #5eead4;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f7f8fa;
+          --fg: #0b0f14;
+          --muted: #5b6573;
+          --card: #ffffff;
+          --card-hover: #f0f3f7;
+          --border: #e4e7eb;
+          --accent: #0d9488;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.5;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 80px 24px 48px;
+        flex: 1;
+        width: 100%;
+      }
+      header {
+        margin-bottom: 48px;
+      }
+      .eyebrow {
+        color: var(--accent);
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+      h1 {
+        font-size: clamp(28px, 4vw, 40px);
+        margin: 0 0 12px;
+        letter-spacing: -0.01em;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 17px;
+        max-width: 60ch;
+        margin: 0;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 640px) {
+        .grid { grid-template-columns: 1fr 1fr; }
+      }
+      .card {
+        display: block;
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--card);
+        color: inherit;
+        text-decoration: none;
+        transition: background 120ms ease, border-color 120ms ease,
+          transform 120ms ease;
+      }
+      .card:hover,
+      .card:focus-visible {
+        background: var(--card-hover);
+        border-color: var(--accent);
+        transform: translateY(-1px);
+        outline: none;
+      }
+      .card h2 {
+        font-size: 18px;
+        margin: 0 0 6px;
+      }
+      .card p {
+        color: var(--muted);
+        margin: 0;
+        font-size: 14px;
+      }
+      .card .arrow {
+        display: inline-block;
+        margin-left: 4px;
+        transition: transform 120ms ease;
+      }
+      .card:hover .arrow { transform: translateX(2px); }
+      footer {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 24px;
+        color: var(--muted);
+        font-size: 13px;
+        width: 100%;
+      }
+      footer a { color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">Deepdots</div>
+        <h1>Developer documentation</h1>
+        <p class="lede">
+          Reference, guides, and examples for the Deepdots SDKs. Pick a
+          product below to get started.
+        </p>
+      </header>
+
+      <section class="grid" aria-label="Available SDKs">
+        <a class="card" href="/popup-sdk/">
+          <h2>Popup SDK <span class="arrow" aria-hidden="true">→</span></h2>
+          <p>
+            Show surveys and feedback forms as popups inside a website or
+            digital product.
+          </p>
+        </a>
+
+        <a class="card" href="/demo/">
+          <h2>Live demo <span class="arrow" aria-hidden="true">→</span></h2>
+          <p>
+            Interactive example pages that mount the Popup SDK against real
+            forms.
+          </p>
+        </a>
+      </section>
+    </main>
+
+    <footer>
+      <a href="https://deepdots.com">deepdots.com</a> ·
+      <a href="https://github.com/MagicFeedback/deepdots-popup-sdk">GitHub</a>
+    </footer>
+  </body>
+</html>
