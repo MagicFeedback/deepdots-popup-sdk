@@ -42,8 +42,8 @@ jobs:
           GITHUB_PAGES: "true"
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
-          SITE_URL: https://${{ github.repository_owner }}.github.io
+          BASE_PATH: /
+          SITE_URL: https://docs.deepdots.com
           ASTRO_TELEMETRY_DISABLED: "1"
         run: npm run build
 
