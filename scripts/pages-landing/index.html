@@ -8,6 +8,7 @@
       name="description"
       content="Documentation hub for Deepdots SDKs and integrations."
     />
+    <link rel="icon" href="/favicon.ico" />
     <style>
       :root {
         color-scheme: dark light;
@@ -52,12 +53,20 @@
       header {
         margin-bottom: 48px;
       }
-      .eyebrow {
-        color: var(--accent);
-        font-size: 13px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        margin-bottom: 12px;
+      .brand {
+        display: block;
+        margin-bottom: 32px;
+      }
+      .brand img {
+        display: block;
+        height: 40px;
+        width: auto;
+      }
+      .brand .brand-light { display: none; }
+      .brand .brand-dark { display: block; }
+      @media (prefers-color-scheme: light) {
+        .brand .brand-light { display: block; }
+        .brand .brand-dark { display: none; }
       }
       h1 {
         font-size: clamp(28px, 4vw, 40px);
@@ -125,7 +134,10 @@
   <body>
     <main>
       <header>
-        <div class="eyebrow">Deepdots</div>
+        <a class="brand" href="/" aria-label="Deepdots">
+          <img class="brand-dark" src="/assets/logo-light-long.svg" alt="Deepdots" />
+          <img class="brand-light" src="/assets/logo-dark-long.svg" alt="Deepdots" />
+        </a>
         <h1>Developer documentation</h1>
         <p class="lede">
           Reference, guides, and examples for the Deepdots SDKs. Pick a

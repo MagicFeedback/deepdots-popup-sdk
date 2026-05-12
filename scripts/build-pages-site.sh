@@ -17,6 +17,9 @@ fi
 
 # Place the multi-SDK landing page at the site root.
 cp "$ROOT_DIR/scripts/pages-landing/index.html" "$SITE_DIR/index.html"
+cp "$ROOT_DIR/scripts/pages-landing/favicon.ico" "$SITE_DIR/favicon.ico"
+mkdir -p "$SITE_DIR/assets"
+cp -R "$ROOT_DIR/scripts/pages-landing/assets/." "$SITE_DIR/assets/"
 
 # Copy the public demo files under /demo.
 cp "$ROOT_DIR/examples/index.html" "$SITE_DIR/demo/index.html"
