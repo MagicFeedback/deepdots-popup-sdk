@@ -1,45 +1,37 @@
 ---
-title: Server vs Client Mode
-description: Driftsmæssige forskelle mellem de to modes.
+title: Server Mode
+description: SDK'et kører i server mode — popups styres i Deepdots og hentes i runtime.
 ---
 
-## Server mode
+Deepdots Popup SDK kører i **server mode**. Der er ikke nogen anden understøttet mode til kundeintegrationer.
 
-Brug denne mode når popup-definitionerne ligger i Deepdots og skal hentes ved runtime.
+## Hvad server mode betyder
+
+- Popup-definitioner, tekst, triggers, targeting og cooldowns lever i **Deepdots**.
+- SDK'et henter dem i runtime ved hjælp af din `apiKey`.
+- Din kode definerer aldrig popups manuelt — den monterer kun SDK'et og reagerer på dets events.
+
+## Minimal konfiguration
 
 ```ts
+import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
+
+const popups = new DeepdotsPopups();
+
 popups.init({
   mode: 'server',
   apiKey: 'YOUR_PUBLIC_API_KEY',
-  nodeEnv: 'production',
 });
+
+popups.autoLaunch();
 ```
 
-Egenskaber:
+## Valgfri felter
 
-- Henter popups fra API'et.
-- `autoLaunch()` kan kaldes direkte efter `init()`.
-- Triggere aktiveres når de eksterne definitioner er indlæst.
+| Felt     | Type     | Standard | Hvad det gør                                                |
+| -------- | -------- | -------- | ----------------------------------------------------------- |
+| `userId` | `string` | ingen    | Sendes med hver popup-event til bruger-identifikation.      |
 
-## Client mode
+## Hvorfor ingen klient-side definitioner?
 
-Brug denne mode når du vil styre definitionerne i din egen kode.
-
-```ts
-popups.init({
-  mode: 'client',
-  debug: true,
-  popups: popupDefinitions,
-});
-```
-
-Use cases:
-
-- lokale demoer
-- QA
-- tests uden API
-- fallback-flows styret af hosten
-
-:::caution
-`client` mode er reserveret til intern brug. Offentlige implementationer bør dokumenteres og understøttes via `server` mode.
-:::
+At definere popups i din kode ville dele ejerskabet af oplevelsen mellem din kodebase og Deepdots. Server mode bevarer én sandhedskilde, så produkt-, marketing- og CS-teams kan ændre tekst, targeting og triggers uden et kode-deploy fra din side.

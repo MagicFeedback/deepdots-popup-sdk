@@ -1,9 +1,13 @@
 ---
 title: Popup Definition
-description: Den aktuelle struktur for PopupDefinition og noter om runtime-adfærd.
+description: Strukturen for en popup, som den leveres af Deepdots-API'en. Informativ — du bygger den ikke selv.
 ---
 
-## Aktuel form
+Denne side dokumenterer strukturen for en popup, **som den leveres af Deepdots-API'en**. Du behøver ikke at bygge disse objekter i din applikationskode — Deepdots opbevarer dem, og SDK'et indlæser dem i runtime i server mode.
+
+Den er offentliggjort her, så integratorer kan forstå, hvad der ankommer til SDK'et, og hvilke felter der styrer adfærden.
+
+## Struktur
 
 ```ts
 interface PopupDefinition {
@@ -19,70 +23,31 @@ interface PopupDefinition {
     cooldownDays: number;
   }>;
   actions?: {
-    accept?: {
-      label: string;
-      surveyId: string;
-    };
-    start?: {
-      label: string;
-    };
-    back?: {
-      label: string;
-      cooldownDays?: number;
-    };
-    complete?: {
-      label: string;
-      surveyId: string;
-      autoCompleteParams: Record<string, unknown>;
-      cooldownDays?: number;
-    };
-    decline?: {
-      label: string;
-      cooldownDays?: number;
-    };
+    accept?:   { label: string; surveyId: string };
+    start?:    { label: string };
+    back?:     { label: string; cooldownDays?: number };
+    complete?: { label: string; surveyId: string; autoCompleteParams: Record<string, unknown>; cooldownDays?: number };
+    decline?:  { label: string; cooldownDays?: number };
   };
   surveyId: string;
   productId: string;
   style?: {
     theme: 'light' | 'dark';
-    position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
-    imageUrl: string | null;
+    position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
   };
   segments?: {
     path?: string[];
-    [key: string]: unknown;
   };
 }
 ```
 
-## Reelle runtime-noter
+## Felter der påvirker adfærd
 
-- `segments.path` er det eneste segment der evalueres i dag.
-- `title`, `message` og `style` er del af kontrakten, men den nuværende web-renderer gengiver dem ikke som selvstændigt layout.
-- `actions.decline` accepteres i definitionen, men den nuværende web-renderer viser ikke en dedikeret decline-knap og anvender ikke `decline.cooldownDays`.
+- **`triggers`** — hvornår popup'en vises. Se [Triggers](/da/guides/triggers/) for `value`-semantik pr. trigger-type.
+- **`cooldown`** — hvor længe der skal ventes, før popup'en vises igen, afhængigt af brugerens fremskridt (`SHOWED`, `PARTIAL`, `COMPLETED`).
+- **`segments.path`** — liste over ruter, hvor popup'en må vises.
+- **`style.theme` / `style.position`** — visuel variant.
 
-## Fuldt eksempel
+## Hvor konfigureres dette
 
-```ts
-const popupDefinition = {
-  id: 'popup-home-5s',
-  title: 'Help us improve',
-  message: '<p>Thanks for visiting our homepage.</p>',
-  triggers: [{ type: 'time_on_page', value: 5 }],
-  cooldown: [
-    { answered: 'SHOWED', cooldownDays: 7 },
-    { answered: 'COMPLETED', cooldownDays: 30 },
-  ],
-  actions: {
-    accept: {
-      label: 'Open survey',
-      surveyId: 'survey-home-001',
-    },
-  },
-  surveyId: 'survey-home-001',
-  productId: 'product-main',
-  segments: {
-    path: ['/', '/pricing', '/#/home'],
-  },
-};
-```
+Popup-definitioner oprettes og redigeres i **Deepdots**, ikke i din kode. Felterne ovenfor er listet, så dit team kan forstå præcis, hvilke knapper der er tilgængelige, når en popup konfigureres.

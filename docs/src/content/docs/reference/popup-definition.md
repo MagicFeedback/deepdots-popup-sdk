@@ -1,9 +1,13 @@
 ---
 title: Popup Definition
-description: Current PopupDefinition shape and runtime behavior notes.
+description: The shape of a popup as delivered by the Deepdots API. Informational — you don't build this yourself.
 ---
 
-## Current shape
+This page documents the shape of a popup as **delivered by the Deepdots API**. You do not need to build these objects in your application code — Deepdots stores them and the SDK loads them at runtime in server mode.
+
+It is published here so that integrators can understand what arrives at the SDK and what fields drive behavior.
+
+## Shape
 
 ```ts
 interface PopupDefinition {
@@ -19,70 +23,31 @@ interface PopupDefinition {
     cooldownDays: number;
   }>;
   actions?: {
-    accept?: {
-      label: string;
-      surveyId: string;
-    };
-    start?: {
-      label: string;
-    };
-    back?: {
-      label: string;
-      cooldownDays?: number;
-    };
-    complete?: {
-      label: string;
-      surveyId: string;
-      autoCompleteParams: Record<string, unknown>;
-      cooldownDays?: number;
-    };
-    decline?: {
-      label: string;
-      cooldownDays?: number;
-    };
+    accept?:   { label: string; surveyId: string };
+    start?:    { label: string };
+    back?:     { label: string; cooldownDays?: number };
+    complete?: { label: string; surveyId: string; autoCompleteParams: Record<string, unknown>; cooldownDays?: number };
+    decline?:  { label: string; cooldownDays?: number };
   };
   surveyId: string;
   productId: string;
   style?: {
     theme: 'light' | 'dark';
-    position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
-    imageUrl: string | null;
+    position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
   };
   segments?: {
     path?: string[];
-    [key: string]: unknown;
   };
 }
 ```
 
-## Actual runtime notes
+## Fields that affect behavior
 
-- `segments.path` is the only segment evaluated today.
-- `title`, `message`, and `style` are part of the contract, but the current web renderer does not render them as independent layout.
-- `actions.decline` is accepted in the definition, but the current web renderer does not show a dedicated decline button or apply `decline.cooldownDays`.
+- **`triggers`** — when the popup is shown. See [Triggers](/guides/triggers/) for value semantics per trigger type.
+- **`cooldown`** — how long to wait before showing again, depending on the user's progress (`SHOWED`, `PARTIAL`, `COMPLETED`).
+- **`segments.path`** — list of routes where the popup is allowed to appear.
+- **`style.theme` / `style.position`** — visual variant.
 
-## Full example
+## Where to configure this
 
-```ts
-const popupDefinition = {
-  id: 'popup-home-5s',
-  title: 'Help us improve',
-  message: '<p>Thanks for visiting our homepage.</p>',
-  triggers: [{ type: 'time_on_page', value: 5 }],
-  cooldown: [
-    { answered: 'SHOWED', cooldownDays: 7 },
-    { answered: 'COMPLETED', cooldownDays: 30 },
-  ],
-  actions: {
-    accept: {
-      label: 'Open survey',
-      surveyId: 'survey-home-001',
-    },
-  },
-  surveyId: 'survey-home-001',
-  productId: 'product-main',
-  segments: {
-    path: ['/', '/pricing', '/#/home'],
-  },
-};
-```
+Popup definitions are created and edited in **Deepdots**, not in your code. The fields above are listed so that your team can understand exactly which knobs are available when configuring a popup.

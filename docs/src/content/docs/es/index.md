@@ -1,87 +1,53 @@
 ---
 title: Deepdots Popup SDK
-description: Que hace el SDK, para que sirve en negocio y como ayuda a lanzar popups de feedback sin depender de desarrollos ad hoc.
+description: Muestra encuestas de Deepdots como popups dentro de tu producto sin construir un sistema de popups propio. Dispáralos en el momento justo y mide resultados.
 ---
 
 # Deepdots Popup SDK
 
-El `Deepdots Popup SDK` permite mostrar encuestas y formularios de feedback como popups dentro de una web o producto digital, sin tener que construir un sistema de popups a medida para cada iniciativa.
+El **Deepdots Popup SDK** permite que tu producto muestre encuestas de Deepdots como popups en el momento exacto — sin necesidad de construir un sistema de popups a medida cada vez que quieras pedir feedback.
 
-Esta pagina esta pensada como resumen para personas de producto, negocio, customer success o ventas que quieran entender rapidamente que resuelve y cuando tiene sentido usarlo.
+Instalas el SDK, le das tu API key, y los popups, triggers, segmentación y cooldowns se gestionan centralmente desde Deepdots. Tu código solo necesita inicializar el SDK una vez y, opcionalmente, lanzar eventos cuando ocurra algo relevante en tu flujo de negocio.
 
-## Que problema resuelve
+## Qué hace
 
-Muchas veces una empresa quiere:
+- Muestra tus encuestas de Deepdots como popups dentro de tu producto web.
+- Los dispara según tiempo en página, profundidad de scroll, click en un elemento, salida de ruta o un evento de negocio que tú emites.
+- Segmenta por ruta del sitio.
+- Aplica cooldowns para no interrumpir al mismo usuario dos veces.
+- Emite eventos (`popup_shown`, `popup_clicked`, `survey_completed`) para que puedas medir el funnel.
 
-- lanzar una encuesta en un momento concreto del journey
-- pedir feedback al abandonar una pagina importante
-- activar una encuesta despues de una accion de negocio
-- medir si ese popup se ha mostrado, abierto o completado
+## Lo que no tienes que hacer
 
-Sin un SDK como este, cada caso suele acabar en desarrollos aislados, logica duplicada y poca trazabilidad.
+- No defines popups en código. Viven en Deepdots y se entregan al SDK en tiempo de ejecución.
+- No gestionas la lógica de triggers, las reglas de elegibilidad ni los cooldowns. Lo hace el SDK.
+- No alojas ni renderizas la UI de la encuesta. Lo hace el SDK por ti.
 
-## Que hace en la practica
+## Casos de uso típicos
 
-- Muestra popups de encuestas de Deepdots dentro de la web.
-- Permite decidir cuando aparece cada popup.
-- Soporta activacion por tiempo, scroll, click, cambio de ruta o evento de negocio.
-- Permite segmentar por ruta.
-- Emite eventos para que el equipo pueda medir impacto y comportamiento.
+- Popup de feedback unos segundos después de llegar a la página de precios.
+- Encuesta al detectar que un usuario está a punto de salir de una página de producto.
+- Encuesta tras un evento de negocio relevante (búsquedas repetidas, compra completada, carrito abandonado…).
+- Popup visible solo en rutas concretas.
 
-## Para quien es util
+## Cómo funciona, a grandes rasgos
 
-### Producto / PM
+1. Llamas a `popups.init({ mode: 'server', apiKey: '…' })` una vez al arrancar tu app.
+2. Llamas a `popups.autoLaunch()` para activar los triggers que vienen de la API de Deepdots.
+3. Opcionalmente, llamas a `popups.triggerEvent('nombre_evento')` desde tu código cuando ocurra un evento de negocio.
+4. Te suscribes a los eventos del SDK para registrar las interacciones en tu analítica.
 
-Sirve para lanzar iniciativas de feedback sin tener que redefinir cada vez la logica de disparo, elegibilidad y seguimiento.
+## Por dónde seguir
 
-### Ventas / Preventa
+### Producto, ventas, customer success
 
-Ayuda a explicar que la solucion no es solo un formulario, sino una forma controlada de insertar encuestas en momentos clave del journey digital.
+- [Qué es un trigger](/es/guides/triggers/) — todas las formas en que un popup puede lanzarse.
+- [Eventos que emite el SDK](/es/guides/events/) — qué verá tu analítica.
 
-### Customer Success / Operaciones
+### Integración técnica
 
-Facilita probar escenarios, validar experiencias y coordinar cambios sin tocar toda la aplicacion.
-
-## Casos de uso tipicos
-
-- Popup de feedback tras unos segundos en una pagina de pricing.
-- Encuesta al salir de una ficha de producto.
-- Encuesta activada despues de un evento del negocio como una busqueda repetida o una compra.
-- Popup solo visible en rutas concretas.
-
-## Dos formas de trabajar
-
-### Server mode
-
-Recomendado para integraciones reales. Las definiciones de popup se descargan desde la API y se gestionan de forma centralizada.
-
-### Client mode
-
-Reservado para uso interno. Es util para demos, QA, prototipos y pruebas locales con definiciones inline, pero no es el modo publico de integracion que recomendamos a clientes.
-
-## Si vienes de negocio
-
-Empieza por estas paginas:
-
-- [Server vs Client Mode](/es/guides/modes/)
-- [Examples](/es/guides/examples/)
-- [React Native](/es/reference/react-native/)
-- [Demo publica](../demo/)
-
-## Si vienes de integracion tecnica
-
-Empieza por estas paginas:
-
-- [Instalacion](/es/getting-started/installation/)
+- [Instalación](/es/getting-started/installation/)
 - [Quickstart](/es/getting-started/quickstart/)
-- [Popup Definition](/es/reference/popup-definition/)
-- [API](/es/reference/api/)
-- [Demo publica](../demo/)
-
-## Nota importante
-
-La documentacion tecnica de este sitio esta escrita desde el comportamiento real del SDK actual. En especial:
-
-- `triggers` es un array
-- `cooldown` va separado de `triggers`
-- los estados de progreso son `SHOWED`, `PARTIAL` y `COMPLETED`
+- [Triggers en detalle](/es/guides/triggers/)
+- [Referencia de la API](/es/reference/api/)
+- [React](/es/reference/react/) · [React Native](/es/reference/react-native/)

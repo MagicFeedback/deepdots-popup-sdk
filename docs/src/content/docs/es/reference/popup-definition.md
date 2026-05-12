@@ -1,9 +1,13 @@
 ---
 title: Popup Definition
-description: Esquema actual de PopupDefinition y notas de comportamiento.
+description: Estructura de un popup tal y como la entrega la API de Deepdots. Informativa — no la construyes tú.
 ---
 
-## Forma actual
+Esta página documenta la estructura de un popup **tal y como la entrega la API de Deepdots**. No necesitas construir estos objetos en tu código — Deepdots los almacena y el SDK los carga en tiempo de ejecución en modo server.
+
+Se publica aquí para que los integradores puedan entender qué llega al SDK y qué campos determinan el comportamiento.
+
+## Estructura
 
 ```ts
 interface PopupDefinition {
@@ -19,70 +23,31 @@ interface PopupDefinition {
     cooldownDays: number;
   }>;
   actions?: {
-    accept?: {
-      label: string;
-      surveyId: string;
-    };
-    start?: {
-      label: string;
-    };
-    back?: {
-      label: string;
-      cooldownDays?: number;
-    };
-    complete?: {
-      label: string;
-      surveyId: string;
-      autoCompleteParams: Record<string, unknown>;
-      cooldownDays?: number;
-    };
-    decline?: {
-      label: string;
-      cooldownDays?: number;
-    };
+    accept?:   { label: string; surveyId: string };
+    start?:    { label: string };
+    back?:     { label: string; cooldownDays?: number };
+    complete?: { label: string; surveyId: string; autoCompleteParams: Record<string, unknown>; cooldownDays?: number };
+    decline?:  { label: string; cooldownDays?: number };
   };
   surveyId: string;
   productId: string;
   style?: {
     theme: 'light' | 'dark';
-    position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
-    imageUrl: string | null;
+    position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
   };
   segments?: {
     path?: string[];
-    [key: string]: unknown;
   };
 }
 ```
 
-## Notas reales de runtime
+## Campos que afectan al comportamiento
 
-- `segments.path` es el unico segmento que se evalua hoy.
-- `title`, `message` y `style` forman parte del contrato, pero el renderer web actual no los pinta como layout independiente.
-- `actions.decline` se acepta en la definicion, pero el renderer web actual no muestra un boton dedicado de decline ni aplica `decline.cooldownDays`.
+- **`triggers`** — cuándo se muestra el popup. Consulta [Triggers](/es/guides/triggers/) para la semántica de `value` por tipo.
+- **`cooldown`** — cuánto esperar antes de mostrarlo de nuevo, según el progreso del usuario (`SHOWED`, `PARTIAL`, `COMPLETED`).
+- **`segments.path`** — lista de rutas donde el popup puede aparecer.
+- **`style.theme` / `style.position`** — variante visual.
 
-## Ejemplo completo
+## Dónde se configura esto
 
-```ts
-const popupDefinition = {
-  id: 'popup-home-5s',
-  title: 'Help us improve',
-  message: '<p>Thanks for visiting our homepage.</p>',
-  triggers: [{ type: 'time_on_page', value: 5 }],
-  cooldown: [
-    { answered: 'SHOWED', cooldownDays: 7 },
-    { answered: 'COMPLETED', cooldownDays: 30 },
-  ],
-  actions: {
-    accept: {
-      label: 'Open survey',
-      surveyId: 'survey-home-001',
-    },
-  },
-  surveyId: 'survey-home-001',
-  productId: 'product-main',
-  segments: {
-    path: ['/', '/pricing', '/#/home'],
-  },
-};
-```
+Las definiciones de popup se crean y editan en **Deepdots**, no en tu código. Los campos de arriba se listan para que tu equipo entienda exactamente qué palancas hay disponibles al configurar un popup.

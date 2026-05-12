@@ -1,11 +1,17 @@
 ---
 title: Quickstart
-description: First working integration in server mode, plus internal-only notes for client mode.
+description: Get the SDK running in your product in three steps.
 ---
 
-## Server mode
+The SDK runs in **server mode**: your popups, triggers, and targeting live in Deepdots and are fetched at runtime. You only need to mount the SDK, hand it your API key, and start it.
 
-`server` is the recommended mode for production.
+## 1. Install
+
+```bash
+npm install @magicfeedback/popup-sdk
+```
+
+## 2. Initialize and auto-launch
 
 ```ts
 import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
@@ -14,75 +20,34 @@ const popups = new DeepdotsPopups();
 
 popups.init({
   mode: 'server',
-  nodeEnv: 'production',
   apiKey: 'YOUR_PUBLIC_API_KEY',
-  userId: 'customer-123',
-  debug: false,
-});
-
-popups.on('popup_shown', (event) => {
-  console.log('Popup shown', event);
-});
-
-popups.on('survey_completed', (event) => {
-  console.log('Survey completed', event);
+  userId: 'customer-123', // optional — your internal user identifier
 });
 
 popups.autoLaunch();
 ```
 
-## Client mode
+That's enough for popups to appear at the moments configured in Deepdots.
 
-`client` mode is reserved for internal use. Keep using `server` mode for public integrations and customer-facing implementations.
+## 3. (Optional) Subscribe to events
+
+If you want to track popup interactions in your analytics, subscribe to the SDK events.
 
 ```ts
-import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
-
-const popupDefinitions = [
-  {
-    id: 'popup-home-5s',
-    title: 'Help us improve',
-    message: '<p>Thanks for visiting our homepage.</p>',
-    triggers: [{ type: 'time_on_page', value: 5 }],
-    cooldown: [
-      { answered: 'SHOWED', cooldownDays: 7 },
-      { answered: 'COMPLETED', cooldownDays: 30 },
-    ],
-    actions: {
-      accept: {
-        label: 'Open survey',
-        surveyId: 'survey-home-001',
-      },
-    },
-    surveyId: 'survey-home-001',
-    productId: 'product-main',
-    segments: {
-      path: ['/', '/pricing', '/#/home'],
-    },
-  },
-];
-
-const popups = new DeepdotsPopups();
-
-popups.init({
-  mode: 'client',
-  debug: true,
-  popups: popupDefinitions,
-});
-
-popups.autoLaunch();
+popups.on('popup_shown', (event) => analytics.track('popup_shown', event));
+popups.on('survey_completed', (event) => analytics.track('survey_completed', event));
 ```
 
-## Common mistakes
+## 4. (Optional) Fire a business event
 
-:::caution
-Do not use `triggers` as a single object. In the current model it is always an array.
-:::
+If any of your popups in Deepdots are configured with an **event trigger**, fire that event from your code whenever the business condition is met.
 
-:::caution
-Do not put `condition` inside the trigger in the current documentation. The current model uses `cooldown` at the `PopupDefinition` level.
-:::
+```ts
+popups.triggerEvent('checkout_completed');
+```
 
-:::caution
-Treat `client` mode as internal-only documentation. For public implementation guidance, point teams to `server` mode.
-:::
+See [Triggers](/guides/triggers/) for the full list of trigger types and code examples.
+
+## That's it
+
+You should not need to define popup payloads in code. Popups, copy, triggers, cooldowns, and route targeting are all managed in Deepdots.

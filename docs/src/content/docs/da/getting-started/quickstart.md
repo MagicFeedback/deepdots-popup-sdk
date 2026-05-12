@@ -1,11 +1,17 @@
 ---
 title: Quickstart
-description: Første fungerende integration i server mode samt interne noter til client mode.
+description: Få SDK'et i gang i dit produkt i tre trin.
 ---
 
-## Server mode
+SDK'et kører i **server mode**: dine popups, triggers og targeting lever i Deepdots og hentes i runtime. Du skal kun montere SDK'et, give det din API-nøgle og starte det.
 
-`server` er den anbefalede mode til produktion.
+## 1. Installation
+
+```bash
+npm install @magicfeedback/popup-sdk
+```
+
+## 2. Initialisér og auto-launch
 
 ```ts
 import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
@@ -14,75 +20,34 @@ const popups = new DeepdotsPopups();
 
 popups.init({
   mode: 'server',
-  nodeEnv: 'production',
   apiKey: 'YOUR_PUBLIC_API_KEY',
-  userId: 'customer-123',
-  debug: false,
-});
-
-popups.on('popup_shown', (event) => {
-  console.log('Popup shown', event);
-});
-
-popups.on('survey_completed', (event) => {
-  console.log('Survey completed', event);
+  userId: 'customer-123', // valgfrit — din interne bruger-identifikator
 });
 
 popups.autoLaunch();
 ```
 
-## Client mode
+Det er nok til, at popups dukker op på de tidspunkter, der er konfigureret i Deepdots.
 
-`client` mode er reserveret til intern brug. Til offentlige integrationer og kundevendte implementeringer bør I fortsat bruge `server` mode.
+## 3. (Valgfrit) Abonnér på events
+
+Hvis du vil registrere popup-interaktioner i din analytics, så abonnér på SDK-events.
 
 ```ts
-import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
-
-const popupDefinitions = [
-  {
-    id: 'popup-home-5s',
-    title: 'Help us improve',
-    message: '<p>Thanks for visiting our homepage.</p>',
-    triggers: [{ type: 'time_on_page', value: 5 }],
-    cooldown: [
-      { answered: 'SHOWED', cooldownDays: 7 },
-      { answered: 'COMPLETED', cooldownDays: 30 },
-    ],
-    actions: {
-      accept: {
-        label: 'Open survey',
-        surveyId: 'survey-home-001',
-      },
-    },
-    surveyId: 'survey-home-001',
-    productId: 'product-main',
-    segments: {
-      path: ['/', '/pricing', '/#/home'],
-    },
-  },
-];
-
-const popups = new DeepdotsPopups();
-
-popups.init({
-  mode: 'client',
-  debug: true,
-  popups: popupDefinitions,
-});
-
-popups.autoLaunch();
+popups.on('popup_shown', (event) => analytics.track('popup_shown', event));
+popups.on('survey_completed', (event) => analytics.track('survey_completed', event));
 ```
 
-## Typiske fejl
+## 4. (Valgfrit) Udløs en forretnings-event
 
-:::caution
-Brug ikke `triggers` som et enkelt objekt. I den nuværende model er det altid et array.
-:::
+Hvis nogle af dine popups i Deepdots er konfigureret med en **event-trigger**, så udløs den event fra din kode, når forretningsbetingelsen er opfyldt.
 
-:::caution
-Læg ikke `condition` inde i triggeren i ny dokumentation. Den aktuelle model bruger `cooldown` på niveauet `PopupDefinition`.
-:::
+```ts
+popups.triggerEvent('checkout_completed');
+```
 
-:::caution
-Behandl `client` mode som intern dokumentation. For offentlige integrationsguides bør teams altid henvises til `server` mode.
-:::
+Se [Triggers](/da/guides/triggers/) for den fulde liste over trigger-typer og kodeeksempler.
+
+## Det er det
+
+Du skulle ikke have brug for at definere popup-payloads i kode. Popups, tekster, triggers, cooldowns og rute-targeting styres alle i Deepdots.

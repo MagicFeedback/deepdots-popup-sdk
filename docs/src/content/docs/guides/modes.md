@@ -1,45 +1,37 @@
 ---
-title: Server vs Client Mode
-description: Operational differences between both modes.
+title: Server Mode
+description: The SDK runs in server mode — popups are managed in Deepdots and fetched at runtime.
 ---
 
-## Server mode
+The Deepdots Popup SDK runs in **server mode**. There is no other supported mode for customer integrations.
 
-Use this mode when popup definitions live in Deepdots and must be fetched at runtime.
+## What server mode means
+
+- Popup definitions, copy, triggers, targeting, and cooldowns live in **Deepdots**.
+- The SDK fetches them at runtime using your `apiKey`.
+- Your code never defines popups by hand — it just mounts the SDK and reacts to its events.
+
+## Minimum configuration
 
 ```ts
+import { DeepdotsPopups } from '@magicfeedback/popup-sdk';
+
+const popups = new DeepdotsPopups();
+
 popups.init({
   mode: 'server',
   apiKey: 'YOUR_PUBLIC_API_KEY',
-  nodeEnv: 'production',
 });
+
+popups.autoLaunch();
 ```
 
-Characteristics:
+## Optional fields
 
-- Fetches popups from the API.
-- `autoLaunch()` can be called right after `init()`.
-- Triggers start once remote definitions have been loaded.
+| Field    | Type                          | Default        | What it does                                      |
+| -------- | ----------------------------- | -------------- | ------------------------------------------------- |
+| `userId` | `string`                      | none           | Sent with every popup event for user identification. |
 
-## Client mode
+## Why no client-side definitions?
 
-Use this mode when you want to control popup definitions from your own code.
-
-```ts
-popups.init({
-  mode: 'client',
-  debug: true,
-  popups: popupDefinitions,
-});
-```
-
-Use cases:
-
-- local demos
-- QA
-- testing without API access
-- host-controlled fallback flows
-
-:::caution
-`client` mode is reserved for internal use. Public implementations should be documented and supported through `server` mode.
-:::
+Defining popups in your code would split ownership of the experience between your codebase and Deepdots. Server mode keeps a single source of truth, so product, marketing, and CS teams can change copy, retargeting, and triggers without a code deploy on your side.

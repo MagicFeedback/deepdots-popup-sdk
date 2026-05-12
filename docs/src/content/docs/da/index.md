@@ -1,87 +1,53 @@
 ---
 title: Deepdots Popup SDK
-description: Hvad SDK'et gør, hvilken forretningsværdi det giver, og hvordan det hjælper med at lancere feedback-popups uden særskilt specialudvikling.
+description: Vis Deepdots-undersøgelser som popups i dit produkt uden at bygge et popup-system selv. Udløs dem på det rigtige tidspunkt og mål resultaterne.
 ---
 
 # Deepdots Popup SDK
 
-`Deepdots Popup SDK` gør det muligt at vise spørgeskemaer og feedback-formularer som popups i et website eller digitalt produkt, uden at man skal bygge et nyt popup-system til hvert initiativ.
+**Deepdots Popup SDK** lader dit produkt vise Deepdots-undersøgelser som popups på præcis det rigtige tidspunkt — uden at bygge et særskilt popup-system hver gang du vil bede om feedback.
 
-Denne side er skrevet som en kort oversigt for produktfolk, forretning, customer success og salg, som hurtigt vil forstå hvad løsningen gør, og hvornår den giver mening.
+Du installerer SDK'et, giver det din API-nøgle, og popups, triggers, targeting og cooldowns styres centralt fra Deepdots. Din kode skal kun montere SDK'et én gang og — valgfrit — udsende host-events når noget interessant sker i din forretningslogik.
 
-## Hvilket problem løser det?
+## Hvad det gør
 
-Virksomheder vil ofte gerne:
+- Viser dine Deepdots-undersøgelser som popups i dit web-produkt.
+- Udløser dem ud fra tid på siden, scroll-dybde, klik på et element, rute-exit eller en brugerdefineret forretnings-event, som du udsender.
+- Targeter specifikke ruter på dit website.
+- Anvender cooldowns, så den samme bruger ikke afbrydes to gange.
+- Udsender events (`popup_shown`, `popup_clicked`, `survey_completed`), så du kan måle tragten.
 
-- vise en undersøgelse på et bestemt tidspunkt i brugerrejsen
-- indsamle feedback når en bruger forlader en vigtig side
-- starte en undersøgelse efter en forretningshændelse
-- måle om popupen blev vist, åbnet eller gennemført
+## Hvad du ikke behøver gøre
 
-Uden et SDK som dette ender hvert use case ofte som særskilt udvikling med duplikeret logik og begrænset sporbarhed.
-
-## Hvad gør det i praksis?
-
-- Viser Deepdots-undersøgelser som popups på websites.
-- Gør det muligt at styre præcist hvornår en popup vises.
-- Understøtter aktivering via tid, scroll, klik, ruteforløb eller forretningshændelser.
-- Understøtter målretning på ruteniveau.
-- Udsender events så teamet kan måle effekt og adfærd.
-
-## Hvem er det nyttigt for?
-
-### Produkt / PM
-
-Gør det lettere at lancere feedbackinitiativer uden at skulle redesigne triggere, regler og tracking hver gang.
-
-### Salg / Presales
-
-Gør det nemmere at forklare at løsningen ikke kun er en formular, men en kontrolleret måde at placere undersøgelser i centrale punkter af den digitale brugerrejse.
-
-### Customer Success / Operations
-
-Gør det lettere at teste scenarier, validere oplevelser og koordinere ændringer uden at røre hele applikationen.
+- Du definerer ikke popups i kode. De lever i Deepdots og leveres til SDK'et i runtime.
+- Du håndterer ikke trigger-logik, eligibility-regler eller anti-spam-cooldowns. Det gør SDK'et.
+- Du hoster eller renderer ikke undersøgelsens UI. Det klarer SDK'et for dig.
 
 ## Typiske use cases
 
-- Feedback-popup efter nogle sekunder på en pricing-side.
-- Undersøgelse når brugeren forlader en produktside.
-- Undersøgelse aktiveret efter en forretningshændelse som gentagne søgninger eller et køb.
-- Popup som kun vises på bestemte ruter.
+- Feedback-popup et par sekunder efter landing på en pris-side.
+- Undersøgelse vist når en bruger er ved at forlade en produktside.
+- Undersøgelse udløst efter en meningsfuld forretnings-event (gentagne søgninger, gennemført køb, forladt kurv).
+- Popup synlig kun på specifikke ruter.
 
-## To måder at arbejde på
+## Sådan fungerer det overordnet
 
-### Server mode
+1. Du kalder `popups.init({ mode: 'server', apiKey: '…' })` én gang når din app starter.
+2. Du kalder `popups.autoLaunch()` for at aktivere de triggers, der kommer fra Deepdots-API'en.
+3. Valgfrit kalder du `popups.triggerEvent('event_navn')` fra din kode, når en forretnings-event indtræffer.
+4. Du abonnerer på SDK'ets events for at registrere popup-interaktioner i din analytics.
 
-Anbefales til rigtige integrationer. Popup-definitioner hentes fra API'et og styres centralt.
+## Hvor skal du gå hen herfra
 
-### Client mode
+### Produkt, salg, customer success
 
-Reserveret til intern brug. Det er nyttigt til demoer, QA, prototyper og lokale tests med inline-definitioner i koden, men det er ikke den offentlige integrationsform vi anbefaler til kunder.
+- [Hvad er en trigger](/da/guides/triggers/) — alle de måder en popup kan udløses på.
+- [Events SDK'et udsender](/da/guides/events/) — hvad din analytics vil se.
 
-## Hvis du kommer fra forretningen
-
-Start med disse sider:
-
-- [Server vs Client Mode](/da/guides/modes/)
-- [Examples](/da/guides/examples/)
-- [React Native](/da/reference/react-native/)
-- [Offentlig demo](../demo/)
-
-## Hvis du kommer fra den tekniske integration
-
-Start med disse sider:
+### Teknisk integration
 
 - [Installation](/da/getting-started/installation/)
 - [Quickstart](/da/getting-started/quickstart/)
-- [Popup Definition](/da/reference/popup-definition/)
-- [API](/da/reference/api/)
-- [Offentlig demo](../demo/)
-
-## Vigtig note
-
-Den tekniske dokumentation på dette site er skrevet ud fra SDK'ets aktuelle adfærd. Især:
-
-- `triggers` er et array
-- `cooldown` ligger adskilt fra `triggers`
-- fremdriftsstatusserne er `SHOWED`, `PARTIAL` og `COMPLETED`
+- [Triggers i detaljer](/da/guides/triggers/)
+- [API-reference](/da/reference/api/)
+- [React](/da/reference/react/) · [React Native](/da/reference/react-native/)
