@@ -25,6 +25,12 @@ export default defineConfig({
     starlight({
       title: 'Deepdots Popup SDK',
       description: 'Official documentation for the Deepdots popup SDK.',
+      logo: {
+        light: './src/assets/logo-dark-long.svg',
+        dark: './src/assets/logo-light-long.svg',
+        replacesTitle: true,
+      },
+      favicon: '/favicon.ico',
       disable404Route: true,
       defaultLocale: 'root',
       locales: {
