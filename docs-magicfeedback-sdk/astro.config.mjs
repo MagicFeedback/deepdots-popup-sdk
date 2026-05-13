@@ -34,6 +34,14 @@ export default defineConfig({
           label: 'English',
           lang: 'en',
         },
+        es: {
+          label: 'Español',
+          lang: 'es',
+        },
+        da: {
+          label: 'Dansk',
+          lang: 'da',
+        },
       },
       social: [
         {
