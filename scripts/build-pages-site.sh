@@ -5,10 +5,13 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SITE_DIR="$ROOT_DIR/.pages-site"
 
 rm -rf "$SITE_DIR"
-mkdir -p "$SITE_DIR/popup-sdk" "$SITE_DIR/demo/assets" "$SITE_DIR/demo/clients"
+mkdir -p "$SITE_DIR/popup-sdk" "$SITE_DIR/magicfeedback-sdk" "$SITE_DIR/demo/assets" "$SITE_DIR/demo/clients"
 
-# Copy the built Starlight docs under /popup-sdk.
+# Copy the built popup-sdk Starlight docs under /popup-sdk.
 cp -R "$ROOT_DIR/docs/dist/." "$SITE_DIR/popup-sdk/"
+
+# Copy the built magicfeedback-sdk Starlight docs under /magicfeedback-sdk.
+cp -R "$ROOT_DIR/docs-magicfeedback-sdk/dist/." "$SITE_DIR/magicfeedback-sdk/"
 
 # Preserve the custom domain at the site root.
 if [ -f "$ROOT_DIR/docs/public/CNAME" ]; then

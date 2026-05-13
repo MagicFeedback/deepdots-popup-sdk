@@ -32,17 +32,32 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
-      - name: Install docs dependencies
+      - name: Install popup-sdk docs dependencies
         working-directory: docs
         run: npm ci
 
-      - name: Build docs
+      - name: Build popup-sdk docs
         working-directory: docs
         env:
           GITHUB_PAGES: "true"
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           BASE_PATH: /popup-sdk
+          SITE_URL: https://docs.deepdots.com
+          ASTRO_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+      - name: Install magicfeedback-sdk docs dependencies
+        working-directory: docs-magicfeedback-sdk
+        run: npm ci
+
+      - name: Build magicfeedback-sdk docs
+        working-directory: docs-magicfeedback-sdk
+        env:
+          GITHUB_PAGES: "true"
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          BASE_PATH: /magicfeedback-sdk
           SITE_URL: https://docs.deepdots.com
           ASTRO_TELEMETRY_DISABLED: "1"
         run: npm run build
