@@ -296,6 +296,26 @@ document.getElementById("next")?.addEventListener("click", () => form.send());
 document.getElementById("back")?.addEventListener("click", () => form.back());
 ```
 
+### Styr hele surveyen fra dine egne widgets
+
+Vil du gå videre og rendere selve **spørgsmålene** med dine egne komponenter — ikke kun knapperne — så send svarene programmatisk til `form.send()`. SDK'et springer DOM-scanningen og valideringen over og indsender direkte.
+
+```ts
+// Render dit UI som du vil. Når brugeren er færdig med en side, så send
+// svarene direkte til SDK'et. Tilgængelig fra 2.2.4.
+await form.send(
+  [{ key: "source", value: ["custom-ui"] }], // metadata
+  [],                                        // metrics
+  [],                                        // profile
+  [
+    { key: "nps",              value: ["9"] },
+    { key: "favorite-feature", value: ["Conditional logic"] },
+  ],
+);
+```
+
+Livscyklus-hooks udløses stadig, så analytics og UX-kobling fortsætter med at virke. Se [`form.send(metadata?, metrics?, profile?, answers?)`](/da/reference/api/#formsendmetadata-metrics-profile-answers) for den fulde kontrakt.
+
 ---
 
 ## Lag 3 — Tilsidesæt de genererede klasser

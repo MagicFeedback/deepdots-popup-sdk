@@ -296,6 +296,26 @@ document.getElementById("next")?.addEventListener("click", () => form.send());
 document.getElementById("back")?.addEventListener("click", () => form.back());
 ```
 
+### Controla toda la encuesta desde tus propios widgets
+
+Si quieres ir más allá y renderizar también las **preguntas** con tus propios componentes — no solo los botones — pasa las respuestas programáticamente a `form.send()`. El SDK se salta el escaneo del DOM y la validación, y envía directamente.
+
+```ts
+// Renderiza tu UI como quieras. Cuando el usuario termine una página, manda
+// las respuestas directamente al SDK. Disponible desde 2.2.4.
+await form.send(
+  [{ key: "source", value: ["custom-ui"] }], // metadata
+  [],                                        // metrics
+  [],                                        // profile
+  [
+    { key: "nps",              value: ["9"] },
+    { key: "favorite-feature", value: ["Conditional logic"] },
+  ],
+);
+```
+
+Los hooks de ciclo de vida siguen disparándose, así que la analítica y cualquier cableado de UX siguen funcionando. Consulta [`form.send(metadata?, metrics?, profile?, answers?)`](/es/reference/api/#formsendmetadata-metrics-profile-answers) para el contrato completo.
+
 ---
 
 ## Capa 3 — Override de las clases generadas

@@ -137,9 +137,11 @@ await form.generate("survey-root", {
 
 Når `getMetaData: true` tilføjer SDK'et: nuværende URL, origin, pathname, query string, user agent, browsersprog, platform, app-metadata, skærmstørrelse og session-id ved render fra `session()`. Query params udvides som `query-<param>`.
 
-### `form.send(metadata?, metrics?, profile?)`
+### `form.send(metadata?, metrics?, profile?, answers?)`
 
-Indsender den **aktuelle side** med de svar, der ligger i UI'et lige nu. Brug det med `addButton: false`.
+Indsender den **aktuelle side**.
+
+Som standard scanner SDK'et de renderede spørgsmål fra DOM'en, validerer påkrævede felter og indsender det, brugeren har udfyldt via de indbyggede widgets. Brug dette kald, når du har sat `addButton: false` og vil styre dine egne next/back-knapper.
 
 ```ts
 form.send(
@@ -148,6 +150,41 @@ form.send(
   [{ key: "email",  value: ["user@example.com"] }], // profile
 );
 ```
+
+#### Programmatiske svar — styr surveyen fra dine egne widgets
+
+> **Tilgængelig fra 2.2.4.**
+
+Send et fjerde `answers`-argument for at **springe DOM-scanningen og valideringsløkken for påkrævede felter helt over**. SDK'et tilføjer dine svar direkte til `feedback.answers` og indsender.
+
+Dette åbner for et fuldt custom UI: render dine egne inputs (i hvilket som helst framework, med hvilket som helst komponentbibliotek), opsaml selv svarene, og lad SDK'et håndtere netværk og livscyklus-events.
+
+```ts
+const form = magicfeedback.form("APP_ID", "PUBLIC_KEY");
+
+// Valgfrit: spring generate() over helt, hvis du ikke vil have SDK'et til at rendere noget.
+// Du har stadig brug for form-instansen for at holde sessionsstatus.
+
+await form.send(
+  [{ key: "source", value: ["custom-ui"] }], // metadata
+  [{ key: "plan",   value: ["pro"] }],       // metrics
+  [],                                        // profile
+  [
+    { key: "nps",              value: ["9"] },
+    { key: "favorite-feature", value: ["Conditional logic"] },
+  ],
+);
+```
+
+Livscyklus-hooks (`beforeSubmitEvent`, `afterSubmitEvent`) udløses stadig på den programmatiske vej, så analytics og UX-kobling fortsætter med at virke som med de renderede widgets.
+
+:::caution
+Programmatisk `form.send()` indsender altid med `completed: false` (delvis gem). Hvis du har brug for at markere en engangsindsendelse som fuldt færdig, brug top-level [`magicfeedback.send(...)`](#sendappid-publickey-feedback-completed-id-privatekey), der accepterer et eksplicit `completed`-flag.
+:::
+
+:::tip
+Det er det rigtige kald, når dit produkt allerede har et stærkt design system, og du ikke vil have nogen SDK-renderet widget på skærmen. For blandede flows — SDK-widgets plus din egen action-bar — kald `form.send()` uden det fjerde argument og lad SDK'et scanne sine egne widgets.
+:::
 
 ### `form.back()`
 

@@ -296,6 +296,26 @@ document.getElementById("next")?.addEventListener("click", () => form.send());
 document.getElementById("back")?.addEventListener("click", () => form.back());
 ```
 
+### Drive the whole survey from your own widgets
+
+If you want to go further and render the **questions themselves** with your own components — not just the buttons — pass the answers programmatically to `form.send()`. The SDK then skips the DOM scrape and validation and just submits.
+
+```ts
+// Render your own UI however you like. When the user finishes a page, ship
+// the answers to the SDK directly. Available since 2.2.4.
+await form.send(
+  [{ key: "source", value: ["custom-ui"] }], // metadata
+  [],                                        // metrics
+  [],                                        // profile
+  [
+    { key: "nps",              value: ["9"] },
+    { key: "favorite-feature", value: ["Conditional logic"] },
+  ],
+);
+```
+
+Lifecycle hooks still fire, so analytics and any UX wiring keep working. See [`form.send(metadata?, metrics?, profile?, answers?)`](/reference/api/#formsendmetadata-metrics-profile-answers) for the full contract.
+
 ---
 
 ## Layer 3 — Override the generated classes

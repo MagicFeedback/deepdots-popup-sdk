@@ -137,9 +137,11 @@ await form.generate("survey-root", {
 
 When `getMetaData: true`, the SDK adds: current URL, origin, pathname, query string, user agent, browser language, platform, app metadata, screen size, and the session id when rendering from `session()`. Query params are expanded as `query-<param>`.
 
-### `form.send(metadata?, metrics?, profile?)`
+### `form.send(metadata?, metrics?, profile?, answers?)`
 
-Submits the **current page** with the answers currently in the UI. Use this when `addButton: false`.
+Submits the **current page**.
+
+By default, the SDK scrapes the rendered questions from the DOM, validates required fields, and submits whatever the user entered through the built-in widgets. Use this overload when you used `addButton: false` and want to drive your own next/back buttons.
 
 ```ts
 form.send(
@@ -148,6 +150,41 @@ form.send(
   [{ key: "email",  value: ["user@example.com"] }], // profile
 );
 ```
+
+#### Programmatic answers — drive the survey from your own widgets
+
+> **Since 2.2.4.**
+
+Pass a fourth `answers` argument to **skip the DOM scrape and the required-question validation loop** entirely. The SDK pushes your answers directly into `feedback.answers` and submits.
+
+This unlocks a fully custom UI: render your own inputs (in any framework, any component library), collect the answers yourself, and let the SDK handle networking and lifecycle events.
+
+```ts
+const form = magicfeedback.form("APP_ID", "PUBLIC_KEY");
+
+// Optional: skip generate() entirely if you don't want the SDK to render anything.
+// You still need the form instance to keep session state.
+
+await form.send(
+  [{ key: "source", value: ["custom-ui"] }], // metadata
+  [{ key: "plan",   value: ["pro"] }],       // metrics
+  [],                                        // profile
+  [
+    { key: "nps",              value: ["9"] },
+    { key: "favorite-feature", value: ["Conditional logic"] },
+  ],
+);
+```
+
+Lifecycle hooks (`beforeSubmitEvent`, `afterSubmitEvent`) still fire on the programmatic path, so analytics and UX wiring keep working the same way as with the rendered widgets.
+
+:::caution
+Programmatic `form.send()` always submits as `completed: false` (partial save). If you need to mark a one-shot submission as fully completed, use the top-level [`magicfeedback.send(...)`](#sendappid-publickey-feedback-completed-id-privatekey) which accepts an explicit `completed` flag.
+:::
+
+:::tip
+This is the right call when your product already has a strong design system and you do not want any SDK-rendered widget on screen. For mixed flows — SDK widgets plus your own action bar — call `form.send()` without the fourth argument and let the SDK scrape its own widgets.
+:::
 
 ### `form.back()`
 

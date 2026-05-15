@@ -137,9 +137,11 @@ await form.generate("survey-root", {
 
 Con `getMetaData: true`, el SDK añade: URL actual, origin, pathname, query string, user agent, idioma del navegador, plataforma, app metadata, tamaño de pantalla y el session id si renderizas desde `session()`. Los query params se expanden como `query-<param>`.
 
-### `form.send(metadata?, metrics?, profile?)`
+### `form.send(metadata?, metrics?, profile?, answers?)`
 
-Envía la **página actual** con las respuestas que tiene la UI en ese momento. Úsalo cuando `addButton: false`.
+Envía la **página actual**.
+
+Por defecto, el SDK escanea las preguntas renderizadas del DOM, valida los campos obligatorios y envía lo que el usuario haya introducido en los widgets integrados. Usa esta llamada cuando hayas puesto `addButton: false` y quieras controlar tu propio next/back.
 
 ```ts
 form.send(
@@ -148,6 +150,41 @@ form.send(
   [{ key: "email",  value: ["user@example.com"] }], // profile
 );
 ```
+
+#### Respuestas programáticas — controla la encuesta desde tus propios widgets
+
+> **Disponible desde 2.2.4.**
+
+Pasa un cuarto argumento `answers` para **saltarte el escaneo del DOM y la validación de campos obligatorios** por completo. El SDK añade tus respuestas directamente a `feedback.answers` y las envía.
+
+Esto habilita una UI totalmente custom: renderiza tus propios inputs (en cualquier framework, con cualquier librería de componentes), recoge tú las respuestas, y deja que el SDK se encargue de red y eventos de ciclo de vida.
+
+```ts
+const form = magicfeedback.form("APP_ID", "PUBLIC_KEY");
+
+// Opcional: salta generate() si no quieres que el SDK renderice nada.
+// Aun así necesitas la instancia del form para mantener el estado de sesión.
+
+await form.send(
+  [{ key: "source", value: ["custom-ui"] }], // metadata
+  [{ key: "plan",   value: ["pro"] }],       // metrics
+  [],                                        // profile
+  [
+    { key: "nps",              value: ["9"] },
+    { key: "favorite-feature", value: ["Conditional logic"] },
+  ],
+);
+```
+
+Los hooks de ciclo de vida (`beforeSubmitEvent`, `afterSubmitEvent`) siguen disparándose en la vía programática, así que analítica y UX continúan funcionando igual que con los widgets renderizados.
+
+:::caution
+La llamada programática de `form.send()` siempre envía con `completed: false` (guardado parcial). Si necesitas marcar un envío de un solo paso como completado, usa el método de alto nivel [`magicfeedback.send(...)`](#sendappid-publickey-feedback-completed-id-privatekey) que acepta el flag `completed` de forma explícita.
+:::
+
+:::tip
+Es la llamada adecuada cuando tu producto ya tiene un design system fuerte y no quieres ningún widget renderizado por el SDK en pantalla. Para flujos mixtos — widgets del SDK más tu propia barra de acciones — llama a `form.send()` sin el cuarto argumento y deja que el SDK escanee sus propios widgets.
+:::
 
 ### `form.back()`
 
