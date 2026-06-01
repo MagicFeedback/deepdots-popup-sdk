@@ -643,18 +643,24 @@ export class DeepdotsPopups {
         const event: DeepdotsEvent = { type, surveyId, timestamp: Date.now(), data };
         this.log('Event emitted', event);
 
-        if (type === 'popup_clicked' && data?.action === 'partial') {
+        const isPartialClick = type === 'popup_clicked' && data?.action === 'partial';
+        if (isPartialClick) {
             this.markSurveyProgress(surveyId, 'PARTIAL');
         }
         if (type === 'survey_completed') {
             this.markSurveyAnswered(surveyId);
         }
-        if (type === 'popup_shown' || type === 'survey_completed') {
+        if (type === 'popup_shown' || type === 'survey_completed' || isPartialClick) {
             const popupIdFromData = data?.popupId as string | undefined;
             const popupId = popupIdFromData || this.surveyToPopupId.get(surveyId);
             if (popupId) {
                 const userIdFromData = data?.userId as string | undefined;
-                void this.postPopupEvent(type === 'popup_shown' ? POPUPSESSIONSTATUS.SHOWED : POPUPSESSIONSTATUS.COMPLETED, popupId, userIdFromData || this.config?.userId);
+                const status = type === 'popup_shown'
+                    ? POPUPSESSIONSTATUS.SHOWED
+                    : type === 'survey_completed'
+                        ? POPUPSESSIONSTATUS.COMPLETED
+                        : POPUPSESSIONSTATUS.PARTIAL;
+                void this.postPopupEvent(status, popupId, userIdFromData || this.config?.userId);
             } else {
                 this.debug('No popupId available to post event', { type, surveyId });
             }
