@@ -13,8 +13,8 @@ export async function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
   const sdk = new DeepdotsPopups();
   sdk.init({
     mode, // "server"
-    apiKey: 'jFuQnhSBuC1f0IU6FHKyipjJ866zfEl8',
-    // userId: '1236'
+    apiKey: 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5',
+    // userId: '020626'
   });
 
   if (modeLabelEl) {
