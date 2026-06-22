@@ -13,10 +13,16 @@ import {
     POPUP_TRIGGER_CONDITION_STATUSES, POPUPSESSIONSTATUS,
     PopupStyle,
 } from '../types';
-import { renderPopup } from '../ui/renderPopup';
+// renderPopup se carga de forma PEREZOSA (dynamic import) para no arrastrar
+// `@magicfeedback/native` (browser) ni el CSS al importar el SDK en entornos sin DOM (React Native).
 import { setupTrigger } from '../triggers';
 import { resolveEnvironment } from '../config/env';
 import { PopupRenderer, createDefaultRenderer } from '../platform/renderer';
+import { TrackingManager, createDefaultStorage } from '../tracking/tracking-manager';
+import { AnalyticsManager, type AnalyticsEnvelope } from '../analytics/analytics-manager';
+import { NavigationObserver } from '../tracking/navigation-observer';
+import { collectDeviceInfo } from '../analytics/device-info';
+import { EngagementTracker } from '../analytics/engagement-tracker';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -65,6 +71,17 @@ export class DeepdotsPopups {
     private baseUrl: string = '';
     private env: 'production' | 'development' = 'production';
 
+    /** Identidad + sesión (Fase 1 tracking). Null hasta init(). */
+    private tracking: TrackingManager | null = null;
+    /** Capa de analytics (canal separado del feedback). Null hasta init(). */
+    private analytics: AnalyticsManager | null = null;
+    /** Observador de navegación (Fase 2): emite page_view por el canal de analytics. */
+    private navObserver: NavigationObserver | null = null;
+    /** Tiempo activo (engagement time, #8). */
+    private engagement: EngagementTracker | null = null;
+    /** Marca si ya se inició la navegación manual (setScreen) — para RN sin History API. */
+    private navStarted = false;
+
     /** Initialize the SDK with configuration */
     init(config: DeepdotsInitParams): void {
         if (this.initialized) {
@@ -79,34 +96,196 @@ export class DeepdotsPopups {
 
         this.config = {
             apiKey: config.apiKey || undefined,
-            mode: config.mode || 'client',
             debug: config.debug || false,
-            popups: config.popups || [],
             userId: config.userId || undefined,
         } as DeepdotsConfig;
+
+        // user_id lo gestiona el SDK (persistente); el session_id lo provee el backend
+        // (respuesta de POST /sdk/popups) y se cachea — el SDK no genera ni expira sesiones.
+        this.tracking = new TrackingManager({
+            storage: config.storage ?? createDefaultStorage(),
+            clientUserId: this.config.userId,
+        });
+        this.log('tracking · user_id:', this.tracking.getUserId(), '· new_user:', this.tracking.isNewUser(), '· enabled:', this.tracking.isTrackingEnabled());
+
+        // Analytics: canal SEPARADO del feedback. Hoy en dry-run (console.log), sin POST.
+        this.analytics = new AnalyticsManager({
+            publicKey: this.config.apiKey,
+            language: typeof navigator !== 'undefined' ? navigator.language : undefined,
+            platform: config.platform ?? 'web',
+            device: config.device ?? collectDeviceInfo(config.appVersion),
+        });
+        // Fase 2: navegación → eventos page_view por el canal de analytics.
+        this.navObserver = new NavigationObserver();
+        this.navObserver.onVisit((v) => this.track('page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
+        this.navObserver.install();
+        // Engagement time (#8): cuenta tiempo activo en primer plano.
+        this.engagement = new EngagementTracker();
+        this.engagement.resume();
+        this.setupAnalyticsFlush();
 
         this.initialized = true;
         this.log('SDK initialized', this.config);
         if (this.renderer.init) this.renderer.init();
         this.setupPopupContainer();
 
-        if (this.config.mode === 'client') {
-            this.popupDefinitions = this.validatePopupDefinitions(this.config.popups || []);
+        // Los popups SIEMPRE se reciben de la API (no se definen en init).
+        this.fetchPopupsFromServer().then((defs) => {
+            this.popupDefinitions = this.validatePopupDefinitions(defs);
             this.popupsLoaded = true;
+            this.log('Popups loaded from API', this.popupDefinitions);
             this.configureTriggersFromDefinitions();
             this.processDeferredExitQueue();
+            if (this.pendingAutoLaunch) {
+                this.startTriggers();
+            }
+        });
+    }
+
+    /** User id actual (generado por el SDK o provisto por el cliente). Null si tracking off. */
+    getUserId(): string | null {
+        return this.tracking?.getUserId() ?? null;
+    }
+
+    /** Session id de navegación actual. Null si tracking off. */
+    getSessionId(): string | null {
+        return this.tracking?.getSessionId() ?? null;
+    }
+
+    /** Activa/desactiva el tracking (identidad + sesión + analytics). Kill-switch del contrato §7bis. */
+    setTrackingEnabled(enabled: boolean): void {
+        this.tracking?.setTrackingEnabled(enabled);
+        this.log('tracking · setTrackingEnabled:', enabled, '· session_id:', this.tracking?.getSessionId() ?? null);
+    }
+
+    // ───────── Analytics (canal separado del feedback, vinculado por user_id) ─────────
+
+    /** Registra un evento de analítica (modelo GA: nombre + params). No-op si tracking off. */
+    track(name: string, params?: Record<string, unknown>): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.analytics?.track(name, params);
+        this.log('analytics · track:', name, params ?? {});
+    }
+
+    /** User attributes para breakdowns (registration_status, pass_type, sector, pass_status…). */
+    setUserAttributes(attributes: Record<string, string | number | boolean>): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.analytics?.setUserAttributes(attributes);
+    }
+
+    /** Marca el inicio de un mini-service; etiqueta los eventos siguientes. No-op si tracking off. */
+    enterMiniService(name: string, entryPointType?: string): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.analytics?.enterMiniService(name, entryPointType);
+        this.log('analytics · enterMiniService:', name, entryPointType ?? '');
+    }
+
+    /** Cierra el mini-service activo (emite `mini_service_exit` con duración, #27). No-op si tracking off. */
+    exitMiniService(): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.analytics?.exitMiniService();
+        this.log('analytics · exitMiniService');
+    }
+
+    /** Findability (#31/#35): registra una búsqueda. `has_results` se deriva de `resultsCount`. */
+    trackSearch(query: string, resultsCount: number, params?: Record<string, unknown>): void {
+        this.track('search', { query, results_count: resultsCount, has_results: resultsCount > 0, ...(params ?? {}) });
+    }
+
+    /** Findability friction (#34/#35): señal de fricción con su `friction_topic`. */
+    trackFindabilityFriction(frictionTopic: string, params?: Record<string, unknown>): void {
+        this.track('findability_friction', { friction_topic: frictionTopic, ...(params ?? {}) });
+    }
+
+    /** Funnel: un paso del embudo, correlacionado por `taskId`. El backend reconstruye conversión/drop-off/tiempo. */
+    trackFunnelStep(funnel: string, step: string, taskId: string, params?: Record<string, unknown>): void {
+        this.track('funnel_step', { funnel, step, task_id: taskId, ...(params ?? {}) });
+    }
+
+    /**
+     * Navegación MANUAL (entornos sin History API, p. ej. React Native con React Navigation).
+     * El host la llama en cada cambio de pantalla; emite `page_view` al salir de la anterior.
+     */
+    setScreen(name: string): void {
+        if (!this.navObserver) return;
+        if (!this.navStarted) {
+            this.navObserver.begin(name);
+            this.navStarted = true;
         } else {
-            this.fetchPopupsFromServer().then((defs) => {
-                this.popupDefinitions = this.validatePopupDefinitions(defs);
-                this.popupsLoaded = true;
-                this.log('Popups loaded from server (fake)', this.popupDefinitions);
-                this.configureTriggersFromDefinitions();
-                this.processDeferredExitQueue();
-                if (this.pendingAutoLaunch) {
-                    this.startTriggers();
-                }
-            });
+            this.navObserver.visit(name);
         }
+    }
+
+    /** App a foreground (RN: AppState 'active'): reanuda el engagement time. */
+    onForeground(): void {
+        this.engagement?.resume();
+    }
+
+    /**
+     * App a background (RN: AppState 'background'): cierra pantalla actual (page_view),
+     * mini-service (mini_service_exit), emite engagement y hace flush del lote.
+     */
+    onBackground(): void {
+        this.navObserver?.stop();
+        this.navStarted = false;
+        this.exitMiniService();
+        this.flushEngagement();
+        this.engagement?.pause();
+        this.flushAnalytics();
+    }
+
+    /** Payload que se ENVIARÍA al endpoint de analytics (no envía ni vacía el buffer). */
+    previewAnalytics(): AnalyticsEnvelope {
+        return (
+            this.analytics?.buildPayload(this.analyticsIdentity()) ?? {
+                userId: null,
+                sessionId: null,
+                context: { platform: 'web', attributes: {} },
+                events: [],
+            }
+        );
+    }
+
+    /** Envía (hoy dry-run → console.log) el lote acumulado de analytics y vacía el buffer. */
+    flushAnalytics(): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.analytics?.flush(this.analyticsIdentity());
+    }
+
+    /** Emite un evento `user_engagement` con el tiempo activo acumulado (#8). */
+    private flushEngagement(): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        const ms = this.engagement?.consume() ?? 0;
+        if (ms > 0) this.track('user_engagement', { engagement_time_msec: ms });
+    }
+
+    private analyticsIdentity() {
+        return {
+            userId: this.tracking?.getUserId() ?? null,
+            sessionId: this.tracking?.getSessionId() ?? null,
+        };
+    }
+
+    /** Flush automático al ocultar/cerrar la página (no perder el lote pendiente). */
+    private setupAnalyticsFlush(): void {
+        if (typeof document === 'undefined' || typeof window === 'undefined') return;
+        // al cerrar la página: cerrar pantalla (page_view) + mini-service + engagement, y enviar el lote
+        window.addEventListener('pagehide', () => {
+            this.navObserver?.stop();
+            this.exitMiniService();
+            this.flushEngagement();
+            this.flushAnalytics();
+        });
+        // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this.flushEngagement();
+                this.engagement?.pause();
+                this.flushAnalytics();
+            } else if (document.visibilityState === 'visible') {
+                this.engagement?.resume();
+            }
+        });
     }
 
     /** Enable auto-launch functionality with configured triggers */
@@ -551,6 +730,18 @@ export class DeepdotsPopups {
             });
             if (!response.ok) {
                 this.log('Failed to post popup event', response.status, response.statusText);
+                return;
+            }
+            // Contrato Fase 1 §6: el backend devuelve el sessionId; lo cacheamos para
+            // inyectarlo en las respuestas de survey (lo cose por user_id).
+            try {
+                const data = await response.json();
+                if (data && typeof data.sessionId === 'string') {
+                    this.tracking?.setSessionId(data.sessionId);
+                    this.log('tracking · session_id from backend:', data.sessionId);
+                }
+            } catch {
+                // respuesta sin cuerpo JSON: nada que cachear
             }
         } catch (error) {
             this.log('Error posting popup event', error);
@@ -597,7 +788,10 @@ export class DeepdotsPopups {
 
     /** Render the popup UI */
     private renderPopup(surveyId: string, productId: string, actions?: PopupActions, style?: PopupStyle): void {
-        const userId = this.config?.userId;
+        const userId = this.tracking?.getUserId() ?? this.config?.userId;
+        const sessionId = this.tracking?.getSessionId() ?? undefined;
+        const miniService = this.analytics?.getMiniService() ?? undefined;
+        this.log('tracking · survey identity →', { userId: userId ?? null, sessionId: sessionId ?? null, miniService: miniService ?? null });
         if (this.renderer) {
             this.renderer.show(
                 surveyId,
@@ -608,22 +802,29 @@ export class DeepdotsPopups {
                 this.env,
                 userId,
                 style,
+                sessionId,
+                miniService,
             );
             return;
         }
 
         if (!this.popupContainer) return;
-        renderPopup(
-            this.popupContainer,
-            surveyId,
-            productId,
-            actions,
-            (type, id, payload) => this.emitEvent(type, id, payload),
-            () => this.hidePopup(),
-            this.env,
-            userId,
-            style,
-        );
+        const container = this.popupContainer;
+        void import('../ui/renderPopup').then(({ renderPopup }) => {
+            renderPopup(
+                container,
+                surveyId,
+                productId,
+                actions,
+                (type, id, payload) => this.emitEvent(type, id, payload),
+                () => this.hidePopup(),
+                this.env,
+                userId,
+                style,
+                sessionId,
+                miniService,
+            );
+        });
     }
 
     /** Hide the popup */
@@ -660,7 +861,7 @@ export class DeepdotsPopups {
                     : type === 'survey_completed'
                         ? POPUPSESSIONSTATUS.COMPLETED
                         : POPUPSESSIONSTATUS.PARTIAL;
-                void this.postPopupEvent(status, popupId, userIdFromData || this.config?.userId);
+                void this.postPopupEvent(status, popupId, userIdFromData || this.tracking?.getUserId() || this.config?.userId);
             } else {
                 this.debug('No popupId available to post event', { type, surveyId });
             }

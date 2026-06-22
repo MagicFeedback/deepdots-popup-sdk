@@ -10,3 +10,8 @@ coverage/
 .astro/
 .pages-site/
 .claude
+
+# Playwright E2E
+playwright-report/
+test-results/
+/playwright/.cache/

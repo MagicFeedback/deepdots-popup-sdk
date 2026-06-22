@@ -99,12 +99,12 @@
       }
     ];
 
-    // Inicialización del SDK en modo client
+    // Los popups se reciben SIEMPRE de la API (no se definen en init).
     const sdk = new DeepdotsPopups();
     sdk.init({
-      mode: 'client',
+      apiKey: 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5',
+      nodeEnv: 'development',
       debug: true,
-      popups: popupDefinitions
     });
 
     // Log de eventos
@@ -120,6 +120,15 @@
     sdk.on('popup_shown', logEvent);
     sdk.on('popup_clicked', logEvent);
     sdk.on('survey_completed', logEvent);
+
+    // --- Validación de tracking (Fase 1) por consola ---
+    // Expuesto para inspeccionar a mano: deepdots.getUserId() / getSessionId() / setTrackingEnabled(false)
+    window.deepdots = sdk;
+    console.info('%c[tracking] estado inicial', 'color:#0a0;font-weight:bold', {
+      user_id: sdk.getUserId(),
+      session_id: sdk.getSessionId(), // null en modo client sin apiKey (no hay round-trip al backend)
+    });
+    console.info('[tracking] prueba: deepdots.getUserId(), deepdots.getSessionId(), deepdots.setTrackingEnabled(false)');
 
     // Botones
     document.getElementById('btn-show-popup1').onclick = () => {

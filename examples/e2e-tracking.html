@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>E2E tracking fixture</title>
+</head>
+<body>
+  <button id="show-popup">show popup</button>
+  <pre id="out"></pre>
+  <script type="module">
+    // Fixture mínima para tests E2E de tracking. Carga la build LOCAL.
+    // Usa NoopPopupRenderer para NO cargar el survey desde CDN (test determinista).
+    import { DeepdotsPopups, NoopPopupRenderer } from '../dist/index.mjs';
+
+    const params = new URLSearchParams(location.search);
+
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+
+    // Los popups SOLO vienen de la API (no se definen en init). El test mockea el GET.
+    const init = {
+      debug: true,
+      nodeEnv: 'development',
+    };
+    // apiKey/userId opcionales vía query para los distintos casos del test
+    if (params.get('apiKey')) init.apiKey = params.get('apiKey');
+    if (params.get('userId')) init.userId = params.get('userId');
+
+    sdk.init(init);
+
+    // API de prueba expuesta al test
+    window.deepdots = sdk;
+    window.showP1 = () => sdk.showByPopupId('p1');
+    document.getElementById('show-popup').onclick = () => window.showP1();
+    window.__sdkReady = true;
+  </script>
+</body>
+</html>

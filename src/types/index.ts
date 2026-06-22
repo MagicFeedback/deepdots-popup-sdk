@@ -1,31 +1,33 @@
 /**
  * Configuration options for initializing the DeepdotsPopups SDK
  */
+import type { KeyValueStorage } from '../tracking/tracking-manager';
+import type { DeviceInfo } from '../analytics/device-info';
 
 export interface DeepdotsInitParams {
     /** API key for authentication */
     apiKey?: string;
     /** Node environment: 'development' or 'production' */
     nodeEnv?: 'development' | 'production';
-    /** Execution mode: 'server' or 'client' */
-    mode?: 'server' | 'client';
     /** Enable debug logging */
     debug?: boolean;
-    /** Lista de definiciones de popups precargadas */
-    popups?: PopupDefinition[];
     /** Optional user id to send with popup events */
     userId?: string;
+    /** Versión de la app del host (para analytics device info / Technology #11). */
+    appVersion?: string;
+    /** Storage persistente inyectable (RN: adaptador sobre AsyncStorage). Si falta, usa localStorage/in-memory. */
+    storage?: KeyValueStorage;
+    /** Plataforma para el envelope de analytics. Default 'web'; en RN pasar 'android'/'ios'. */
+    platform?: 'web' | 'android' | 'ios';
+    /** Device info inyectable (RN: desde react-native-device-info). Si falta, se deriva del navegador. */
+    device?: DeviceInfo;
 
 }
 export interface DeepdotsConfig {
     /** API key for authentication */
     apiKey?: string;
-    /** Execution mode: 'server' or 'client' */
-    mode?: 'server' | 'client';
     /** Enable debug logging */
     debug?: boolean;
-    /** Lista de definiciones de popups precargadas */
-    popups?: PopupDefinition[];
     /** Optional user id to send with popup events */
     userId?: string;
 }

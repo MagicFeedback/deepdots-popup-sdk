@@ -1,0 +1,11 @@
+{
+  "_comment": "Dependencias de referencia para la app RN de prueba (no es un proyecto ejecutable por sí solo; ver README).",
+  "dependencies": {
+    "@magicfeedback/popup-sdk": "file:../../magicfeedback-popup-sdk-1.1.0.tgz",
+    "react": "*",
+    "react-native": "*",
+    "react-native-webview": "^13",
+    "react-native-mmkv": "^2",
+    "react-native-device-info": "^11"
+  }
+}

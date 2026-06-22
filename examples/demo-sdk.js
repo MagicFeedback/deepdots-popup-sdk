@@ -7,12 +7,10 @@ function formatLogLine(event) {
 }
 
 export async function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
-  const mode = 'server';
   const { DeepdotsPopups } = await loadPopupSdk();
 
   const sdk = new DeepdotsPopups();
   sdk.init({
-    mode, // "server"
     nodeEnv: 'development',
     debug: true,
     apiKey: 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5',
@@ -20,7 +18,7 @@ export async function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
   });
 
   if (modeLabelEl) {
-    modeLabelEl.textContent = `${mode} · ${getSdkSource()}`;
+    modeLabelEl.textContent = `API · ${getSdkSource()}`;
   }
 
   // btn click id="btn-test"
@@ -43,6 +41,15 @@ export async function initDemoSdk({ modeLabelEl, eventLogEl } = {}) {
     sdk.on('popup_clicked', log);
     sdk.on('survey_completed', log);
   }
+
+  // --- Validación de tracking (Fase 1) por consola ---
+  // En modo server hay apiKey → al mostrarse un popup, el backend devuelve el session_id.
+  window.deepdots = sdk;
+  console.info('%c[tracking] estado inicial', 'color:#0a0;font-weight:bold', {
+    user_id: sdk.getUserId(),
+    session_id: sdk.getSessionId(), // null hasta que un evento de popup reciba la respuesta del backend
+  });
+  console.info('[tracking] tras mostrarse un popup, vuelve a llamar deepdots.getSessionId() para ver el id del backend');
 
   return { sdk };
 }

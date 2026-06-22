@@ -1,4 +1,5 @@
 import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
+import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
 
@@ -77,6 +78,8 @@ export async function renderPopup(
     env: string = 'production',
     userId?: string,
     style?: PopupStyle,
+    sessionId?: string,
+    miniService?: string,
 ): Promise<void> {
     let surveyCompletedEmitted = false;
     let stylesInjected = false;
@@ -456,8 +459,9 @@ export async function renderPopup(
             debug: true,
             env: env === 'production' ? 'prod' : 'dev'}
         );
-        const profile = userId ? [{key: 'external-user-id', value: [userId]}] : []
-        formInstance = magicfeedback.form(surveyId, productId, profile, profile);
+        // Contrato Fase 1 §5: profile = identidad del usuario; metadata = contexto de tracking (session_id + user_id)
+        const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null);
+        formInstance = magicfeedback.form(surveyId, productId, profile, metadata);
 
         interface TypedGenerateOptions {
             addButton: boolean;

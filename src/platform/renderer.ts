@@ -1,6 +1,7 @@
 import {DeepdotsEventType, PopupActions, PopupStyle} from '../types';
-import { renderPopup } from '../ui/renderPopup';
 import { isReactNativeEnv, createReactNativeRenderer } from './react-native-renderer';
+// renderPopup (DOM + @magicfeedback/native) se carga PEREZOSAMENTE solo al mostrar
+// un popup en navegador, para que importar el SDK sea seguro en React Native/SSR.
 
 export interface PopupRenderer {
   /** Preparar recursos si aplica */
@@ -15,6 +16,8 @@ export interface PopupRenderer {
     env?: string,
     userId?: string,
     style?: PopupStyle,
+    sessionId?: string,
+    miniService?: string,
   ): void;
   /** Ocultar popup */
   hide(): void;
@@ -63,12 +66,17 @@ export class BrowserPopupRenderer implements PopupRenderer {
     env: string = 'production',
     userId?: string,
     style?: PopupStyle,
+    sessionId?: string,
+    miniService?: string,
   ): void {
     if (this.visible) return;
     if (!this.container || !document.body.contains(this.container)) this.init();
     if (!this.container) return; // aún sin DOM
     this.visible = true;
-    renderPopup(this.container, surveyId, productId, actions, emit, onClose, env, userId, style);
+    const container = this.container;
+    void import('../ui/renderPopup').then(({ renderPopup }) => {
+      renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService);
+    });
   }
 
   hide(): void {

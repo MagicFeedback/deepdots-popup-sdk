@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DeepdotsPopups } from './deepdots-popups';
+import { mockPopupsApi, flushPopupsLoad } from './test-helpers';
 import type { DeepdotsEvent, PopupDefinition } from '../types';
 
 describe('DeepdotsPopups', () => {
@@ -8,7 +9,9 @@ describe('DeepdotsPopups', () => {
   beforeEach(() => {
     popups = new DeepdotsPopups();
     document.body.innerHTML = '';
+    mockPopupsApi([]); // los popups vienen de la API; sin red real en tests
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   describe('init', () => {
     it('should initialize the SDK with config', () => {
@@ -38,10 +41,14 @@ describe('DeepdotsPopups', () => {
       }).toThrow('SDK not initialized');
     });
 
-    it('should show popup when initialized', () => {
+    it('should show popup when initialized', async () => {
       popups.init({ apiKey: 'test-key' });
       popups.show({ surveyId: 'survey-1', productId: 'product-1' });
+      // renderPopup se carga de forma perezosa (dynamic import) → esperar a que resuelva y pinte
       const container = document.getElementById('deepdots-popup-container');
+      for (let i = 0; i < 50 && container?.style.display !== 'flex'; i++) {
+        await new Promise((r) => setTimeout(r, 10));
+      }
       expect(container?.style.display).toBe('flex');
     });
 
@@ -145,14 +152,15 @@ describe('DeepdotsPopups', () => {
     });
   });
 
-  describe('DeepdotsPopups mode handling', () => {
+  describe('DeepdotsPopups popup loading from API', () => {
     let popups: DeepdotsPopups;
     beforeEach(() => {
       popups = new DeepdotsPopups();
       document.body.innerHTML = '';
     });
+    afterEach(() => vi.unstubAllGlobals());
 
-    it('should derive triggers from client popups definitions', () => {
+    it('should derive triggers from API popup definitions', async () => {
       const popupDefs: PopupDefinition[] = [
         {
           id: 'p1',
@@ -165,7 +173,9 @@ describe('DeepdotsPopups', () => {
           style: { theme: 'light', position: 'bottom-right', imageUrl: null },
         }
       ];
-      popups.init({ mode: 'client', popups: popupDefs });
+      mockPopupsApi(popupDefs);
+      popups.init({ apiKey: 'k' });
+      await flushPopupsLoad();
       const listener = vi.fn();
       popups.on('popup_shown', listener);
       popups.autoLaunch();
@@ -174,7 +184,7 @@ describe('DeepdotsPopups', () => {
       });
     });
 
-    it('should show popup when one of multiple triggers matches', () => {
+    it('should show popup when one of multiple triggers matches', async () => {
       const popupDefs: PopupDefinition[] = [
         {
           id: 'p-multi',
@@ -191,7 +201,9 @@ describe('DeepdotsPopups', () => {
         }
       ];
 
-      popups.init({ mode: 'client', popups: popupDefs });
+      mockPopupsApi(popupDefs);
+      popups.init({ apiKey: 'k' });
+      await flushPopupsLoad();
       const listener = vi.fn();
       popups.on('popup_shown', listener);
       popups.autoLaunch();
@@ -217,7 +229,7 @@ describe('DeepdotsPopups', () => {
           productId: 'prod',
         },
       ]);
-      popups.init({ mode: 'server', debug: true });
+      popups.init({ apiKey: 'k', debug: true });
       const listener = vi.fn();
       popups.on('popup_shown', listener);
       popups.autoLaunch(); // se difiere
@@ -231,6 +243,7 @@ describe('DeepdotsPopups', () => {
   });
 
   describe('conditions logic', () => {
+    afterEach(() => vi.unstubAllGlobals());
     it('should not show popup if completed cooldown prevents it', async () => {
       const popupDefs: PopupDefinition[] = [
         {
@@ -245,7 +258,9 @@ describe('DeepdotsPopups', () => {
           style: { theme: 'light', position: 'bottom-right', imageUrl: null },
         }
       ];
-      popups.init({ mode: 'client', popups: popupDefs });
+      mockPopupsApi(popupDefs);
+      popups.init({ apiKey: 'k' });
+      await flushPopupsLoad();
       popups.markSurveyAnswered('survey-completed');
       const listener = vi.fn();
       popups.on('popup_shown', listener);
@@ -268,7 +283,9 @@ describe('DeepdotsPopups', () => {
           style: { theme: 'light', position: 'bottom-right', imageUrl: null },
         }
       ];
-      popups.init({ mode: 'client', popups: popupDefs });
+      mockPopupsApi(popupDefs);
+      popups.init({ apiKey: 'k' });
+      await flushPopupsLoad();
       const listener = vi.fn();
       popups.on('popup_shown', listener);
       popups.autoLaunch();
@@ -279,7 +296,7 @@ describe('DeepdotsPopups', () => {
       expect(listener).toHaveBeenCalledTimes(1); // no aumenta por cooldown
     });
 
-    it('should respect partial cooldown before survey completion', () => {
+    it('should respect partial cooldown before survey completion', async () => {
       const popupDefs: PopupDefinition[] = [
         {
           id: 'p-partial',
@@ -294,7 +311,9 @@ describe('DeepdotsPopups', () => {
         }
       ];
 
-      popups.init({ mode: 'client', popups: popupDefs });
+      mockPopupsApi(popupDefs);
+      popups.init({ apiKey: 'k' });
+      await flushPopupsLoad();
       const listener = vi.fn();
       popups.on('popup_shown', listener);
       popups.autoLaunch();

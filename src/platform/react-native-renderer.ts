@@ -1,71 +1,133 @@
-import type { DeepdotsEventType } from '../types';
+import type { DeepdotsEventType, PopupActions, PopupStyle } from '../types';
 import type { PopupRenderer } from './renderer';
+import { buildSurveyIdentity } from '../tracking/tracking-manager';
+import { buildSurveyHtml } from '../ui/surveyHtml';
+
+type EmitFn = (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void;
+
+/** Payload que recibe el host para montar el WebView del survey. */
+export interface ReactNativeSurveyPayload {
+  surveyId: string;
+  productId: string;
+  /** HTML autocontenido para `<WebView source={{ html }}>`. */
+  html: string;
+}
+
+export interface ReactNativeRendererOptions {
+  /** Se llama al mostrar un popup: monta el WebView con `payload.html`. */
+  onShow?: (payload: ReactNativeSurveyPayload) => void;
+  /** Se llama al cerrar el popup: desmonta el WebView. */
+  onHide?: () => void;
+}
 
 /**
- * Stub de renderer para React Native.
- * NOTA: Este archivo es sólo un ejemplo y NO renderiza UI real.
- * En una app RN se debería conectar con un Context, NativeModule o bridge para mostrar un Modal.
+ * Renderer de React Native: el SDK no puede pintar componentes RN, así que entrega el
+ * HTML del survey al host (que lo monta en `react-native-webview`) y traduce los
+ * mensajes del WebView a eventos de popup del SDK (→ `POST /sdk/popups`, Messaging #18–22).
+ *
+ * Uso:
+ * ```tsx
+ * const renderer = new ReactNativePopupRenderer({
+ *   onShow: (p) => setSurvey({ ...p, visible: true }),
+ *   onHide: () => setSurvey((s) => ({ ...s, visible: false })),
+ * });
+ * sdk.setRenderer(renderer);
+ * // …
+ * <WebView source={{ html: survey.html }}
+ *          onMessage={(e) => renderer.handleMessage(e.nativeEvent.data)} />
+ * ```
  */
 export class ReactNativePopupRenderer implements PopupRenderer {
-  private mounted = false;
-  private lastSurveyId: string | null = null;
-  private emitFn: ((type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void) | null = null;
+  private emitFn: EmitFn | null = null;
   private onCloseFn: (() => void) | null = null;
-  private completed = false;
+  private currentSurveyId: string | null = null;
+  private partialEmitted = false;
+
+  constructor(private options: ReactNativeRendererOptions = {}) {}
 
   init(): void {
-    // Preparar cualquier estado / registro de listeners nativos.
-    // Aquí se podría inicializar un NativeModule o store global.
-    // No hace nada en el stub.
+    /* nada que preparar */
   }
 
   show(
     surveyId: string,
     productId: string,
-    data: Record<string, unknown> | undefined,
-    emit: (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void,
-    onClose: () => void
+    _actions: PopupActions | undefined,
+    emit: EmitFn,
+    onClose: () => void,
+    env: string = 'production',
+    userId?: string,
+    _style?: PopupStyle,
+    sessionId?: string,
+    miniService?: string,
   ): void {
-    this.mounted = true;
-    this.lastSurveyId = surveyId;
     this.emitFn = emit;
     this.onCloseFn = onClose;
-    this.completed = false;
-    // Simula primera interacción / aparición
-    queueMicrotask(() => emit('popup_clicked', surveyId, data));
-    console.log('[ReactNativePopupRenderer] (stub) show survey:', { surveyId, productId, data });
-  }
+    this.currentSurveyId = surveyId;
+    this.partialEmitted = false;
 
-  /** Completar la encuesta desde la capa nativa */
-  public completeSurvey(data?: Record<string, unknown>): void {
-    if (!this.mounted || this.completed || !this.lastSurveyId || !this.emitFn) return;
-    this.completed = true;
-    this.emitFn('survey_completed', this.lastSurveyId, data);
-    // cerrar popup
-    this.onCloseFn?.();
-    this.mounted = false;
-    console.log('[ReactNativePopupRenderer] (stub) survey completed:', { surveyId: this.lastSurveyId, data });
-    this.lastSurveyId = null;
+    const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null);
+    const html = buildSurveyHtml({ surveyId, productId, env, profile, metadata });
+    if (this.options.onShow) {
+      this.options.onShow({ surveyId, productId, html });
+    } else {
+      console.warn(
+        '[Deepdots] ReactNativePopupRenderer sin onShow: pasa { onShow } a new ReactNativePopupRenderer({...}) para montar el WebView del survey.',
+      );
+    }
   }
 
   hide(): void {
-    if (!this.mounted) return;
-    this.mounted = false;
-    console.log('[ReactNativePopupRenderer] (stub) hide survey:', this.lastSurveyId);
-    this.lastSurveyId = null;
+    this.options.onHide?.();
+    this.currentSurveyId = null;
+  }
+
+  /**
+   * El host la conecta al `onMessage` del WebView. Traduce los mensajes del survey a
+   * eventos del SDK: primera interacción → `popup_clicked` (PARTIAL), completado →
+   * `survey_completed` (COMPLETED) y cierra el popup.
+   */
+  handleMessage(raw: string): void {
+    const surveyId = this.currentSurveyId;
+    if (!surveyId || !this.emitFn) return;
+
+    let name: string | undefined;
+    try {
+      name = (JSON.parse(raw) as { name?: string }).name;
+    } catch {
+      name = raw; // mensajes simples ("error:load")
+    }
+
+    switch (name) {
+      case 'loaded':
+      case 'before_submit':
+      case 'after_submit':
+      case 'back':
+        if (!this.partialEmitted) {
+          this.partialEmitted = true;
+          this.emitFn('popup_clicked', surveyId, { action: 'partial' });
+        }
+        break;
+      case 'survey_completed':
+        this.emitFn('survey_completed', surveyId);
+        this.onCloseFn?.(); // el core enruta a hidePopup() → renderer.hide() → onHide
+        break;
+      case 'popup_close':
+        this.onCloseFn?.();
+        break;
+      default:
+        break;
+    }
   }
 }
 
-/**
- * Detección simple de entorno React Native.
- * navigator.product === 'ReactNative' suele estar presente.
- */
+/** Detección simple de entorno React Native. */
 export function isReactNativeEnv(): boolean {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative';
 }
 
-/** Factoría opcional para crear renderer RN si detectado */
+/** Factoría usada por `createDefaultRenderer` cuando se detecta RN (el host debería pasar onShow). */
 export function createReactNativeRenderer(): PopupRenderer {
   return new ReactNativePopupRenderer();
 }

@@ -1,6 +1,6 @@
 {
   "name": "@magicfeedback/popup-sdk",
-  "version": "1.0.15",
+  "version": "1.1.0",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -11,19 +11,26 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./react-native": {
+      "types": "./dist/react-native.d.ts",
+      "import": "./dist/react-native.mjs",
+      "require": "./dist/react-native.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean && cp -R src/assets dist/assets",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean && cp -R src/assets dist/assets && tsup --config tsup.rn.config.ts",
     "build:watch": "tsup src/index.ts --format cjs,esm --dts --watch",
     "docs:dev": "npm --prefix docs run dev",
     "docs:build": "npm --prefix docs run build",
     "lint": "eslint src --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report",
     "prepublishOnly": "npm run build",
     "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public"
   },
@@ -43,14 +50,31 @@
     "url": "https://github.com/MagicFeedback/deepdots-popup-sdk/issues"
   },
   "homepage": "https://github.com/MagicFeedback/deepdots-popup-sdk#readme",
+  "peerDependencies": {
+    "react": ">=17",
+    "react-native": ">=0.70",
+    "react-native-webview": ">=11",
+    "react-native-mmkv": ">=2",
+    "react-native-device-info": ">=10"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-native": { "optional": true },
+    "react-native-webview": { "optional": true },
+    "react-native-mmkv": { "optional": true },
+    "react-native-device-info": { "optional": true }
+  },
   "devDependencies": {
     "@magicfeedback/native": "^2.2.1",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.10.0",
+    "@types/react": "^18.3.31",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.54.0",
     "happy-dom": "^14.12.0",
     "jsdom": "^27.1.0",
+    "react": "^18.3.1",
     "tsup": "^8.0.1",
     "typescript": "^5.3.2",
     "vitest": "^1.0.4"

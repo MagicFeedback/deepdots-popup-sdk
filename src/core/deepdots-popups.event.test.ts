@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { DeepdotsPopups } from './deepdots-popups';
 import { NoopPopupRenderer } from '../platform/renderer';
+import { mockPopupsApi, flushPopupsLoad } from './test-helpers';
 import type { PopupDefinition } from '../types';
 
 function wait(ms: number): Promise<void> {
@@ -13,8 +14,9 @@ describe('DeepdotsPopups event trigger', () => {
     sessionStorage.clear();
     window.location.hash = '#/home';
   });
+  afterEach(() => vi.unstubAllGlobals());
 
-  it('shows matching event popup when current route matches segments.path', () => {
+  it('shows matching event popup when current route matches segments.path', async () => {
     const popups = new DeepdotsPopups();
     popups.setRenderer(new NoopPopupRenderer());
 
@@ -32,7 +34,9 @@ describe('DeepdotsPopups event trigger', () => {
 
     const listener = vi.fn();
     popups.on('popup_shown', listener);
-    popups.init({ mode: 'client', popups: defs });
+    mockPopupsApi(defs);
+    popups.init({ apiKey: 'k' });
+    await flushPopupsLoad();
     popups.autoLaunch();
 
     popups.triggerEvent('search');
@@ -46,7 +50,7 @@ describe('DeepdotsPopups event trigger', () => {
     );
   });
 
-  it('does not show event popup when route does not match segments.path', () => {
+  it('does not show event popup when route does not match segments.path', async () => {
     const popups = new DeepdotsPopups();
     popups.setRenderer(new NoopPopupRenderer());
 
@@ -64,7 +68,9 @@ describe('DeepdotsPopups event trigger', () => {
 
     const listener = vi.fn();
     popups.on('popup_shown', listener);
-    popups.init({ mode: 'client', popups: defs });
+    mockPopupsApi(defs);
+    popups.init({ apiKey: 'k' });
+    await flushPopupsLoad();
     popups.autoLaunch();
 
     popups.triggerEvent('search');
@@ -79,6 +85,7 @@ describe('DeepdotsPopups trigger disambiguation by popupId', () => {
     sessionStorage.clear();
     window.location.hash = '#/game';
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it('queues and shows the popup tied to popupId even when surveyId is shared', async () => {
     const popups = new DeepdotsPopups();
@@ -107,7 +114,9 @@ describe('DeepdotsPopups trigger disambiguation by popupId', () => {
 
     const listener = vi.fn();
     popups.on('popup_shown', listener);
-    popups.init({ mode: 'client', popups: defs });
+    mockPopupsApi(defs);
+    popups.init({ apiKey: 'k' });
+    await flushPopupsLoad();
     popups.autoLaunch();
 
     popups.queueExitPopup('shared-survey', 0, 'http://localhost:3000/#/game', 'popup-game-exit');

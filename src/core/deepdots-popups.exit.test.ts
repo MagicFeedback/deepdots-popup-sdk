@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeepdotsPopups } from './deepdots-popups';
 import { NoopPopupRenderer } from '../platform/renderer';
+import { mockPopupsApi, flushPopupsLoad } from './test-helpers';
 import type { PopupDefinition } from '../types';
 
 function createExitDefinition(seconds: number): PopupDefinition {
@@ -39,14 +40,14 @@ describe('DeepdotsPopups exit trigger', () => {
     sessionStorage.clear();
     window.location.hash = '#/login';
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it('shows the popup after leaving the configured route', async () => {
     const popups = new DeepdotsPopups();
     popups.setRenderer(new NoopPopupRenderer());
-    popups.init({
-      mode: 'client',
-      popups: [createExitDefinition(0)],
-    });
+    mockPopupsApi([createExitDefinition(0)]);
+    popups.init({ apiKey: 'k' });
+    await flushPopupsLoad();
 
     const shown = vi.fn();
     popups.on('popup_shown', shown);
@@ -61,10 +62,9 @@ describe('DeepdotsPopups exit trigger', () => {
   it('applies the configured delay in seconds before showing on destination route', async () => {
     const popups = new DeepdotsPopups();
     popups.setRenderer(new NoopPopupRenderer());
-    popups.init({
-      mode: 'client',
-      popups: [createExitDefinition(0.05)],
-    });
+    mockPopupsApi([createExitDefinition(0.05)]);
+    popups.init({ apiKey: 'k' });
+    await flushPopupsLoad();
 
     const shown = vi.fn();
     popups.on('popup_shown', shown);
@@ -83,10 +83,9 @@ describe('DeepdotsPopups exit trigger', () => {
 
     const popups = new DeepdotsPopups();
     popups.setRenderer(new NoopPopupRenderer());
-    popups.init({
-      mode: 'client',
-      popups: [createExitDefinition(0)],
-    });
+    mockPopupsApi([createExitDefinition(0)]);
+    popups.init({ apiKey: 'k' });
+    await flushPopupsLoad();
 
     const shown = vi.fn();
     popups.on('popup_shown', shown);

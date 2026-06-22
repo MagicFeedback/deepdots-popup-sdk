@@ -1,0 +1,22 @@
+import { chromium } from '@playwright/test';
+const b = await chromium.launch(); const page = await (await b.newContext()).newPage();
+const logs = [];
+page.on('console', m => logs.push(m.text()));
+await page.goto('http://localhost:5173/examples/e2e-tracking.html?apiKey=pk-demo');
+await page.waitForFunction(() => window.__sdkReady === true);
+await page.evaluate(() => {
+  const d = window.deepdots;
+  d.setUserAttributes({ registration_status: 'registered', pass_type: 'premium', sector: 'retail', pass_status: 'active' });
+  d.enterMiniService('checkout', 'home');
+  d.track('task_started', { task_id: 'task-42' });
+  d.track('search', { query: 'zapatos', results: 0 });
+  d.track('cta_click', { label: 'comprar' });
+});
+console.log('\n===== PREVIEW (previewAnalytics) =====');
+console.log(JSON.stringify(await page.evaluate(() => window.deepdots.previewAnalytics()), null, 2));
+console.log('\n===== FLUSH dry-run (console.log del SDK) =====');
+await page.evaluate(() => window.deepdots.flushAnalytics());
+await page.waitForTimeout(100);
+logs.filter(l => l.includes('/sdk/analytics')).forEach(l => console.log(l));
+console.log('\n===== pending tras flush =====', await page.evaluate(() => window.deepdots.previewAnalytics().events.length));
+await b.close();
