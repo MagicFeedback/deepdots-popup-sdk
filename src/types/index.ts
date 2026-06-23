@@ -61,18 +61,6 @@ export interface TriggerConfig {
 }
 
 /**
- * Options for showing a popup
- */
-export interface ShowOptions {
-    /** Survey ID to display */
-    surveyId: string;
-    /** Product ID associated with the survey */
-    productId: string;
-    /** Additional data to pass with the survey */
-    data?: Record<string, unknown>;
-}
-
-/**
  * Event types emitted by the SDK
  */
 export type DeepdotsEventType =

@@ -61,7 +61,6 @@
 
   <h2>Popups / survey</h2>
   <div class="controls">
-    <button id="btn-show">show(survey de prueba)</button>
     <button id="btn-clear" class="outline">Limpiar log</button>
   </div>
 
@@ -95,8 +94,6 @@
         integration: 'a0365bd0-6ee1-11f1-94c7-45c08829a73b'
       },
     };
-    const SURVEY = { surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0', productId: '02b809f20e024bce47c57f123cff8735' };
-
     // Carga la build local del SDK (incluye buildAnalyticsFeedbackBody para previsualizar el body).
     const { DeepdotsPopups, buildAnalyticsFeedbackBody } = await import(getSdkSourceUrl());
 
@@ -188,7 +185,6 @@
     };
 
     // ───── Popup ─────
-    document.getElementById('btn-show').onclick = () => sdk.show({ ...SURVEY, data: { origen: 'demo' } });
     document.getElementById('btn-clear').onclick = () => { logEl.innerHTML = ''; };
   </script>
 </body>

@@ -34,40 +34,6 @@ describe('DeepdotsPopups', () => {
     });
   });
 
-  describe('show', () => {
-    it('should throw error if not initialized', () => {
-      expect(() => {
-        popups.show({ surveyId: 'survey-1', productId: 'product-1' });
-      }).toThrow('SDK not initialized');
-    });
-
-    it('should show popup when initialized', async () => {
-      popups.init({ apiKey: 'test-key' });
-      popups.show({ surveyId: 'survey-1', productId: 'product-1' });
-      // renderPopup se carga de forma perezosa (dynamic import) → esperar a que resuelva y pinte
-      const container = document.getElementById('deepdots-popup-container');
-      for (let i = 0; i < 50 && container?.style.display !== 'flex'; i++) {
-        await new Promise((r) => setTimeout(r, 10));
-      }
-      expect(container?.style.display).toBe('flex');
-    });
-
-    it('should emit popup_shown event', () => {
-      popups.init({ apiKey: 'test-key' });
-      const listener = vi.fn();
-      popups.on('popup_shown', listener);
-      
-      popups.show({ surveyId: 'survey-1', productId: 'product-1' });
-      
-      expect(listener).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'popup_shown',
-          surveyId: 'survey-1',
-        })
-      );
-    });
-  });
-
   describe('configureTriggers', () => {
     it('should throw error if not initialized', () => {
       expect(() => {
@@ -107,21 +73,21 @@ describe('DeepdotsPopups', () => {
     it('should add and trigger event listeners', () => {
       popups.init({ apiKey: 'test-key' });
       const listener = vi.fn();
-      
+
       popups.on('popup_shown', listener);
-      popups.show({ surveyId: 'survey-1',productId: 'product-1' });
-      
+      (popups as any).emitEvent('popup_shown', 'survey-1');
+
       expect(listener).toHaveBeenCalled();
     });
 
     it('should remove event listeners', () => {
       popups.init({ apiKey: 'test-key' });
       const listener = vi.fn();
-      
+
       popups.on('popup_shown', listener);
       popups.off('popup_shown', listener);
-      popups.show({ surveyId: 'survey-1', productId: 'product-1' });
-      
+      (popups as any).emitEvent('popup_shown', 'survey-1');
+
       expect(listener).not.toHaveBeenCalled();
     });
 
@@ -143,10 +109,10 @@ describe('DeepdotsPopups', () => {
     it('should include timestamp in events', () => {
       popups.init({ apiKey: 'test-key' });
       const listener = vi.fn();
-      
+
       popups.on('popup_shown', listener);
-      popups.show({ surveyId: 'survey-1', productId: 'product-1' });
-      
+      (popups as any).emitEvent('popup_shown', 'survey-1');
+
       const event: DeepdotsEvent = listener.mock.calls[0][0];
       expect(event.timestamp).toBeGreaterThan(0);
     });
@@ -234,10 +200,7 @@ describe('DeepdotsPopups', () => {
       popups.on('popup_shown', listener);
       popups.autoLaunch(); // se difiere
       expect(listener).not.toHaveBeenCalled();
-      await new Promise((r) => setTimeout(r, 120)); // esperar carga fake + trigger
-      // Validar que las definiciones se cargaron derivando triggers
-      // Forzar mostrar el popup para asegurar evento
-      popups.showByPopupId('popup-123');
+      await new Promise((r) => setTimeout(r, 120)); // esperar carga + trigger (10ms)
       expect(listener).toHaveBeenCalled();
     });
   });

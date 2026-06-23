@@ -53,8 +53,6 @@ function Demo() {
       <Row><Button title="trackFunnelStep('task_started')" onPress={() => dd.trackFunnelStep('outstanding_task', 'task_started', 'task-42')} /></Row>
 
       <Text style={styles.h2}>Surveys / popup (#18–22)</Text>
-      <Row><Button title="Mostrar survey" onPress={() => dd.show(SURVEY)} /></Row>
-
       <Text style={styles.h2}>Analytics (dry-run)</Text>
       <Row><Button title="previewAnalytics() → consola" onPress={() => console.log('[preview]', JSON.stringify(dd.previewAnalytics(), null, 2))} /></Row>
       <Row><Button title="flushAnalytics() (dry-run)" onPress={() => dd.flushAnalytics()} /></Row>

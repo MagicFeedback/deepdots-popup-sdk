@@ -25,7 +25,7 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
   });
 
   it('al mostrar, entrega al host el HTML del survey para el WebView', () => {
-    popups.show({ surveyId: 'survey-rn', productId: 'prod-rn' });
+    (popups as any).showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
     expect(shown).toBeTruthy();
     expect(shown!.surveyId).toBe('survey-rn');
     expect(shown!.html).toContain('survey-rn');
@@ -39,7 +39,7 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
     popups.on('popup_clicked', clicked);
     popups.on('survey_completed', completed);
 
-    popups.show({ surveyId: 'survey-rn', productId: 'prod-rn' });
+    (popups as any).showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
 
     renderer.handleMessage(JSON.stringify({ name: 'loaded' }));
     renderer.handleMessage(JSON.stringify({ name: 'after_submit' })); // no debe duplicar PARTIAL
@@ -54,13 +54,13 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
   });
 
   it('cierra el popup ante un mensaje popup_close', () => {
-    popups.show({ surveyId: 'survey-rn', productId: 'prod-rn' });
+    (popups as any).showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
     renderer.handleMessage(JSON.stringify({ name: 'popup_close' }));
     expect(hidden).toBe(1);
   });
 
   it('inyecta la identidad (user_id) en el HTML del survey', () => {
-    popups.show({ surveyId: 'survey-rn', productId: 'prod-rn' });
+    (popups as any).showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
     expect(shown!.html).toContain('external-user-id');
     expect(shown!.html).toContain(popups.getUserId() as string);
   });

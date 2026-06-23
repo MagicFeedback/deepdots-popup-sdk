@@ -200,25 +200,6 @@ Example:
 popups.triggerEvent('search');
 ```
 
-### `show({ surveyId, productId })`
-
-Shows a popup immediately without waiting for a trigger.
-
-```ts
-popups.show({
-  surveyId: 'survey-home-001',
-  productId: 'product-main',
-});
-```
-
-### `showByPopupId(popupId)`
-
-Shows a popup definition by id. This is useful when multiple popups reuse the same `surveyId`.
-
-```ts
-popups.showByPopupId('popup-home-5s');
-```
-
 ### `markSurveyAnswered(surveyId)`
 
 Marks a survey as answered so cooldown rules like `{ answered: 'COMPLETED', cooldownDays: 30 }` start applying.

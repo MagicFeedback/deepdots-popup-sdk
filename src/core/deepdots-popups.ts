@@ -351,38 +351,6 @@ export class DeepdotsPopups {
         this.triggers.forEach((trigger) => setupTrigger(this, trigger));
     }
 
-    /** Show a popup immediately (supports legacy ShowOptions and new PopupDefinition) */
-    show(options: PopupDefinition | { surveyId: string; productId: string; data?: Record<string, unknown> }): void {
-        if (!this.initialized) {
-            throw new Error('SDK not initialized. Call init() first.');
-        }
-
-        const isDefinition = (options as PopupDefinition).id !== undefined;
-        if (isDefinition) {
-            const def = options as PopupDefinition;
-            this.log('Showing popup (definition)', def);
-            this.surveyToPopupId.set(def.surveyId, def.id);
-            this.lastShown.set(def.id, Date.now());
-            this.renderPopup(def.surveyId, def.productId, def.actions, def.style);
-            this.emitEvent('popup_shown', def.surveyId, { popupId: def.id });
-        } else {
-            const opt = options as { surveyId: string; productId: string; data?: Record<string, unknown> };
-            this.log('Showing popup (legacy options)', opt);
-            this.renderPopup(opt.surveyId, opt.productId, undefined);
-            this.emitEvent('popup_shown', opt.surveyId);
-        }
-    }
-
-    /** Mostrar popup por id de definición (usa surveyId interno) */
-    showByPopupId(popupId: string): void {
-        const def = this.popupDefinitions.find((popup) => popup.id === popupId);
-        if (!def) {
-            this.log('Popup definition not found', popupId);
-            return;
-        }
-        this.show(def);
-    }
-
     /** Configure triggers for auto-launching popups (manual) */
     configureTriggers(triggers: TriggerConfig[]): void {
         if (!this.initialized) {
@@ -463,7 +431,11 @@ export class DeepdotsPopups {
     }
 
     private showDefinition(def: PopupDefinition): void {
-        this.show(def);
+        this.log('Showing popup (definition)', def);
+        this.surveyToPopupId.set(def.surveyId, def.id);
+        this.lastShown.set(def.id, Date.now());
+        this.renderPopup(def.surveyId, def.productId, def.actions, def.style);
+        this.emitEvent('popup_shown', def.surveyId, { popupId: def.id });
     }
 
     private shouldShow(def: NormalizedPopupDefinition, pathUrl?: string, skipPathCheck = false): boolean {

@@ -70,7 +70,7 @@ describe('DeepdotsPopups tracking (Fase 1)', () => {
 
   it('does NOT send sessionId in the event body (backend owns it)', () => {
     popups.init({ apiKey: 'k' });
-    popups.show(DEF);
+    (popups as any).showDefinition(DEF);
 
     const body = lastPopupEventBody(fetchSpy);
     expect(body).toMatchObject({ status: 'SHOWED', popupId: 'popup-1' });
@@ -81,7 +81,7 @@ describe('DeepdotsPopups tracking (Fase 1)', () => {
     popups.init({ apiKey: 'k' });
     expect(popups.getSessionId()).toBeNull();
 
-    popups.show(DEF); // dispara popup_shown → POST → respuesta { sessionId: 'srv-1' }
+    (popups as any).showDefinition(DEF); // dispara popup_shown → POST → respuesta { sessionId: 'srv-1' }
     await new Promise((r) => setTimeout(r, 0)); // deja resolver la promesa del fetch
 
     expect(popups.getSessionId()).toBe('srv-1');
@@ -92,7 +92,7 @@ describe('DeepdotsPopups tracking (Fase 1)', () => {
     popups.setTrackingEnabled(false);
 
     expect(popups.getSessionId()).toBeNull();
-    popups.show(DEF);
+    (popups as any).showDefinition(DEF);
 
     const body = lastPopupEventBody(fetchSpy);
     expect(body.status).toBe('SHOWED');
