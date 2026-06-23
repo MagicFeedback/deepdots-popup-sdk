@@ -5,7 +5,7 @@
     "react": "*",
     "react-native": "*",
     "react-native-webview": "^13",
-    "react-native-mmkv": "^2",
+    "react-native-mmkv": "^3",
     "react-native-device-info": "^11"
   }
 }

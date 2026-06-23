@@ -2,46 +2,55 @@
 
 App de prueba con botones para cada caso de uso. El tracking de analytics va en **dry-run**: el payload se imprime en la consola de **Metro** (`[DeepdotsAnalytics] (dry-run …)`). Los eventos de popup sí se envían a `/sdk/popups`.
 
-## 1. Crear (o usar) una app RN
+## ⚡ Vía rápida: un comando
 
 ```bash
-# nueva app
-npx react-native@latest init DeepdotsDemo
-cd DeepdotsDemo
+bash /Users/sarias/develop/deepdots-popup-sdk/examples/react-native/setup.sh DeepdotsDemo ~/
 ```
-(o usa tu app existente).
+Empaqueta el SDK, crea la app (`@react-native-community/cli`), instala SDK + peers (MMKV v3 opcional), copia `App.tsx` y hace `pod install`. Luego edita `App.tsx` (apiKey + survey) y `npm run ios` / `npm run android`.
 
-## 2. Instalar dependencias
+> Requiere tener instalado el toolchain nativo (Xcode / Android Studio + CocoaPods). El script no compila ni arranca el simulador.
 
-```bash
-# peer-deps que usa el SDK en RN
-npm i react-native-webview          # render del survey
-npm i react-native-mmkv             # persistencia (síncrono) — recomendado
-npm i react-native-device-info      # device info — recomendado
-cd ios && pod install && cd ..      # solo iOS
-```
+Si prefieres hacerlo a mano, sigue los pasos de abajo.
 
-## 3. Instalar el SDK (aún no publicado → tarball local)
+---
 
-Desde el repo del SDK:
+> ⚠️ **Ejecuta cada paso por separado y comprueba con `pwd` dónde estás.** NO encadenes con `&&`: si un comando falla (p. ej. el `init`), los `npm i` siguientes se ejecutarían en el repo del SDK y lo contaminan (meten el SDK como dependencia de sí mismo).
+
+## 0. Empaquetar el SDK (en el repo del SDK)
+
 ```bash
 cd /Users/sarias/develop/deepdots-popup-sdk
 npm run build
 npm pack          # genera magicfeedback-popup-sdk-1.1.0.tgz
 ```
-En la app:
-```bash
-npm i /Users/sarias/develop/deepdots-popup-sdk/magicfeedback-popup-sdk-1.1.0.tgz
-```
 > `npm pack` respeta `files: ["dist"]`, así que se publica `dist/` con los entries `.` y `./react-native`.
 
-## 4. Copiar el `App.tsx`
+## 1. Crear la app RN — comando NUEVO (`react-native init` está deprecado)
+
+```bash
+cd ~/        # FUERA del repo del SDK
+npx @react-native-community/cli@latest init DeepdotsDemo
+cd DeepdotsDemo   # ← verifica con `pwd` que estás aquí antes de seguir
+```
+
+## 2. Instalar el SDK + peer-deps (DENTRO de DeepdotsDemo)
+
+```bash
+# RN 0.86 trae React 19 → usa --legacy-peer-deps para evitar el conflicto de peers
+npm i /Users/sarias/develop/deepdots-popup-sdk/magicfeedback-popup-sdk-1.1.0.tgz --legacy-peer-deps
+npm i react-native-webview react-native-mmkv react-native-device-info --legacy-peer-deps
+cd ios && pod install && cd ..      # solo iOS
+```
+> Si `react-native-mmkv` falla con tu versión de RN, omítelo: el SDK degrada a memoria (solo se pierde la persistencia del `user_id`); el resto funciona.
+
+## 3. Copiar el `App.tsx`
 
 Copia [`App.tsx`](./App.tsx) de esta carpeta a la raíz de la app. Rellena en él:
 - `CONFIG.apiKey` → tu publicKey.
 - `SURVEY.surveyId` / `productId` → un survey real del proyecto (para el botón "Mostrar survey").
 
-## 5. Ejecutar
+## 4. Ejecutar
 
 ```bash
 npm start            # Metro (mira aquí la consola del tracking)

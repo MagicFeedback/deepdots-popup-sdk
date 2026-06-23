@@ -608,6 +608,16 @@
     sdk.autoLaunch();
 
     // Event on click
+    // ───── Contact ─────
+    document.getElementById('btn-contact').onclick = async () => {
+        const sent = await sdk.setContactAttributes({
+            plan: 'premium',
+            language: document.documentElement.lang || 'en',
+            age: Math.floor(Math.random() * 83) + 18,
+        });
+        log(`setContactAttributes → ${sent ? 'Sent (POST)' : 'Whiteout changes, no POST'}`);
+    };
+
 </script>
 </body>
 </html>

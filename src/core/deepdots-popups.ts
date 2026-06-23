@@ -20,9 +20,11 @@ import { resolveEnvironment } from '../config/env';
 import { PopupRenderer, createDefaultRenderer } from '../platform/renderer';
 import { TrackingManager, createDefaultStorage } from '../tracking/tracking-manager';
 import { AnalyticsManager, type AnalyticsEnvelope } from '../analytics/analytics-manager';
+import { createFeedbackSink } from '../analytics/feedback-payload';
 import { NavigationObserver } from '../tracking/navigation-observer';
 import { collectDeviceInfo } from '../analytics/device-info';
 import { EngagementTracker } from '../analytics/engagement-tracker';
+import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -79,6 +81,8 @@ export class DeepdotsPopups {
     private navObserver: NavigationObserver | null = null;
     /** Tiempo activo (engagement time, #8). */
     private engagement: EngagementTracker | null = null;
+    /** Atributos internos del usuario identificado → POST /sdk/popups/contact. Null si no hay userId. */
+    private contact: ContactManager | null = null;
     /** Marca si ya se inició la navegación manual (setScreen) — para RN sin History API. */
     private navStarted = false;
 
@@ -102,15 +106,43 @@ export class DeepdotsPopups {
 
         // user_id lo gestiona el SDK (persistente); el session_id lo provee el backend
         // (respuesta de POST /sdk/popups) y se cachea — el SDK no genera ni expira sesiones.
+        const storage = config.storage ?? createDefaultStorage();
         this.tracking = new TrackingManager({
-            storage: config.storage ?? createDefaultStorage(),
+            storage,
             clientUserId: this.config.userId,
+            enabled: config.trackingEnabled ?? true,
         });
+
+        // Contact: info interna del usuario que solo conoce el host (segmentación/targeting).
+        // Solo trackeamos usuarios IDENTIFICADOS → se crea únicamente si hay userId del init.
+        if (this.config.userId) {
+            const userId = this.config.userId;
+            const publicKey = this.config.apiKey ?? '';
+            this.contact = new ContactManager({
+                storage,
+                publicKey,
+                userId,
+                post: (body) => this.postContact(body),
+            });
+            // Atributos de contact pasados en init: envío fire-and-forget (solo si cambiaron).
+            if (config.contactAttributes) {
+                void this.setContactAttributes(config.contactAttributes);
+            }
+        }
         this.log('tracking · user_id:', this.tracking.getUserId(), '· new_user:', this.tracking.isNewUser(), '· enabled:', this.tracking.isTrackingEnabled());
 
-        // Analytics: canal SEPARADO del feedback. Hoy en dry-run (console.log), sin POST.
+        // Analytics: se envía como Feedback a la integración (`POST /sdk/feedback`) si se
+        // pasan claves en init.analytics; si no, queda en dry-run (solo console.log).
+        const analyticsSink = config.analytics
+            ? createFeedbackSink({
+                  baseUrl: this.baseUrl,
+                  keys: config.analytics,
+                  log: (...a) => this.log(...a),
+              })
+            : undefined;
         this.analytics = new AnalyticsManager({
-            publicKey: this.config.apiKey,
+            sink: analyticsSink,
+            publicKey: config.analytics?.publicKey ?? this.config.apiKey,
             language: typeof navigator !== 'undefined' ? navigator.language : undefined,
             platform: config.platform ?? 'web',
             device: config.device ?? collectDeviceInfo(config.appVersion),
@@ -171,6 +203,18 @@ export class DeepdotsPopups {
     setUserAttributes(attributes: Record<string, string | number | boolean>): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         this.analytics?.setUserAttributes(attributes);
+    }
+
+    /**
+     * Info interna del usuario que solo conoce el host (idioma, edad, plan…), persistida en el
+     * Contact del backend para segmentación/targeting de popups. Identificada por el `userId` del
+     * init. Solo envía si los atributos cambiaron (diff en storage). No-op si tracking off o sin userId.
+     * @returns `true` si se envió al backend, `false` si no hubo cambios o está deshabilitado.
+     */
+    async setContactAttributes(attributes: ContactAttributes): Promise<boolean> {
+        if (!this.tracking?.isTrackingEnabled()) return false;
+        if (!this.contact) return false;
+        return this.contact.setAttributes(attributes);
     }
 
     /** Marca el inicio de un mini-service; etiqueta los eventos siguientes. No-op si tracking off. */
@@ -706,6 +750,27 @@ export class DeepdotsPopups {
         } catch (error) {
             this.log('Error fetching popups', error);
             return [];
+        }
+    }
+
+    /** Envía los atributos de contact a la API (`POST /sdk/popups/contact`). */
+    private async postContact(body: { publicKey: string; userId: string; userAttributes: ContactAttributes }): Promise<void> {
+        const baseUrl = this.baseUrl;
+        if (!baseUrl) return;
+        const endpoint = `${baseUrl}/sdk/popups/contact`;
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                this.log('Failed to post contact', response.status, response.statusText);
+                return;
+            }
+            this.log('contact · sent attributes for user:', body.userId);
+        } catch (error) {
+            this.log('Error posting contact', error);
         }
     }
 

@@ -18,6 +18,11 @@ export type { PopupRenderer } from './platform/renderer';
 export { InMemoryStorage } from './tracking/tracking-manager';
 export type { KeyValueStorage } from './tracking/tracking-manager';
 export type { DeviceInfo } from './analytics/device-info';
+export { ContactManager } from './contact/contact-manager';
+export type { ContactAttributes, ContactAttributeValue, ContactBody } from './contact/contact-manager';
+// Canal de analytics → POST /sdk/feedback (modelo de Feedback del Surveys SDK).
+export { buildAnalyticsFeedbackBody, createFeedbackSink } from './analytics/feedback-payload';
+export type { AnalyticsKeys, AnalyticsFeedbackBody, FeedbackKV } from './analytics/feedback-payload';
 // React Native: renderer-puente para mostrar surveys en react-native-webview.
 export { ReactNativePopupRenderer } from './platform/react-native-renderer';
 export type { ReactNativeRendererOptions, ReactNativeSurveyPayload } from './platform/react-native-renderer';

@@ -40,6 +40,8 @@ deepdots.init({
   debug: false,             // true → logs de tracking/analytics en consola
   appVersion: '1.2.3',      // opcional, para Technology #11
   // userId: 'id-del-host', // opcional: si tu app ya identifica al usuario (no se persiste)
+  // trackingEnabled: false, // opcional: arranca SIN trackear (p. ej. hasta consentimiento). Luego setTrackingEnabled(true)
+  // analytics: { publicKey, integration }, // opcional: ENVÍA la analítica a POST /sdk/feedback (sin esto → dry-run)
 });
 ```
 

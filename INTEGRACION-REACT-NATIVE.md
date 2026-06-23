@@ -32,7 +32,11 @@ import { DeepdotsProvider } from '@magicfeedback/popup-sdk/react-native';
 
 export default function App() {
   return (
-    <DeepdotsProvider config={{ apiKey: 'TU_PUBLIC_KEY', nodeEnv: __DEV__ ? 'development' : 'production' }}>
+    <DeepdotsProvider config={{
+      apiKey: 'TU_PUBLIC_KEY',
+      nodeEnv: __DEV__ ? 'development' : 'production',
+      // analytics: { publicKey, integration }, // opcional: ENVÍA analítica a POST /sdk/feedback (sin esto → dry-run)
+    }}>
       {/* …tu app… */}
     </DeepdotsProvider>
   );
@@ -78,7 +82,7 @@ const sdk = useDeepdots();
 | **Findability** (#31, #34, #35) | `sdk.trackSearch('zapatillas', resultsCount)` · `sdk.trackFindabilityFriction('checkout_address')` |
 | **Funnel** | `sdk.trackFunnelStep('outstanding_task','task_started', taskId)` |
 | **Mostrar un popup/survey** | `sdk.triggerEvent('mi_evento')` o `sdk.show({ surveyId, productId })` |
-| **Privacidad (kill-switch)** | `sdk.setTrackingEnabled(false)` |
+| **Privacidad (kill-switch)** | `sdk.setTrackingEnabled(false)` · o arrancar desactivado: `config={{ …, trackingEnabled: false }}` (hasta consentimiento) |
 
 > Engagement (#8) y Page Views (#9–10) son **automáticos** con el Provider (§2) y la navegación (§3). Users/Engagement (#1–7) los calcula backend a partir de `user_id` + eventos.
 

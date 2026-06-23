@@ -50,9 +50,33 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     popups.flushAnalytics();
 
     expect(logSpy).toHaveBeenCalled();
-    const printed = logSpy.mock.calls.flat().some((a) => typeof a === 'string' && a.includes('/sdk/analytics'));
+    const printed = logSpy.mock.calls.flat().some((a) => typeof a === 'string' && a.includes('/sdk/feedback'));
     expect(printed).toBe(true);
     expect(popups.previewAnalytics().events).toHaveLength(0);
+  });
+
+  it('con init.analytics, flushAnalytics() hace POST real a /sdk/feedback', () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true } as any);
+    vi.stubGlobal('fetch', fetchSpy);
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({
+      apiKey: 'pk-1',
+      nodeEnv: 'development',
+      analytics: { publicKey: 'pub-a', integration: 'int-7' },
+    });
+
+    sdk.track('page_view', { screen: '/home' });
+    sdk.flushAnalytics();
+
+    const call = fetchSpy.mock.calls.find(([u]) => typeof u === 'string' && u.endsWith('/sdk/feedback'));
+    expect(call).toBeTruthy();
+    expect(call![0]).toBe('https://api-dev.deepdots.com/sdk/feedback');
+    const body = JSON.parse((call![1] as RequestInit).body as string);
+    expect(body.integration).toBe('int-7');
+    expect(body.completed).toBe(false);
+    expect(body.feedback.metrics.some((m: any) => m.key === 'page_view')).toBe(true);
+    vi.unstubAllGlobals();
   });
 
   it('con tracking desactivado, track() es no-op', () => {

@@ -3,157 +3,193 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Deepdots Popup SDK Demo</title>
+  <title>Deepdots SDK · Banco de pruebas (analytics + contact)</title>
   <style>
-    body {font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;max-width:900px;margin:0 auto;padding:40px 20px;line-height:1.5;background:#fafafa;}
+    body {font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:960px;margin:0 auto;padding:32px 20px;line-height:1.5;background:#fafafa;color:#222;}
     h1 {color:#333;border-bottom:2px solid #4CAF50;padding-bottom:10px;}
-    .controls {background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0;display:flex;flex-wrap:wrap;gap:8px;}
-    button {background:#4CAF50;color:#fff;border:none;padding:12px 18px;border-radius:4px;cursor:pointer;font-size:14px;}
-    button:hover {background:#45a049;}
+    h2 {font-size:16px;margin:24px 0 8px;}
+    .controls {background:#f5f5f5;padding:14px;border-radius:8px;margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;}
+    button {background:#4CAF50;color:#fff;border:none;padding:10px 14px;border-radius:4px;cursor:pointer;font-size:13px;}
+    button:hover {filter:brightness(0.95);}
     button.secondary {background:#2196F3;}
-    button.secondary:hover {background:#0b7dda;}
     button.outline {background:#fff;color:#333;border:1px solid #ccc;}
-    button.outline:hover {background:#eee;}
-    .event-log {background:#222;color:#f1f1f1;padding:14px;border-radius:6px;font-family:'Courier New',monospace;font-size:12px;max-height:280px;overflow-y:auto;margin:20px 0;}
-    .event-log .event {margin:4px 0;padding:4px 6px;border-left:3px solid #4CAF50;}
-    .content {margin:40px 0;min-height:1200px;}
-    .section {margin:20px 0;padding:20px;background:#fff;border:1px solid #ddd;border-radius:6px;}
-    .badge {display:inline-block;background:#4CAF50;color:#fff;padding:2px 6px;font-size:11px;border-radius:3px;margin-left:6px;}
+    button.warn {background:#e67e22;}
+    .log {background:#1e1e1e;color:#e6e6e6;padding:14px;border-radius:6px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;max-height:340px;overflow:auto;margin:12px 0;white-space:pre-wrap;}
+    .log .line {margin:2px 0;padding:3px 6px;border-left:3px solid #4CAF50;}
+    .log .line.net {border-left-color:#2196F3;}
+    .log .line.warn {border-left-color:#e67e22;}
+    .banner {background:#fff3cd;border:1px solid #ffe69c;padding:12px 14px;border-radius:6px;margin:12px 0;font-size:13px;}
+    code {background:#eee;padding:1px 5px;border-radius:3px;font-size:12px;}
+    .content {margin:32px 0;min-height:900px;}
+    .section {margin:16px 0;padding:16px;background:#fff;border:1px solid #ddd;border-radius:6px;}
   </style>
-    <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <h1>🧪 Demo Deepdots Popup SDK</h1>
-  <p>Esta demo usa el SDK real en <strong>modo client</strong> con definiciones de popups fake y renderiza encuestas con Deepdots.</p>
+  <h1>🧪 Deepdots SDK · banco de pruebas</h1>
+  <p>Prueba el canal de <strong>analytics → <code>POST /sdk/feedback</code></strong> y <strong>contact → <code>POST /sdk/popups/contact</code></strong>. Mira el log de abajo, la consola y la pestaña <strong>Network</strong> de DevTools.</p>
 
+  <div class="banner" id="cfg-banner"></div>
+
+  <h2>Identidad</h2>
   <div class="controls">
-    <button id="btn-show-popup1">Mostrar Popup 1</button>
-    <button id="btn-show-popup2" class="secondary">Mostrar Popup 2</button>
-    <button id="btn-autolaunch" class="secondary">Activar AutoLaunch</button>
-    <button id="btn-mark-answered" class="outline">Marcar encuesta 1 contestada</button>
-    <button id="btn-force-survey" class="outline">Forzar trigger encuesta 2</button>
-    <button id="btn-clear-log" class="outline">Limpiar Log</button>
+    <button id="btn-identity" class="outline">Ver user_id / session_id</button>
+    <button id="btn-tracking-off" class="warn">setTrackingEnabled(false)</button>
+    <button id="btn-tracking-on" class="outline">setTrackingEnabled(true)</button>
   </div>
 
-  <div>
-    <h2>Eventos</h2>
-    <div class="event-log" id="event-log"><div class="event">Esperando eventos...</div></div>
+  <h2>Analytics (eventos → metrics del feedback)</h2>
+  <div class="controls">
+    <button id="btn-attrs">setUserAttributes</button>
+    <button id="btn-track">track('add_to_cart')</button>
+    <button id="btn-search">trackSearch('zapatos', 0)</button>
+    <button id="btn-friction">trackFindabilityFriction</button>
+    <button id="btn-funnel">trackFunnelStep('task_started')</button>
+    <button id="btn-ms-enter" class="secondary">enterMiniService('checkout')</button>
+    <button id="btn-ms-exit" class="secondary">exitMiniService()</button>
   </div>
+  <div class="controls">
+    <button id="btn-preview" class="outline">previewAnalytics() → log</button>
+    <button id="btn-body" class="outline">Ver body /sdk/feedback (mapeado)</button>
+    <button id="btn-flush">flushAnalytics() → POST /sdk/feedback</button>
+  </div>
+
+  <h2>Contact (info interna del usuario identificado)</h2>
+  <div class="controls">
+    <button id="btn-contact">setContactAttributes({ plan, language, age })</button>
+    <button id="btn-contact-same" class="outline">Reenviar mismos atributos (no debe hacer POST)</button>
+  </div>
+
+  <h2>Popups / survey</h2>
+  <div class="controls">
+    <button id="btn-show">show(survey de prueba)</button>
+    <button id="btn-clear" class="outline">Limpiar log</button>
+  </div>
+
+  <h2>Log</h2>
+  <div class="log" id="log"><div class="line">Esperando… (rellena CONFIG en demo.html si los datos son placeholder)</div></div>
 
   <div class="content">
     <div class="section">
-      <h2>Definiciones Fake <span class="badge">client mode</span></h2>
-      <p>Se precargan dos popups para demostrar los diferentes tipos de trigger y cooldowns:</p>
-      <ul>
-        <li><strong>Popup 1</strong>: Trigger <code>time_on_page</code> (3s) con cooldown de 1 día tras mostrarse y 30 días tras completarse.</li>
-        <li><strong>Popup 2</strong>: Trigger <code>scroll</code> (40%) sin cooldown.</li>
-      </ul>
-      <p>Ambas encuestas usan IDs ficticios (<code>survey-001</code> y <code>survey-002</code>) y claves públicas fake para generar el formulario (<code>publicKey</code>).</p>
-    </div>
-    <div class="section">
-      <h2>Scroll de prueba</h2>
-      <p>Desplázate para activar el trigger de scroll (40%). Texto de relleno...</p>
-      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-      <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-      <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
-      <p>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-      <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</p>
-      <p>Totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+      <h2>Scroll de prueba (navegación / engagement)</h2>
+      <p>Desplázate y cambia de pestaña (background) para ver <code>page_view</code> / <code>user_engagement</code> en el preview.</p>
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+      <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
       <p>Fin del contenido de prueba.</p>
     </div>
   </div>
 
   <script type="module">
-    import { getSdkSource, loadPopupSdk } from './sdk-loader.js';
+    import { getSdkSource, getSdkSourceUrl } from './sdk-loader.js';
 
-    const { DeepdotsPopups } = await loadPopupSdk();
-    console.info('[demo] SDK source:', getSdkSource());
-
-    // Definiciones fake de popups en modo client
-    const popupDefinitions = [
-      {
-        id: 'popup-demo-1',
-        title: '¿Nos ayudas a mejorar?',
-        message: '<p>Tu opinión rápida nos ayuda a crecer 🚀</p>',
-        triggers: [{ type: 'time_on_page', value: 3 }],
-        cooldown: [
-          { answered: 'SHOWED', cooldownDays: 1 },
-          { answered: 'COMPLETED', cooldownDays: 30 }
-        ],
-        actions: { accept: { label: 'Responder', surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0' }, decline: { label: 'Cerrar', cooldownDays: 1 } },
-        surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',
-        productId: '02b809f20e024bce47c57f123cff8735',
-        style: { theme: 'light', position: 'bottom-right', imageUrl: null },
-        segments: { lang: ['es'], path: ['/'] }
-      },
-      {
-        id: 'popup-demo-2',
-        title: 'Encuesta de experiencia',
-        message: '<p>Nos interesa tu experiencia mientras navegas.</p>',
-        triggers: [{ type: 'scroll', value: 40 }],
-        actions: { accept: { label: 'Participar', surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119' }, decline: { label: 'Ahora no' } },
-        surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119',
-        productId: '02b809f20e024bce47c57f123cff8735',
-        style: { theme: 'dark', position: 'bottom-right', imageUrl: null },
-        segments: { lang: ['es'], path: ['/'] }
-      }
-    ];
-
-    // Los popups se reciben SIEMPRE de la API (no se definen en init).
-    const sdk = new DeepdotsPopups();
-    sdk.init({
-      apiKey: 'TjgElf34YDUxHPtUQuCVGQusPNBIjmT5',
-      nodeEnv: 'development',
+    // ╔═══════════════════════════════════════════════════════════════════╗
+    // ║  CONFIG — rellena con datos reales para que los POST lleguen al     ║
+    // ║  backend (api-dev). Sin `analytics`, el canal queda en dry-run      ║
+    // ║  (solo console.log, sin POST). Contact requiere `userId`.           ║
+    // ╚═══════════════════════════════════════════════════════════════════╝
+    const CONFIG = {
       debug: true,
-    });
+      apiKey: 'jGeIP9g7Dyjf5HYAFDM8ozxZqQSiQMfJ',
+      userId: '020626',
+      analytics: {
+        publicKey: '5a148214cdd4d164b9ff189c201d0e75',
+        integration: 'a0365bd0-6ee1-11f1-94c7-45c08829a73b'
+      },
+    };
+    const SURVEY = { surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0', productId: '02b809f20e024bce47c57f123cff8735' };
 
-    // Log de eventos
-    const logEl = document.getElementById('event-log');
-    function logEvent(ev) {
+    // Carga la build local del SDK (incluye buildAnalyticsFeedbackBody para previsualizar el body).
+    const { DeepdotsPopups, buildAnalyticsFeedbackBody } = await import(getSdkSourceUrl());
+
+    const logEl = document.getElementById('log');
+    function log(msg, cls = '') {
       const line = document.createElement('div');
-      line.className = 'event';
-      line.textContent = `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type} - survey:${ev.surveyId}`;
+      line.className = 'line' + (cls ? ' ' + cls : '');
+      line.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
       logEl.appendChild(line);
       logEl.scrollTop = logEl.scrollHeight;
     }
 
-    sdk.on('popup_shown', logEvent);
-    sdk.on('popup_clicked', logEvent);
-    sdk.on('survey_completed', logEvent);
+    // Instrumenta fetch para ver en el log los POST que dispara el SDK (analytics + contact + popups).
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts = {}) => {
+      const u = String(url);
+      if (u.includes('/sdk/')) {
+        let body;
+        try { body = opts.body ? JSON.parse(opts.body) : undefined; } catch { body = opts.body; }
+        log(`→ ${opts.method || 'GET'} ${u}` + (body ? '\n' + JSON.stringify(body, null, 2) : ''), 'net');
+      }
+      try {
+        const res = await origFetch(url, opts);
+        if (u.includes('/sdk/')) log(`← ${res.status} ${u}`, 'net');
+        return res;
+      } catch (e) {
+        if (u.includes('/sdk/')) log(`✕ error ${u}: ${e}`, 'warn');
+        throw e;
+      }
+    };
 
-    // --- Validación de tracking (Fase 1) por consola ---
-    // Expuesto para inspeccionar a mano: deepdots.getUserId() / getSessionId() / setTrackingEnabled(false)
-    window.deepdots = sdk;
-    console.info('%c[tracking] estado inicial', 'color:#0a0;font-weight:bold', {
-      user_id: sdk.getUserId(),
-      session_id: sdk.getSessionId(), // null en modo client sin apiKey (no hay round-trip al backend)
-    });
-    console.info('[tracking] prueba: deepdots.getUserId(), deepdots.getSessionId(), deepdots.setTrackingEnabled(false)');
+    const hasIntegration = CONFIG.analytics?.integration && CONFIG.analytics.integration !== 'TU_INTEGRATION_ID';
+    document.getElementById('cfg-banner').innerHTML =
+      `SDK: <code>${getSdkSource()}</code> · userId: <code>${CONFIG.userId || '(none)'}</code> · ` +
+      (hasIntegration
+        ? 'analytics: <strong>POST real a /sdk/feedback</strong>'
+        : 'analytics en <strong>dry-run</strong> (rellena <code>CONFIG.analytics.integration</code> para POST real) — aun así verás el body con "Ver body".');
 
-    // Botones
-    document.getElementById('btn-show-popup1').onclick = () => {
-        console.log('clicked');
-      // mostramos con datos que incluyen publicKey fake para intentar generar Deepdots
-      sdk.show({ surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0', productId:'02b809f20e024bce47c57f123cff8735', data: { origen: 'boton_popup1' } });
+    const sdk = new DeepdotsPopups();
+    sdk.init(CONFIG);
+    window.deepdots = sdk; // inspección manual en consola
+
+    sdk.on('popup_shown', (ev) => log(`popup_shown · ${ev.surveyId}`));
+    sdk.on('popup_clicked', (ev) => log(`popup_clicked · ${ev.surveyId}`));
+    sdk.on('survey_completed', (ev) => log(`survey_completed · ${ev.surveyId}`));
+
+    log(`init OK · user_id=${sdk.getUserId()} · session_id=${sdk.getSessionId()}`);
+
+    // ───── Identidad ─────
+    document.getElementById('btn-identity').onclick = () =>
+      log(`user_id: ${sdk.getUserId()}\nsession_id: ${sdk.getSessionId()}`);
+    document.getElementById('btn-tracking-off').onclick = () => { sdk.setTrackingEnabled(false); log('tracking OFF', 'warn'); };
+    document.getElementById('btn-tracking-on').onclick = () => { sdk.setTrackingEnabled(true); log(`tracking ON · user_id=${sdk.getUserId()}`); };
+
+    // ───── Analytics ─────
+    document.getElementById('btn-attrs').onclick = () => { sdk.setUserAttributes({ registration_status: 'registered', pass_type: 'premium', sector: 'retail' }); log('setUserAttributes ✓'); };
+    document.getElementById('btn-track').onclick = () => { sdk.track('add_to_cart', { product_id: 'p1', value: 49.9 }); log("track('add_to_cart') ✓"); };
+    document.getElementById('btn-search').onclick = () => { sdk.trackSearch('zapatos', 0); log("trackSearch('zapatos', 0) ✓"); };
+    document.getElementById('btn-friction').onclick = () => { sdk.trackFindabilityFriction('checkout_address'); log('trackFindabilityFriction ✓'); };
+    document.getElementById('btn-funnel').onclick = () => { sdk.trackFunnelStep('outstanding_task', 'task_started', 'task-42'); log('trackFunnelStep ✓'); };
+    document.getElementById('btn-ms-enter').onclick = () => { sdk.enterMiniService('checkout', 'home'); log("enterMiniService('checkout') ✓"); };
+    document.getElementById('btn-ms-exit').onclick = () => { sdk.exitMiniService(); log('exitMiniService() ✓'); };
+
+    document.getElementById('btn-preview').onclick = () => {
+      const env = sdk.previewAnalytics();
+      log(`previewAnalytics() · ${env.events.length} eventos pendientes:`);
+      log(env);
     };
-    document.getElementById('btn-show-popup2').onclick = () => {
-      sdk.show({ surveyId: 'dc278020-bb1c-11f0-aedb-5b3735c7e119',productId:'02b809f20e024bce47c57f123cff8735', data: { origen: 'boton_popup2' } });
+    document.getElementById('btn-body').onclick = () => {
+      const env = sdk.previewAnalytics();
+      const body = buildAnalyticsFeedbackBody(env, { publicKey: CONFIG.analytics.publicKey, integration: CONFIG.analytics.integration });
+      log('Body que se enviaría a POST /sdk/feedback:');
+      log(body);
     };
-    document.getElementById('btn-autolaunch').onclick = () => {
-      sdk.autoLaunch();
-      alert('AutoLaunch activado: se disparará Popup 1 (tiempo) y Popup 2 (scroll).');
+    document.getElementById('btn-flush').onclick = () => {
+      const n = sdk.previewAnalytics().events.length;
+      sdk.flushAnalytics();
+      log(`flushAnalytics() · ${n} eventos enviados (mira el POST arriba o la consola si es dry-run)`);
     };
-    document.getElementById('btn-mark-answered').onclick = () => {
-      sdk.markSurveyAnswered('a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0');
-      logEvent({ type: 'survey_completed', surveyId: 'a9c8c170-bb1c-11f0-9d29-d5fe3dd521d0',productId:'02b809f20e024bce47c57f123cff8735', timestamp: Date.now(), data: { manual: true } });
-      alert('Marcada survey-001 como contestada. No se mostrará Popup 1 mientras el cooldown de COMPLETED esté activo.');
+
+    // ───── Contact ─────
+    document.getElementById('btn-contact').onclick = async () => {
+      const sent = await sdk.setContactAttributes({ plan: 'premium', language: 'es', age: 34 });
+      log(`setContactAttributes → ${sent ? 'enviado (POST)' : 'sin cambios, NO enviado'}`);
     };
-    document.getElementById('btn-force-survey').onclick = () => {
-      sdk.triggerSurvey('dc278020-bb1c-11f0-aedb-5b3735c7e119');
+    document.getElementById('btn-contact-same').onclick = async () => {
+      const sent = await sdk.setContactAttributes({ plan: 'premium', language: 'es', age: 34 });
+      log(`reenvío mismos atributos → ${sent ? 'enviado' : 'sin cambios, NO enviado (correcto: diff contra storage)'}`);
     };
-    document.getElementById('btn-clear-log').onclick = () => {
-      logEl.innerHTML = '<div class="event">Log limpiado...</div>';
-    };
+
+    // ───── Popup ─────
+    document.getElementById('btn-show').onclick = () => sdk.show({ ...SURVEY, data: { origen: 'demo' } });
+    document.getElementById('btn-clear').onclick = () => { logEl.innerHTML = ''; };
   </script>
 </body>
 </html>

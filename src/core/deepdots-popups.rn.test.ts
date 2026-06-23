@@ -58,7 +58,7 @@ describe('DeepdotsPopups — inyección RN', () => {
     expect(popups.previewAnalytics().events).toHaveLength(0);
     // el payload flusheado (dry-run → console.log) contiene el cierre del mini-service
     const printed = logSpy.mock.calls.flat().map(String).join(' ');
-    expect(printed).toContain('/sdk/analytics');
+    expect(printed).toContain('/sdk/feedback');
     expect(printed).toContain('mini_service_exit');
   });
 });

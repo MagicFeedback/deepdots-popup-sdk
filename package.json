@@ -1,6 +1,6 @@
 {
   "name": "@magicfeedback/popup-sdk",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -53,16 +53,26 @@
   "peerDependencies": {
     "react": ">=17",
     "react-native": ">=0.70",
-    "react-native-webview": ">=11",
+    "react-native-device-info": ">=10",
     "react-native-mmkv": ">=2",
-    "react-native-device-info": ">=10"
+    "react-native-webview": ">=11"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-native": { "optional": true },
-    "react-native-webview": { "optional": true },
-    "react-native-mmkv": { "optional": true },
-    "react-native-device-info": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-webview": {
+      "optional": true
+    },
+    "react-native-mmkv": {
+      "optional": true
+    },
+    "react-native-device-info": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@magicfeedback/native": "^2.2.1",

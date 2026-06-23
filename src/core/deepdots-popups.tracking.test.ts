@@ -51,6 +51,17 @@ describe('DeepdotsPopups tracking (Fase 1)', () => {
     expect(popups.getSessionId()).toBeNull();
   });
 
+  it('arranca DESACTIVADO con trackingEnabled:false y se reactiva en runtime', () => {
+    popups.init({ apiKey: 'k', trackingEnabled: false });
+    expect(popups.getUserId()).toBeNull();
+    expect(popups.getSessionId()).toBeNull();
+    popups.track('x');
+    expect(popups.previewAnalytics().events).toHaveLength(0);
+
+    popups.setTrackingEnabled(true);
+    expect(popups.getUserId()).toBeTruthy();
+  });
+
   it('uses the client-provided userId without persisting one', () => {
     popups.init({ apiKey: 'k', userId: 'host-42' });
     expect(popups.getUserId()).toBe('host-42');

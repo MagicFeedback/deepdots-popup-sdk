@@ -12,6 +12,8 @@ import { DeepdotsProvider, useDeepdots } from '@magicfeedback/popup-sdk/react-na
 const CONFIG = {
   apiKey: 'TU_PUBLIC_KEY',
   nodeEnv: __DEV__ ? ('development' as const) : ('production' as const),
+  // Descomenta para ENVIAR la analítica a POST /sdk/feedback (sin esto, dry-run en consola):
+  // analytics: { publicKey: 'TU_PUBLIC_KEY', integration: 'TU_INTEGRATION' },
 };
 const SURVEY = { surveyId: 'TU_SURVEY_ID', productId: 'TU_PRODUCT_ID' };
 

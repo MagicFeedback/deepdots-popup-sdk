@@ -3,6 +3,7 @@
  */
 import type { KeyValueStorage } from '../tracking/tracking-manager';
 import type { DeviceInfo } from '../analytics/device-info';
+import type { AnalyticsKeys } from '../analytics/feedback-payload';
 
 export interface DeepdotsInitParams {
     /** API key for authentication */
@@ -13,14 +14,27 @@ export interface DeepdotsInitParams {
     debug?: boolean;
     /** Optional user id to send with popup events */
     userId?: string;
-    /** Versión de la app del host (para analytics device info / Technology #11). */
+    /** Starts tracking enabled (default) or disabled (e.g. until consent is granted). Equivalent to calling `setTrackingEnabled` after init. */
+    trackingEnabled?: boolean;
+    /** Host app version (for analytics device info / Technology #11). */
     appVersion?: string;
-    /** Storage persistente inyectable (RN: adaptador sobre AsyncStorage). Si falta, usa localStorage/in-memory. */
+    /** Injectable persistent storage (RN: adapter over AsyncStorage). If missing, uses localStorage/in-memory. */
     storage?: KeyValueStorage;
-    /** Plataforma para el envelope de analytics. Default 'web'; en RN pasar 'android'/'ios'. */
+    /** Platform used in the analytics envelope. Default is 'web'; in RN pass 'android'/'ios'. */
     platform?: 'web' | 'android' | 'ios';
-    /** Device info inyectable (RN: desde react-native-device-info). Si falta, se deriva del navegador. */
+    /** Injectable device info (RN: from react-native-device-info). If missing, it is derived from the browser. */
     device?: DeviceInfo;
+    /**
+     * Analytics channel keys (`POST /sdk/feedback`). If provided, analytics is SENT
+     * to the configured integration; if missing, it stays in dry-run mode (console.log only).
+     */
+    analytics?: AnalyticsKeys;
+    /**
+     * Internal user attributes known only by the host (language, age, plan, ...), sent
+     * to the backend Contact for segmentation/targeting. Requires `userId`. Equivalent to calling
+     * `setContactAttributes` after init (sends only when values changed from the last sync).
+     */
+    contactAttributes?: Record<string, string | number | boolean>;
 
 }
 export interface DeepdotsConfig {
@@ -81,7 +95,7 @@ export interface DeepdotsEvent {
  */
 export type EventListener = (event: DeepdotsEvent) => void;
 
-/** Tipo de trigger específico para definiciones de popup remotas */
+/** Trigger type used by remote popup definitions */
 export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
 
 export type PopupTriggerConditionStatus = 'SHOWED' | 'PARTIAL' | 'COMPLETED';
@@ -92,28 +106,28 @@ export const POPUP_TRIGGER_CONDITION_STATUSES: PopupTriggerConditionStatus[] = [
     'COMPLETED',
 ];
 
-/** Condición adicional para la activación del popup */
+/** Extra condition used to activate the popup */
 export interface PopupTriggerCondition {
-    answered: PopupTriggerConditionStatus; // estado de progreso del usuario en la encuesta
-    cooldownDays: number; // días de enfriamiento antes de mostrar de nuevo
+    answered: PopupTriggerConditionStatus; // user progress status in the survey
+    cooldownDays: number; // cooldown days before showing again
 }
 
-/** Trigger asociado a la definición del popup */
+/** Trigger attached to the popup definition */
 export interface PopupTrigger {
     type: PopupTriggerType;
-    value: number | string; // segundos en página, porcentaje scroll, id de click o nombre del evento
+    value: number | string; // seconds on page, scroll percentage, click id, or event name
 }
 
-/** Acción de aceptar (abrir encuesta) */
+/** Accept action (open survey) */
 export interface PopupActionAccept {
     label: string;
-    surveyId: string; // id de la encuesta a lanzar
+    surveyId: string; // survey id to launch
 }
 
-/** Acción de declinar */
+/** Decline action */
 export interface PopupActionDecline {
     label: string;
-    cooldownDays?: number; // opcional: no mostrar hasta pasado X días
+    cooldownDays?: number; // optional: do not show again until X days pass
 }
 
 /** Start Surveys Action */
@@ -121,16 +135,16 @@ export interface PopupActionStart {
     label: string;
 }
 
-/** Acción de completar (aceptar y completar encuesta automáticamente) */
-// Requiere que la encuesta soporte auto-completado vía parámetros
+/** Complete action (accept and auto-complete survey) */
+// Requires the survey to support auto-completion via parameters.
 export interface PopupActionComplete {
     label: string;
-    surveyId: string; // id de la encuesta a lanzar
-    autoCompleteParams: Record<string, unknown>; // parámetros para auto-completar
+    surveyId: string; // survey id to launch
+    autoCompleteParams: Record<string, unknown>; // parameters used for auto-completion
     cooldownDays?: number;
 }
 
-/** Conjunto de acciones disponibles en el popup */
+/** Set of actions available in the popup */
 export interface PopupActions {
     accept?: PopupActionAccept;
     decline?: PopupActionDecline;
@@ -139,26 +153,26 @@ export interface PopupActions {
     back?: PopupActionDecline;
 }
 
-/** Estilos configurables del popup */
+/** Configurable popup styles */
 export interface PopupStyle {
     theme: 'light' | 'dark';
     position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
-    /** @deprecated No usado por el SDK — solo se conserva por compatibilidad con la API */
+    /** @deprecated Not used by the SDK; kept only for API compatibility */
     imageUrl?: string | null;
 }
 
-/** Segmentos o targeting para mostrar el popup */
+/** Segments/targeting rules for showing the popup */
 export interface PopupSegments {
-    lang?: string[]; // idiomas permitidos
-    path?: string[]; // rutas de la app donde se muestra
-    [key: string]: unknown; // posible extensión futura
+    lang?: string[]; // allowed languages
+    path?: string[]; // app routes where it can be shown
+    [key: string]: unknown; // possible future extension
 }
 
-/** Definición completa de un popup */
+/** Full popup definition */
 export interface PopupDefinition {
     id: string;
     title: string;
-    message: string; // HTML seguro renderizado (se recomienda sanitizar afuera)
+    message: string; // rendered safe HTML (recommended to sanitize upstream)
     triggers: PopupTrigger[];
     cooldown?: PopupTriggerCondition[];
     actions?: PopupActions;

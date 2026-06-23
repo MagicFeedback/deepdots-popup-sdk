@@ -55,6 +55,7 @@ export function createDefaultStorage(): KeyValueStorage {
 export const STORAGE_KEYS = {
   userId: 'deepdots.user_id',
   firstSeen: 'deepdots.user.first_seen',
+  contactAttributes: 'deepdots.contact.attributes',
 } as const;
 
 /** Par clave/valor con el formato `NativeAnswer` que espera `@magicfeedback/native`. */

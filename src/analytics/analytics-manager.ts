@@ -48,7 +48,7 @@ export interface AnalyticsIdentity {
 export const dryRunSink: AnalyticsSink = (payload) => {
   // eslint-disable-next-line no-console
   console.log(
-    '[DeepdotsAnalytics] (dry-run · NO enviado) POST /sdk/analytics →',
+    '[DeepdotsAnalytics] (dry-run · NO enviado · sin init.analytics) POST /sdk/feedback →',
     JSON.stringify(payload, null, 2),
   );
 };
