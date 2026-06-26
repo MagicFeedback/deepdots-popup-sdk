@@ -18,6 +18,7 @@ export interface PopupRenderer {
     style?: PopupStyle,
     sessionId?: string,
     miniService?: string,
+    analyticsFeedbackSessionId?: string,
   ): void;
   /** Ocultar popup */
   hide(): void;
@@ -68,6 +69,7 @@ export class BrowserPopupRenderer implements PopupRenderer {
     style?: PopupStyle,
     sessionId?: string,
     miniService?: string,
+    analyticsFeedbackSessionId?: string,
   ): void {
     if (this.visible) return;
     if (!this.container || !document.body.contains(this.container)) this.init();
@@ -75,7 +77,7 @@ export class BrowserPopupRenderer implements PopupRenderer {
     this.visible = true;
     const container = this.container;
     void import('../ui/renderPopup').then(({ renderPopup }) => {
-      renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService);
+      renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService, analyticsFeedbackSessionId);
     });
   }
 

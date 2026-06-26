@@ -23,11 +23,14 @@ import { AnalyticsManager, type AnalyticsEnvelope } from '../analytics/analytics
 import { createFeedbackSink } from '../analytics/feedback-payload';
 import { NavigationObserver } from '../tracking/navigation-observer';
 import { collectDeviceInfo } from '../analytics/device-info';
+import { collectGeoInfo } from '../analytics/geo-info';
 import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const ANALYTICS_MAX_BATCH_SIZE = 20;
+const ANALYTICS_FLUSH_INTERVAL_MS = 30_000;
 
 interface DeferredExitPopup {
     id: string;
@@ -77,6 +80,10 @@ export class DeepdotsPopups {
     private tracking: TrackingManager | null = null;
     /** Capa de analytics (canal separado del feedback). Null hasta init(). */
     private analytics: AnalyticsManager | null = null;
+    /** feedbackSessionId cacheado del canal de analytics (devuelto por POST /sdk/feedback). */
+    private analyticsFeedbackSessionId: string | undefined = undefined;
+    /** Timer del flush periódico de analytics (cada ANALYTICS_FLUSH_INTERVAL_MS). */
+    private analyticsFlushTimer: ReturnType<typeof setInterval> | undefined = undefined;
     /** Observador de navegación (Fase 2): emite page_view por el canal de analytics. */
     private navObserver: NavigationObserver | null = null;
     /** Tiempo activo (engagement time, #8). */
@@ -138,6 +145,7 @@ export class DeepdotsPopups {
                   baseUrl: this.baseUrl,
                   keys: config.analytics,
                   log: (...a) => this.log(...a),
+                  onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
               })
             : undefined;
         this.analytics = new AnalyticsManager({
@@ -146,7 +154,11 @@ export class DeepdotsPopups {
             language: typeof navigator !== 'undefined' ? navigator.language : undefined,
             platform: config.platform ?? 'web',
             device: config.device ?? collectDeviceInfo(config.appVersion),
+            maxBatchSize: ANALYTICS_MAX_BATCH_SIZE,
+            onFlushNeeded: () => this.flushAnalytics(),
         });
+        // Geolocalización por IP (fire-and-forget): rellena country/city cuando resuelve.
+        collectGeoInfo().then((geo) => { if (geo) this.analytics?.updateDevice(geo); }).catch(() => {});
         // Fase 2: navegación → eventos page_view por el canal de analytics.
         this.navObserver = new NavigationObserver();
         this.navObserver.onVisit((v) => this.track('page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
@@ -313,8 +325,11 @@ export class DeepdotsPopups {
     /** Flush automático al ocultar/cerrar la página (no perder el lote pendiente). */
     private setupAnalyticsFlush(): void {
         if (typeof document === 'undefined' || typeof window === 'undefined') return;
+        // flush periódico mientras la app está en primer plano
+        this.analyticsFlushTimer = setInterval(() => this.flushAnalytics(), ANALYTICS_FLUSH_INTERVAL_MS);
         // al cerrar la página: cerrar pantalla (page_view) + mini-service + engagement, y enviar el lote
         window.addEventListener('pagehide', () => {
+            clearInterval(this.analyticsFlushTimer);
             this.navObserver?.stop();
             this.exitMiniService();
             this.flushEngagement();
@@ -828,7 +843,8 @@ export class DeepdotsPopups {
         const userId = this.tracking?.getUserId() ?? this.config?.userId;
         const sessionId = this.tracking?.getSessionId() ?? undefined;
         const miniService = this.analytics?.getMiniService() ?? undefined;
-        this.log('tracking · survey identity →', { userId: userId ?? null, sessionId: sessionId ?? null, miniService: miniService ?? null });
+        const analyticsFeedbackSessionId = this.analyticsFeedbackSessionId;
+        this.log('tracking · survey identity →', { userId: userId ?? null, sessionId: sessionId ?? null, miniService: miniService ?? null, analyticsFeedbackSessionId: analyticsFeedbackSessionId ?? null });
         if (this.renderer) {
             this.renderer.show(
                 surveyId,
@@ -841,6 +857,7 @@ export class DeepdotsPopups {
                 style,
                 sessionId,
                 miniService,
+                analyticsFeedbackSessionId,
             );
             return;
         }
@@ -860,6 +877,7 @@ export class DeepdotsPopups {
                 style,
                 sessionId,
                 miniService,
+                analyticsFeedbackSessionId,
             );
         });
     }

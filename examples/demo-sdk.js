@@ -13,7 +13,7 @@ export async function initDemoSdk({modeLabelEl, eventLogEl} = {}) {
     sdk.init({
         debug: true,
         apiKey: 'jGeIP9g7Dyjf5HYAFDM8ozxZqQSiQMfJ',
-        userId: '020628',
+        userId: '020629',
         analytics: {
             publicKey: '5a148214cdd4d164b9ff189c201d0e75',
             integration: 'a0365bd0-6ee1-11f1-94c7-45c08829a73b'

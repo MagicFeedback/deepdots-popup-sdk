@@ -140,4 +140,9 @@ describe('buildSurveyIdentity', () => {
     expect(profile).toEqual([]);
     expect(metadata).toEqual([]);
   });
+
+  it('includes deepdots_analytics_feedback_session_id in metadata when analytics session is known', () => {
+    const { metadata } = buildSurveyIdentity('user-1', 'session-1', null, 'fbk-sess-42');
+    expect(metadata).toContainEqual({ key: 'deepdots_analytics_feedback_session_id', value: ['fbk-sess-42'] });
+  });
 });

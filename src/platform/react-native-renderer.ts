@@ -60,13 +60,14 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     _style?: PopupStyle,
     sessionId?: string,
     miniService?: string,
+    analyticsFeedbackSessionId?: string,
   ): void {
     this.emitFn = emit;
     this.onCloseFn = onClose;
     this.currentSurveyId = surveyId;
     this.partialEmitted = false;
 
-    const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null);
+    const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null, analyticsFeedbackSessionId ?? null);
     const html = buildSurveyHtml({ surveyId, productId, env, profile, metadata });
     if (this.options.onShow) {
       this.options.onShow({ surveyId, productId, html });

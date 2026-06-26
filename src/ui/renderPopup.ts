@@ -80,6 +80,7 @@ export async function renderPopup(
     style?: PopupStyle,
     sessionId?: string,
     miniService?: string,
+    analyticsFeedbackSessionId?: string,
 ): Promise<void> {
     let surveyCompletedEmitted = false;
     let stylesInjected = false;
@@ -460,7 +461,7 @@ export async function renderPopup(
             env: env === 'production' ? 'prod' : 'dev'}
         );
         // Contrato Fase 1 §5: profile = identidad del usuario; metadata = contexto de tracking (session_id + user_id)
-        const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null);
+        const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null, analyticsFeedbackSessionId ?? null);
         formInstance = magicfeedback.form(surveyId, productId, profile, metadata);
 
         interface TypedGenerateOptions {

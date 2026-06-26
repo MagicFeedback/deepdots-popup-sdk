@@ -15,7 +15,6 @@ const CONFIG = {
   // Descomenta para ENVIAR la analítica a POST /sdk/feedback (sin esto, dry-run en consola):
   // analytics: { publicKey: 'TU_PUBLIC_KEY', integration: 'TU_INTEGRATION' },
 };
-const SURVEY = { surveyId: 'TU_SURVEY_ID', productId: 'TU_PRODUCT_ID' };
 
 function Row({ children }: { children: React.ReactNode }) {
   return <View style={styles.row}>{children}</View>;

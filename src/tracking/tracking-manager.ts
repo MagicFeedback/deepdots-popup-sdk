@@ -73,12 +73,14 @@ export function buildSurveyIdentity(
   userId: string | null,
   sessionId: string | null,
   miniService: string | null = null,
+  analyticsFeedbackSessionId: string | null = null,
 ): { profile: IdentityAnswer[]; metadata: IdentityAnswer[] } {
   const profile: IdentityAnswer[] = userId ? [{ key: 'external-user-id', value: [userId] }] : [];
   const metadata: IdentityAnswer[] = [];
   if (sessionId) metadata.push({ key: 'session_id', value: [sessionId] });
   if (userId) metadata.push({ key: 'user_id', value: [userId] });
   if (miniService) metadata.push({ key: 'mini_service', value: [miniService] });
+  if (analyticsFeedbackSessionId) metadata.push({ key: 'deepdots_analytics_feedback_session_id', value: [analyticsFeedbackSessionId] });
   return { profile, metadata };
 }
 

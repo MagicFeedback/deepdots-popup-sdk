@@ -100,6 +100,15 @@ describe('AnalyticsManager', () => {
     expect(after?.params?.mini_service).toBeUndefined();
   });
 
+  it('calls onFlushNeeded when events reach maxBatchSize', () => {
+    const onFlushNeeded = vi.fn();
+    const am2 = new AnalyticsManager({ sink, now: () => now, maxBatchSize: 3, onFlushNeeded });
+    am2.track('e1'); am2.track('e2');
+    expect(onFlushNeeded).not.toHaveBeenCalled();
+    am2.track('e3');
+    expect(onFlushNeeded).toHaveBeenCalledOnce();
+  });
+
   it('exitMiniService is a no-op when no mini-service is active', () => {
     am.exitMiniService();
     expect(am.pending()).toBe(0);

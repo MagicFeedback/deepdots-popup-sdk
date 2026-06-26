@@ -75,7 +75,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     const body = JSON.parse((call![1] as RequestInit).body as string);
     expect(body.integration).toBe('int-7');
     expect(body.completed).toBe(false);
-    expect(body.feedback.metrics.some((m: any) => m.key === 'page_view')).toBe(true);
+    expect(body.feedback.metadata.some((m: any) => m.key === 'page_view')).toBe(true);
     vi.unstubAllGlobals();
   });
 

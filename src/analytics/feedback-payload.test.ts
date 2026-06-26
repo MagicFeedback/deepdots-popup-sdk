@@ -23,39 +23,47 @@ function envelope(overrides: Partial<AnalyticsEnvelope> = {}): AnalyticsEnvelope
   };
 }
 
+/** Convierte metadata a mapa key→value[0] para assertions de campos de sistema. */
+function mdMap(body: ReturnType<typeof buildAnalyticsFeedbackBody>) {
+  return Object.fromEntries(body.feedback.metadata.map((m) => [m.key, m.value[0]]));
+}
+
 describe('buildAnalyticsFeedbackBody', () => {
-  it('mapea cada evento a una metric {key: nombre, value: JSON(timestamp+params)}; answers vacío', () => {
+  it('pone cada evento en metadata con {key: nombre, value: [JSON(timestamp+params)]}; answers vacío', () => {
     const body = buildAnalyticsFeedbackBody(envelope(), KEYS);
-    expect(body.feedback.metrics).toEqual([
-      { key: 'page_view', value: JSON.stringify({ timestamp: 1000, screen: '/home', duration_seconds: 5 }) },
-      { key: 'user_engagement', value: JSON.stringify({ timestamp: 2000, engagement_time_msec: 4200 }) },
-    ]);
+    const md = mdMap(body);
+    expect(md.page_view).toBe(JSON.stringify({ timestamp: 1000, screen: '/home', duration_seconds: 5 }));
+    expect(md.user_engagement).toBe(JSON.stringify({ timestamp: 2000, engagement_time_msec: 4200 }));
+    // formato correcto: value es array
+    const evEntry = body.feedback.metadata.find((m) => m.key === 'page_view')!;
+    expect(evEntry.value).toBeInstanceOf(Array);
+    expect(evEntry.value).toHaveLength(1);
     expect(body.feedback.answers).toEqual([]);
+    expect(body.feedback).not.toHaveProperty('metrics');
   });
 
-  it('pone la identidad en profile (external-user-id) y user_id/session_id en metadata', () => {
+  it('pone la identidad en profile (external-user-id) y deepdots_user_id/deepdots_session_id en metadata', () => {
     const body = buildAnalyticsFeedbackBody(envelope(), KEYS);
-    expect(body.feedback.profile).toEqual([{ key: 'external-user-id', value: 'u-1' }]);
-    const md = Object.fromEntries(body.feedback.metadata.map((m) => [m.key, m.value]));
-    expect(md.user_id).toBe('u-1');
-    expect(md.session_id).toBe('srv-9');
+    expect(body.feedback.profile).toEqual([{ key: 'external-user-id', value: ['u-1'] }]);
+    const md = mdMap(body);
+    expect(md.deepdots_user_id).toBe('u-1');
+    expect(md.deepdots_session_id).toBe('srv-9');
   });
 
-  it('vuelca contexto (platform, language, device, attributes) en metadata', () => {
+  it('vuelca contexto (deepdots_platform, deepdots_language, deepdots_device_type, attributes) en metadata', () => {
     const body = buildAnalyticsFeedbackBody(envelope(), KEYS);
-    const md = Object.fromEntries(body.feedback.metadata.map((m) => [m.key, m.value]));
-    expect(md.platform).toBe('web');
-    expect(md.language).toBe('es-ES');
-    expect(md.device_type).toBe('mobile');
-    expect(md.user_agent).toBe('UA/1');
-    expect(md.app_version).toBe('1.2.3');
-    expect(md.pass_type).toBe('premium'); // user attribute
+    const md = mdMap(body);
+    expect(md.deepdots_platform).toBe('web');
+    expect(md.deepdots_language).toBe('es-ES');
+    expect(md.deepdots_device_type).toBe('mobile');
+    expect(md.deepdots_user_agent).toBe('UA/1');
+    expect(md.deepdots_app_version).toBe('1.2.3');
+    expect(md.pass_type).toBe('premium'); // user attribute — sin prefijo deepdots_
   });
 
-  it('marca completed/finished en false, arrastra claves; sin feedbackSessionId, sessionId ausente del body', () => {
+  it('marca completed en false, arrastra claves; sin feedbackSessionId, sessionId ausente del body', () => {
     const body = buildAnalyticsFeedbackBody(envelope(), KEYS);
     expect(body.completed).toBe(false);
-    expect(body.finished).toBe(false);
     expect(body.feedback.finished).toBe(false);
     expect(body.feedback.text).toBe('');
     expect(body.publicKey).toBe('pub-k');
@@ -76,16 +84,16 @@ describe('buildAnalyticsFeedbackBody', () => {
     );
     expect(body.feedback.profile).toEqual([]);
     const keys = body.feedback.metadata.map((m) => m.key);
-    expect(keys).not.toContain('user_id');
-    expect(keys).not.toContain('session_id');
-    expect(keys).not.toContain('device_type');
-    expect(keys).toContain('platform');
+    expect(keys).not.toContain('deepdots_user_id');
+    expect(keys).not.toContain('deepdots_session_id');
+    expect(keys).not.toContain('deepdots_device_type');
+    expect(keys).toContain('deepdots_platform');
     expect(body).not.toHaveProperty('sessionId');
   });
 });
 
 describe('createFeedbackSink', () => {
-  it('hace POST a {baseUrl}/sdk/feedback con el body mapeado', () => {
+  it('hace POST a {baseUrl}/sdk/feedback con el body mapeado; eventos en metadata', () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     const sink = createFeedbackSink({
       baseUrl: 'https://api-dev.deepdots.com',
@@ -101,7 +109,13 @@ describe('createFeedbackSink', () => {
     const sent = JSON.parse((init as RequestInit).body as string);
     expect(sent.integration).toBe('int-1');
     expect(sent.completed).toBe(false);
-    expect(sent.feedback.metrics).toHaveLength(2);
+    expect(sent.feedback).not.toHaveProperty('metrics');
+    const keys = sent.feedback.metadata.map((m: { key: string }) => m.key);
+    expect(keys).toContain('page_view');
+    expect(keys).toContain('user_engagement');
+    const pv = sent.feedback.metadata.find((m: { key: string }) => m.key === 'page_view');
+    expect(pv.value).toBeInstanceOf(Array);
+    expect(pv.value).toHaveLength(1);
   });
 
   it('cachea el sessionId de la respuesta y lo envía en la siguiente llamada', async () => {
@@ -117,7 +131,7 @@ describe('createFeedbackSink', () => {
 
     // Primera llamada — sin sessionId en el body
     sink(envelope());
-    await new Promise((r) => setTimeout(r, 0)); // deja que la Promise de la respuesta resuelva
+    await new Promise((r) => setTimeout(r, 0));
 
     // Segunda llamada — debe incluir el sessionId cacheado
     sink(envelope());

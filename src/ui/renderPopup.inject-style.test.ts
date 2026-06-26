@@ -15,11 +15,12 @@ describe('renderPopup style injection', () => {
       (t, id) => emitted.push({ type: t, surveyId: id }),
       () => { container.innerHTML = ''; }
     );
-    const stylesheetLink = container.querySelector('link[data-magicfeedback-css]');
-    const spinnerStyles = container.querySelector('#deepdots-spinner-styles') as HTMLStyleElement | null;
-    const responsiveStyles = container.querySelector('#deepdots-responsive-styles') as HTMLStyleElement | null;
+    // Los estilos se inyectan en document.head, no en el container
+    const magicfeedbackStyles = document.querySelector('#magicfeedback-sdk-styles') as HTMLStyleElement | null;
+    const spinnerStyles = document.querySelector('#deepdots-spinner-styles') as HTMLStyleElement | null;
+    const responsiveStyles = document.querySelector('#deepdots-responsive-styles') as HTMLStyleElement | null;
 
-    expect(stylesheetLink).toBeTruthy();
+    expect(magicfeedbackStyles).toBeTruthy();
     expect(spinnerStyles).toBeTruthy();
     expect(responsiveStyles).toBeTruthy();
     expect((spinnerStyles?.textContent || '').length).toBeGreaterThan(50);

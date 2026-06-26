@@ -61,6 +61,10 @@ export interface AnalyticsManagerOptions {
   device?: DeviceInfo;
   /** Plataforma del envelope (default 'web'; RN inyecta 'android'/'ios'). */
   platform?: string;
+  /** Nº máximo de eventos en buffer antes de solicitar un flush automático (default 20). */
+  maxBatchSize?: number;
+  /** Callback invocado cuando el buffer alcanza `maxBatchSize`. El caller hace el flush real. */
+  onFlushNeeded?: () => void;
 }
 
 export class AnalyticsManager {
@@ -75,6 +79,8 @@ export class AnalyticsManager {
   private attributes: Record<string, string> = {};
   private miniService: string | null = null;
   private miniServiceEnteredAt = 0;
+  private maxBatchSize: number;
+  private onFlushNeeded?: () => void;
 
   constructor(options: AnalyticsManagerOptions = {}) {
     this.sink = options.sink ?? dryRunSink;
@@ -83,6 +89,13 @@ export class AnalyticsManager {
     this.language = options.language;
     this.device = options.device;
     this.platform = options.platform ?? 'web';
+    this.maxBatchSize = options.maxBatchSize ?? 20;
+    this.onFlushNeeded = options.onFlushNeeded;
+  }
+
+  /** Actualiza campos de device en runtime (p.ej. country/city tras resolver geo). */
+  updateDevice(partial: Partial<DeviceInfo>): void {
+    this.device = { ...this.device, ...partial } as DeviceInfo;
   }
 
   /** Mezcla user attributes (se coercionan a string). Mutable en runtime. */
@@ -120,6 +133,9 @@ export class AnalyticsManager {
       timestamp: this.now(),
       params: Object.keys(merged).length ? merged : undefined,
     });
+    if (this.events.length >= this.maxBatchSize) {
+      this.onFlushNeeded?.();
+    }
   }
 
   /** Mini-service activo (para inyectarlo en la metadata del survey, #33). */
