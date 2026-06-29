@@ -110,7 +110,7 @@ export class AnalyticsManager {
   enterMiniService(name: string, entryPointType?: string): void {
     this.miniService = name;
     this.miniServiceEnteredAt = this.now();
-    this.track('mini_service_enter', { entry_point_type: entryPointType ?? null });
+    this.track('deepdots_mini_service_enter', { entry_point_type: entryPointType ?? null });
   }
 
   /** Cierra el mini-service activo emitiendo `mini_service_exit` con su duración (#27). No-op si no hay ninguno. */
@@ -119,7 +119,7 @@ export class AnalyticsManager {
     if (name == null) return;
     const durationSeconds = Math.max(0, Math.round((this.now() - this.miniServiceEnteredAt) / 1000));
     this.miniService = null; // dejar de etiquetar antes de emitir el evento de salida
-    this.track('mini_service_exit', { mini_service: name, duration_seconds: durationSeconds });
+    this.track('deepdots_mini_service_exit', { mini_service: name, duration_seconds: durationSeconds });
   }
 
   /** Registra un evento de analítica (modelo GA: nombre + params). */

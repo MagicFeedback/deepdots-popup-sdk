@@ -49,7 +49,7 @@ describe('AnalyticsManager', () => {
 
     const events = am.buildPayload(identity).events;
     expect(events[0]).toMatchObject({
-      name: 'mini_service_enter',
+      name: 'deepdots_mini_service_enter',
       params: { mini_service: 'checkout', entry_point_type: 'home' },
     });
     // el evento posterior hereda el mini_service activo
@@ -93,7 +93,7 @@ describe('AnalyticsManager', () => {
     am.track('after_exit');
 
     const events = am.buildPayload(identity).events;
-    const exit = events.find((e) => e.name === 'mini_service_exit');
+    const exit = events.find((e) => e.name === 'deepdots_mini_service_exit');
     expect(exit?.params).toMatchObject({ mini_service: 'checkout', duration_seconds: 4 });
     // tras salir, los eventos ya no se etiquetan con mini_service
     const after = events.find((e) => e.name === 'after_exit');

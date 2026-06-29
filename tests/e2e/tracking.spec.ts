@@ -71,7 +71,7 @@ test.describe('Tracking Fase 1 (E2E)', () => {
     const events = await page.evaluate(() =>
       (window as any).deepdots
         .previewAnalytics()
-        .events.filter((e: any) => e.name === 'page_view')
+        .events.filter((e: any) => e.name === 'deepdots_page_view')
         .map((e: any) => e.params.screen),
     );
     // se cierra la pantalla anterior al navegar; la ruta con id se normaliza a :id

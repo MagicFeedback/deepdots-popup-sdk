@@ -161,7 +161,7 @@ export class DeepdotsPopups {
         collectGeoInfo().then((geo) => { if (geo) this.analytics?.updateDevice(geo); }).catch(() => {});
         // Fase 2: navegación → eventos page_view por el canal de analytics.
         this.navObserver = new NavigationObserver();
-        this.navObserver.onVisit((v) => this.track('page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
+        this.navObserver.onVisit((v) => this.track('deepdots_page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
         this.navObserver.install();
         // Engagement time (#8): cuenta tiempo activo en primer plano.
         this.engagement = new EngagementTracker();
@@ -245,17 +245,17 @@ export class DeepdotsPopups {
 
     /** Findability (#31/#35): registra una búsqueda. `has_results` se deriva de `resultsCount`. */
     trackSearch(query: string, resultsCount: number, params?: Record<string, unknown>): void {
-        this.track('search', { query, results_count: resultsCount, has_results: resultsCount > 0, ...(params ?? {}) });
+        this.track('deepdots_search', { query, results_count: resultsCount, has_results: resultsCount > 0, ...(params ?? {}) });
     }
 
     /** Findability friction (#34/#35): señal de fricción con su `friction_topic`. */
     trackFindabilityFriction(frictionTopic: string, params?: Record<string, unknown>): void {
-        this.track('findability_friction', { friction_topic: frictionTopic, ...(params ?? {}) });
+        this.track('deepdots_findability_friction', { friction_topic: frictionTopic, ...(params ?? {}) });
     }
 
     /** Funnel: un paso del embudo, correlacionado por `taskId`. El backend reconstruye conversión/drop-off/tiempo. */
     trackFunnelStep(funnel: string, step: string, taskId: string, params?: Record<string, unknown>): void {
-        this.track('funnel_step', { funnel, step, task_id: taskId, ...(params ?? {}) });
+        this.track('deepdots_funnel_step', { funnel, step, task_id: taskId, ...(params ?? {}) });
     }
 
     /**
@@ -312,7 +312,7 @@ export class DeepdotsPopups {
     private flushEngagement(): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         const ms = this.engagement?.consume() ?? 0;
-        if (ms > 0) this.track('user_engagement', { engagement_time_msec: ms });
+        if (ms > 0) this.track('deepdots_user_engagement', { engagement_time_msec: ms });
     }
 
     private analyticsIdentity() {

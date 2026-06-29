@@ -44,7 +44,7 @@ describe('DeepdotsPopups — inyección RN', () => {
     popups.init({ apiKey: 'k', platform: 'android' });
     popups.setScreen('/home');
     popups.setScreen('/producto/123');
-    const pv = popups.previewAnalytics().events.filter((e) => e.name === 'page_view');
+    const pv = popups.previewAnalytics().events.filter((e) => e.name === 'deepdots_page_view');
     expect(pv.map((e) => e.params?.screen)).toContain('/home');
   });
 
@@ -59,6 +59,6 @@ describe('DeepdotsPopups — inyección RN', () => {
     // el payload flusheado (dry-run → console.log) contiene el cierre del mini-service
     const printed = logSpy.mock.calls.flat().map(String).join(' ');
     expect(printed).toContain('/sdk/feedback');
-    expect(printed).toContain('mini_service_exit');
+    expect(printed).toContain('deepdots_mini_service_exit');
   });
 });

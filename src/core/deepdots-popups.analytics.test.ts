@@ -41,7 +41,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     popups.track('task_started', { task_id: 't-9' });
 
     const names = popups.previewAnalytics().events.map((e) => e.name);
-    expect(names).toEqual(['mini_service_enter', 'task_started']);
+    expect(names).toEqual(['deepdots_mini_service_enter', 'task_started']);
     expect(popups.previewAnalytics().events[1].params).toMatchObject({ mini_service: 'checkout', task_id: 't-9' });
   });
 
@@ -87,19 +87,19 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
   it('trackSearch emite un evento search con la convención de findability (#31/#35)', () => {
     popups.trackSearch('zapatos', 0);
-    const e = popups.previewAnalytics().events.find((x) => x.name === 'search');
+    const e = popups.previewAnalytics().events.find((x) => x.name === 'deepdots_search');
     expect(e?.params).toMatchObject({ query: 'zapatos', results_count: 0, has_results: false });
   });
 
   it('trackFindabilityFriction emite findability_friction con friction_topic (#34/#35)', () => {
     popups.trackFindabilityFriction('checkout_address', { source: 'search' });
-    const e = popups.previewAnalytics().events.find((x) => x.name === 'findability_friction');
+    const e = popups.previewAnalytics().events.find((x) => x.name === 'deepdots_findability_friction');
     expect(e?.params).toMatchObject({ friction_topic: 'checkout_address', source: 'search' });
   });
 
   it('trackFunnelStep emite funnel_step con funnel/step/task_id (Funnel)', () => {
     popups.trackFunnelStep('outstanding_task', 'task_started', 'task-42');
-    const e = popups.previewAnalytics().events.find((x) => x.name === 'funnel_step');
+    const e = popups.previewAnalytics().events.find((x) => x.name === 'deepdots_funnel_step');
     expect(e?.params).toMatchObject({ funnel: 'outstanding_task', step: 'task_started', task_id: 'task-42' });
   });
 
