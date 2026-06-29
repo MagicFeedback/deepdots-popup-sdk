@@ -89,7 +89,7 @@ describe('AnalyticsManager', () => {
   it('exitMiniService emits mini_service_exit with duration and stops tagging', () => {
     am.enterMiniService('checkout', 'home');
     now += 4000;
-    am.exitMiniService();
+    am.exitMiniService('checkout');
     am.track('after_exit');
 
     const events = am.buildPayload(identity).events;
@@ -98,6 +98,35 @@ describe('AnalyticsManager', () => {
     // tras salir, los eventos ya no se etiquetan con mini_service
     const after = events.find((e) => e.name === 'after_exit');
     expect(after?.params?.mini_service).toBeUndefined();
+  });
+
+  it('soporta varios mini-services a la vez; exitMiniService(name) cierra el correcto', () => {
+    am.enterMiniService('checkout', 'home');
+    now += 1000;
+    am.enterMiniService('support_chat', 'fab');
+    // el "actual" para etiquetar es el más reciente
+    expect(am.getMiniService()).toBe('support_chat');
+
+    now += 2000;
+    am.exitMiniService('checkout'); // cierra el de DENTRO, no el más reciente
+    const exit = am.buildPayload(identity).events.find((e) => e.name === 'deepdots_mini_service_exit');
+    expect(exit?.params).toMatchObject({ mini_service: 'checkout', duration_seconds: 3 });
+
+    // support_chat sigue activo y sigue etiquetando
+    expect(am.getMiniService()).toBe('support_chat');
+    am.track('still_in_support');
+    const ev = am.buildPayload(identity).events.find((e) => e.name === 'still_in_support');
+    expect(ev?.params?.mini_service).toBe('support_chat');
+  });
+
+  it('exitAllMiniServices cierra todos los activos (LIFO)', () => {
+    am.enterMiniService('a');
+    am.enterMiniService('b');
+    am.exitAllMiniServices();
+
+    const exits = am.buildPayload(identity).events.filter((e) => e.name === 'deepdots_mini_service_exit');
+    expect(exits.map((e) => e.params?.mini_service)).toEqual(['b', 'a']); // LIFO: el más reciente primero
+    expect(am.getMiniService()).toBeNull();
   });
 
   it('calls onFlushNeeded when events reach maxBatchSize', () => {
@@ -109,8 +138,8 @@ describe('AnalyticsManager', () => {
     expect(onFlushNeeded).toHaveBeenCalledOnce();
   });
 
-  it('exitMiniService is a no-op when no mini-service is active', () => {
-    am.exitMiniService();
+  it('exitMiniService is a no-op when that mini-service is not active', () => {
+    am.exitMiniService('nope');
     expect(am.pending()).toBe(0);
   });
 });

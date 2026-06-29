@@ -77,8 +77,8 @@ export class AnalyticsManager {
 
   private events: AnalyticsEvent[] = [];
   private attributes: Record<string, string> = {};
-  private miniService: string | null = null;
-  private miniServiceEnteredAt = 0;
+  /** Mini-services activos: nombre → timestamp de entrada. El orden de inserción marca el "más reciente". */
+  private activeMiniServices = new Map<string, number>();
   private maxBatchSize: number;
   private onFlushNeeded?: () => void;
 
@@ -106,26 +106,41 @@ export class AnalyticsManager {
     }
   }
 
-  /** Marca el inicio de un mini-service; etiqueta los eventos siguientes con `mini_service`. */
+  /**
+   * Marca el inicio de un mini-service; etiqueta los eventos siguientes con `mini_service`.
+   * Admite varios activos a la vez (concurrencia); el "actual" para etiquetar es el más reciente.
+   * Reentrar con un nombre ya activo refresca su orden y su tiempo de entrada.
+   */
   enterMiniService(name: string, entryPointType?: string): void {
-    this.miniService = name;
-    this.miniServiceEnteredAt = this.now();
+    this.activeMiniServices.delete(name); // reinsertar = pasa a ser el más reciente
+    this.activeMiniServices.set(name, this.now());
     this.track('deepdots_mini_service_enter', { entry_point_type: entryPointType ?? null });
   }
 
-  /** Cierra el mini-service activo emitiendo `mini_service_exit` con su duración (#27). No-op si no hay ninguno. */
-  exitMiniService(): void {
-    const name = this.miniService;
-    if (name == null) return;
-    const durationSeconds = Math.max(0, Math.round((this.now() - this.miniServiceEnteredAt) / 1000));
-    this.miniService = null; // dejar de etiquetar antes de emitir el evento de salida
+  /**
+   * Cierra el mini-service `name` emitiendo `mini_service_exit` con su duración (#27).
+   * No-op si ese nombre no está activo. Cierre coherente con concurrencia.
+   */
+  exitMiniService(name: string): void {
+    const enteredAt = this.activeMiniServices.get(name);
+    if (enteredAt === undefined) return;
+    const durationSeconds = Math.max(0, Math.round((this.now() - enteredAt) / 1000));
+    this.activeMiniServices.delete(name); // dejar de etiquetar con este antes de emitir
     this.track('deepdots_mini_service_exit', { mini_service: name, duration_seconds: durationSeconds });
+  }
+
+  /** Cierra TODOS los mini-services activos (orden LIFO). Para el cierre por lifecycle (background/cierre). */
+  exitAllMiniServices(): void {
+    for (const name of Array.from(this.activeMiniServices.keys()).reverse()) {
+      this.exitMiniService(name);
+    }
   }
 
   /** Registra un evento de analítica (modelo GA: nombre + params). */
   track(name: string, params?: Record<string, unknown>): void {
+    const current = this.getMiniService();
     const merged: Record<string, unknown> = {
-      ...(this.miniService ? { mini_service: this.miniService } : {}),
+      ...(current ? { mini_service: current } : {}),
       ...(params ?? {}),
     };
     this.events.push({
@@ -138,9 +153,11 @@ export class AnalyticsManager {
     }
   }
 
-  /** Mini-service activo (para inyectarlo en la metadata del survey, #33). */
+  /** Mini-service actual (el más reciente aún activo) para etiquetar eventos + metadata del survey (#33). */
   getMiniService(): string | null {
-    return this.miniService;
+    let last: string | null = null;
+    for (const name of this.activeMiniServices.keys()) last = name; // última clave = más reciente
+    return last;
   }
 
   /** Nº de eventos pendientes de flush. */

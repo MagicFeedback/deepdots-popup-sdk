@@ -275,11 +275,11 @@ export class DeepdotsPopups {
         this.log('analytics · enterMiniService:', name, entryPointType ?? '');
     }
 
-    /** Cierra el mini-service activo (emite `mini_service_exit` con duración, #27). No-op si tracking off. */
-    exitMiniService(): void {
+    /** Cierra el mini-service `name` (emite `mini_service_exit` con duración, #27). No-op si tracking off o si ese no está activo. */
+    exitMiniService(name: string): void {
         if (!this.tracking?.isTrackingEnabled()) return;
-        this.analytics?.exitMiniService();
-        this.log('analytics · exitMiniService');
+        this.analytics?.exitMiniService(name);
+        this.log('analytics · exitMiniService:', name);
     }
 
     /** Findability (#31/#35): registra una búsqueda. `has_results` se deriva de `resultsCount`. */
@@ -323,7 +323,7 @@ export class DeepdotsPopups {
     onBackground(): void {
         this.navObserver?.stop();
         this.navStarted = false;
-        this.exitMiniService();
+        if (this.tracking?.isTrackingEnabled()) this.analytics?.exitAllMiniServices();
         this.flushEngagement();
         this.engagement?.pause();
         this.flushAnalytics();
@@ -370,7 +370,7 @@ export class DeepdotsPopups {
         window.addEventListener('pagehide', () => {
             clearInterval(this.analyticsFlushTimer);
             this.navObserver?.stop();
-            this.exitMiniService();
+            if (this.tracking?.isTrackingEnabled()) this.analytics?.exitAllMiniServices();
             this.flushEngagement();
             this.flushAnalytics();
         });
