@@ -212,6 +212,43 @@ Se emite en cada flush. Acumula el tiempo activo en primer plano desde el flush 
 { "timestamp": 1750000070000, "mini_service": "checkout", "duration_seconds": 60 }
 ```
 
+#### `deepdots_session_start`
+Se emite una vez al `init()`. Base para Crash-Free Users (#14).
+```json
+{ "timestamp": 1750000000000 }
+```
+
+#### `deepdots_app_crash`
+Crash o error reportado. Los crashes no capturados se persisten a disco y se reenvían en el siguiente arranque; los `reportError()` del host se emiten en el momento.
+```json
+{
+  "crashed_at": 1750000000000,
+  "crash_type": "TypeError",
+  "message": "Cannot read properties of undefined",
+  "stack": "<texto truncado ~8KB>",
+  "fatal": true,
+  "handled": false,
+  "severity": "fatal",
+  "crashed_session_id": "abc-123",
+  "crashed_app_version": "1.0.0",
+  "crashed_os_version": "17.4",
+  "crashed_device_model": "iPhone14,3",
+  "ctx_screen": "CheckoutScreen"
+}
+```
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `crashed_at` | number (ms) | Momento REAL del crash (≠ envío; el replay ocurre en el siguiente arranque). El backend usa este |
+| `crash_type` | string | Clase de error o señal. Dimensión "Error" de #16 |
+| `message` / `stack` | string | Mensaje y stack (sin simbolizar; truncado) |
+| `fatal` | boolean | `true` si tumbó la app |
+| `handled` | boolean | `true` si vino por `reportError`, `false` si fue no capturado |
+| `severity` | string | `fatal` \| `error` \| `warning` |
+| `crashed_session_id` | string? | Sesión en la que ocurrió |
+| `crashed_app_version` / `crashed_os_version` / `crashed_device_model` | string? | Capturados EN EL MOMENTO del crash (no del envelope, que refleja el estado actual). Base de #15/#16 |
+| `ctx_*` | string | Contexto libre del host pasado a `reportError` |
+
 ---
 
 ### Eventos del host con helpers del SDK (prefijo `deepdots_`)
@@ -276,3 +313,4 @@ El `deepdots_user_id` es la clave principal para cruzar datos entre sesiones y e
 - **`mini_service` en eventos**: cualquier evento emitido mientras hay un mini-service activo incluirá `mini_service: "nombre"` en sus parámetros.
 - **Normalización de rutas web**: el SDK reemplaza segmentos numéricos y UUIDs por `:id` (e.g. `/orders/123` → `/orders/:id`). En React Native la pantalla es el nombre tal como lo pasa el host.
 - **`completed` y `finished` siempre `false`**: modelo de streaming; el backend debe acumular sin esperar un cierre.
+- **Stability (#14–17)** se derivan de estos eventos: **#14 Crash-Free Users** = 1 − (sesiones con `deepdots_app_crash` / sesiones con `deepdots_session_start`); **#15 Latest Release** = crashes filtrados por el `crashed_app_version` más reciente (del propio evento); **#16 Breakdown** = group by `crash_type` × `crashed_os_version` × `crashed_device_model` × `crashed_app_version`; **#17 Summary** = totales. La simbolización del stack (dSYM / mapping) es responsabilidad de backend + pipeline de build, no del SDK.
