@@ -55,6 +55,8 @@ export interface CrashReporterOptions {
 }
 
 const STACK_MAX = 8000;
+const QUEUE_KEY = 'deepdots.crash.queue';
+const MAX_QUEUED = 20;
 
 /** Convierte un CrashRecord en los params del evento `deepdots_app_crash` (omite undefined). */
 export function crashRecordToParams(r: CrashRecord): Record<string, unknown> {
@@ -128,5 +130,59 @@ export class CrashReporter {
     const fatal = severity === 'fatal';
     const record = this.buildRecord(error, severity, handled, fatal, options.context);
     this.options.emit(crashRecordToParams(record));
+  }
+
+  /** Persiste un crash no capturado a disco para reenviarlo en el siguiente arranque. */
+  private persist(record: CrashRecord): void {
+    let queue: CrashRecord[] = [];
+    try {
+      const raw = this.options.storage.getItem(QUEUE_KEY);
+      if (raw) queue = JSON.parse(raw) as CrashRecord[];
+      if (!Array.isArray(queue)) queue = [];
+    } catch {
+      queue = [];
+    }
+    queue.push(record);
+    if (queue.length > MAX_QUEUED) queue = queue.slice(queue.length - MAX_QUEUED);
+    try {
+      this.options.storage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    } catch {
+      /* storage lleno / no disponible — se pierde el crash, no rompemos la app */
+    }
+  }
+
+  /** Lee y vacía la cola de crashes pendientes (llamado en init para el replay). */
+  drainPendingCrashes(): CrashRecord[] {
+    let queue: CrashRecord[] = [];
+    try {
+      const raw = this.options.storage.getItem(QUEUE_KEY);
+      if (raw) queue = JSON.parse(raw) as CrashRecord[];
+      if (!Array.isArray(queue)) queue = [];
+    } catch {
+      queue = [];
+    }
+    if (queue.length) {
+      try { this.options.storage.removeItem(QUEUE_KEY); } catch { /* noop */ }
+    }
+    return queue;
+  }
+
+  /** Instala los handlers globales de errores no capturados (no-op sin `window`). */
+  install(): void {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('error', (e: ErrorEvent) => {
+      if (!this.isEnabled()) return;
+      const err = e.error ?? e.message ?? 'error';
+      this.persist(this.buildRecord(err, 'fatal', false, true));
+    });
+    window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+      if (!this.isEnabled()) return;
+      this.persist(this.buildRecord(e.reason ?? 'unhandledrejection', 'fatal', false, true));
+    });
+  }
+
+  /** Test seam: ejercita el camino de persistencia (window handlers no son testeables en vitest). */
+  persistForTest(error: unknown): void {
+    this.persist(this.buildRecord(error, 'fatal', false, true));
   }
 }

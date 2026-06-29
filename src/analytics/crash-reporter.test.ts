@@ -67,3 +67,53 @@ describe('CrashReporter.reportError', () => {
     expect(params).toMatchObject({ crashed_at: 5, crash_type: 'Error', fatal: true, handled: false, severity: 'fatal' });
   });
 });
+
+describe('CrashReporter disk queue', () => {
+  it('persist() appends records; drainPendingCrashes() returns and clears them', () => {
+    const emit = vi.fn();
+    const storage = new InMemoryStorage();
+    const reporter = new CrashReporter({
+      storage, emit,
+      device: () => ({ appVersion: '1.0.0' }),
+      sessionId: () => 'sess-1',
+      now: () => 2_000,
+      enabled: () => true,
+    });
+
+    // simula dos crashes no capturados persistidos
+    reporter.persistForTest(new Error('first'));
+    reporter.persistForTest(new Error('second'));
+
+    const drained = reporter.drainPendingCrashes();
+    expect(drained).toHaveLength(2);
+    expect(drained[0].message).toBe('first');
+    expect(drained[0].fatal).toBe(true);
+    expect(drained[0].handled).toBe(false);
+    expect(drained[0].severity).toBe('fatal');
+    // segunda lectura ya está vacía
+    expect(reporter.drainPendingCrashes()).toEqual([]);
+  });
+
+  it('caps the queue at 20 records, dropping the oldest', () => {
+    const storage = new InMemoryStorage();
+    const reporter = new CrashReporter({
+      storage, emit: vi.fn(),
+      device: () => ({}), sessionId: () => null, now: () => 1, enabled: () => true,
+    });
+    for (let i = 0; i < 25; i++) reporter.persistForTest(new Error(`e${i}`));
+    const drained = reporter.drainPendingCrashes();
+    expect(drained).toHaveLength(20);
+    expect(drained[0].message).toBe('e5'); // los 5 más viejos se descartaron
+    expect(drained[19].message).toBe('e24');
+  });
+
+  it('drainPendingCrashes tolerates corrupt storage (returns empty)', () => {
+    const storage = new InMemoryStorage();
+    storage.setItem('deepdots.crash.queue', 'not json');
+    const reporter = new CrashReporter({
+      storage, emit: vi.fn(),
+      device: () => ({}), sessionId: () => null, now: () => 1, enabled: () => true,
+    });
+    expect(reporter.drainPendingCrashes()).toEqual([]);
+  });
+});
