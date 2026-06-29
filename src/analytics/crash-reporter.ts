@@ -41,6 +41,12 @@ export interface DeviceSnapshot {
   deviceModel?: string;
 }
 
+/** Forma mínima de `global.ErrorUtils` de React Native. */
+export interface ReactNativeErrorUtils {
+  getGlobalHandler?(): ((error: unknown, isFatal?: boolean) => void) | undefined;
+  setGlobalHandler(handler: (error: unknown, isFatal?: boolean) => void): void;
+}
+
 export interface CrashReporterOptions {
   storage: KeyValueStorage;
   /** Emite un evento deepdots_app_crash AHORA (app viva). */
@@ -132,6 +138,11 @@ export class CrashReporter {
     this.options.emit(crashRecordToParams(record));
   }
 
+  /** Captura un error no manejado (fatal) → persiste a disco para replay en el siguiente arranque. */
+  captureUnhandled(error: unknown): void {
+    this.persist(this.buildRecord(error, 'fatal', false, true));
+  }
+
   /** Persiste un crash no capturado a disco para reenviarlo en el siguiente arranque. */
   private persist(record: CrashRecord): void {
     let queue: CrashRecord[] = [];
@@ -172,17 +183,25 @@ export class CrashReporter {
     if (typeof window === 'undefined') return;
     window.addEventListener('error', (e: ErrorEvent) => {
       if (!this.isEnabled()) return;
-      const err = e.error ?? e.message ?? 'error';
-      this.persist(this.buildRecord(err, 'fatal', false, true));
+      this.captureUnhandled(e.error ?? e.message ?? 'error');
     });
     window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
       if (!this.isEnabled()) return;
-      this.persist(this.buildRecord(e.reason ?? 'unhandledrejection', 'fatal', false, true));
+      this.captureUnhandled(e.reason ?? 'unhandledrejection');
+    });
+  }
+
+  /** Engancha `global.ErrorUtils` de RN (no hay `window`): persiste y encadena al handler previo. */
+  installReactNative(errorUtils: ReactNativeErrorUtils): void {
+    const previous = errorUtils.getGlobalHandler?.();
+    errorUtils.setGlobalHandler((error: unknown, isFatal?: boolean) => {
+      if (this.isEnabled()) this.captureUnhandled(error);
+      previous?.(error, isFatal);
     });
   }
 
   /** @internal Test seam: ejercita el camino de persistencia (window handlers no son testeables en vitest). */
   _persistForTest(error: unknown): void {
-    this.persist(this.buildRecord(error, 'fatal', false, true));
+    this.captureUnhandled(error);
   }
 }

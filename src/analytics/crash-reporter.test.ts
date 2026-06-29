@@ -117,3 +117,56 @@ describe('CrashReporter disk queue', () => {
     expect(reporter.drainPendingCrashes()).toEqual([]);
   });
 });
+
+describe('CrashReporter.installReactNative', () => {
+  function makeErrorUtils() {
+    let handler: ((error: unknown, isFatal?: boolean) => void) | undefined;
+    return {
+      getGlobalHandler: () => handler,
+      setGlobalHandler: (h: (error: unknown, isFatal?: boolean) => void) => { handler = h; },
+      fire: (error: unknown, isFatal?: boolean) => handler?.(error, isFatal),
+    };
+  }
+
+  it('hooks ErrorUtils: a thrown error is persisted and the previous handler is chained', () => {
+    const storage = new InMemoryStorage();
+    const reporter = new CrashReporter({
+      storage, emit: vi.fn(),
+      device: () => ({ appVersion: '1.0.0' }),
+      sessionId: () => 'sess-1',
+      now: () => 7_000,
+      enabled: () => true,
+    });
+    const eu = makeErrorUtils();
+    const previous = vi.fn();
+    eu.setGlobalHandler(previous);
+
+    reporter.installReactNative(eu);
+    eu.fire(new TypeError('rn boom'), true);
+
+    const drained = reporter.drainPendingCrashes();
+    expect(drained).toHaveLength(1);
+    expect(drained[0].crashType).toBe('TypeError');
+    expect(drained[0].message).toBe('rn boom');
+    expect(drained[0].fatal).toBe(true);
+    expect(drained[0].handled).toBe(false);
+    expect(previous).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not persist when disabled, but still chains to the previous handler', () => {
+    const storage = new InMemoryStorage();
+    const reporter = new CrashReporter({
+      storage, emit: vi.fn(),
+      device: () => ({}), sessionId: () => null, now: () => 1, enabled: () => false,
+    });
+    const eu = makeErrorUtils();
+    const previous = vi.fn();
+    eu.setGlobalHandler(previous);
+
+    reporter.installReactNative(eu);
+    eu.fire(new Error('x'), false);
+
+    expect(reporter.drainPendingCrashes()).toEqual([]);
+    expect(previous).toHaveBeenCalledTimes(1);
+  });
+});
