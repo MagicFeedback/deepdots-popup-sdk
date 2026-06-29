@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { DeepdotsPopups } from './deepdots-popups';
 import { NoopPopupRenderer } from '../platform/renderer';
+import { InMemoryStorage } from '../tracking/tracking-manager';
 
 describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
   let popups: DeepdotsPopups;
@@ -12,6 +13,8 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     popups = new DeepdotsPopups();
     popups.setRenderer(new NoopPopupRenderer());
     popups.init({ apiKey: 'pk-1' });
+    // Flush the deepdots_session_start emitted during init so existing event-count tests start clean.
+    popups.flushAnalytics();
   });
 
   afterEach(() => {
@@ -112,4 +115,38 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
   });
   // Nota: la navegación real (History API → page_view) se valida en E2E (Chromium),
   // porque happy-dom no simula fielmente pushState/location.
+
+  it('emite deepdots_session_start al init y deepdots_app_crash en reportError', () => {
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({ apiKey: 'pk-1' });
+
+    const names0 = sdk.previewAnalytics().events.map((e) => e.name);
+    expect(names0).toContain('deepdots_session_start');
+
+    sdk.reportError(new TypeError('kaboom'), { severity: 'error', context: { screen: 'Home' } });
+    const crash = sdk.previewAnalytics().events.find((e) => e.name === 'deepdots_app_crash');
+    expect(crash?.params).toMatchObject({
+      crash_type: 'TypeError', message: 'kaboom', severity: 'error', handled: true, ctx_screen: 'Home',
+    });
+  });
+
+  it('reenvía crashes pendientes de disco en init (replay → deepdots_app_crash)', () => {
+    const storage = new InMemoryStorage();
+    const pending = [{
+      crashedAt: 111, crashType: 'RangeError', message: 'old crash', stack: '', fatal: true,
+      handled: false, severity: 'fatal', sessionId: null, appVersion: '0.9.0',
+    }];
+    storage.setItem('deepdots.crash.queue', JSON.stringify(pending));
+
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({ apiKey: 'pk-1', storage });
+
+    const crash = sdk.previewAnalytics().events.find((e) => e.name === 'deepdots_app_crash');
+    expect(crash?.params).toMatchObject({
+      crashed_at: 111, crash_type: 'RangeError', crashed_app_version: '0.9.0', fatal: true,
+    });
+    expect(storage.getItem('deepdots.crash.queue')).toBeNull();
+  });
 });

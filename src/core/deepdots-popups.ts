@@ -26,6 +26,7 @@ import { collectDeviceInfo } from '../analytics/device-info';
 import { collectGeoInfo } from '../analytics/geo-info';
 import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
+import { CrashReporter, crashRecordToParams, type ReportErrorOptions } from '../analytics/crash-reporter';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -84,6 +85,8 @@ export class DeepdotsPopups {
     private analyticsFeedbackSessionId: string | undefined = undefined;
     /** Timer del flush periódico de analytics (cada ANALYTICS_FLUSH_INTERVAL_MS). */
     private analyticsFlushTimer: ReturnType<typeof setInterval> | undefined = undefined;
+    /** Crash & error reporting (#14–17). Null hasta init(). */
+    private crashReporter: CrashReporter | null = null;
     /** Observador de navegación (Fase 2): emite page_view por el canal de analytics. */
     private navObserver: NavigationObserver | null = null;
     /** Tiempo activo (engagement time, #8). */
@@ -148,15 +151,27 @@ export class DeepdotsPopups {
                   onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
               })
             : undefined;
+        const device = config.device ?? collectDeviceInfo(config.appVersion);
         this.analytics = new AnalyticsManager({
             sink: analyticsSink,
             publicKey: config.analytics?.publicKey ?? this.config.apiKey,
             language: typeof navigator !== 'undefined' ? navigator.language : undefined,
             platform: config.platform ?? 'web',
-            device: config.device ?? collectDeviceInfo(config.appVersion),
+            device,
             maxBatchSize: ANALYTICS_MAX_BATCH_SIZE,
             onFlushNeeded: () => this.flushAnalytics(),
         });
+        // Crash & error reporting (#14–17): captura errores no manejados (a disco, replay
+        // en el siguiente arranque) y expone reportError() para el host (emite ya).
+        this.crashReporter = new CrashReporter({
+            storage,
+            emit: (params) => this.track('deepdots_app_crash', params),
+            device: () => ({ appVersion: device.app_version, osVersion: device.os_version, deviceModel: device.device_model }),
+            sessionId: () => this.tracking?.getSessionId() ?? null,
+            now: () => Date.now(),
+            enabled: () => this.tracking?.isTrackingEnabled() ?? false,
+        });
+        this.crashReporter.install();
         // Geolocalización por IP (fire-and-forget): rellena country/city cuando resuelve.
         collectGeoInfo().then((geo) => { if (geo) this.analytics?.updateDevice(geo); }).catch(() => {});
         // Fase 2: navegación → eventos page_view por el canal de analytics.
@@ -167,6 +182,14 @@ export class DeepdotsPopups {
         this.engagement = new EngagementTracker();
         this.engagement.resume();
         this.setupAnalyticsFlush();
+        // Marca de inicio de sesión (base para Crash-Free Users #14).
+        this.track('deepdots_session_start', {});
+        // Reenvía los crashes persistidos en sesiones anteriores.
+        if (this.tracking?.isTrackingEnabled()) {
+            for (const rec of this.crashReporter.drainPendingCrashes()) {
+                this.track('deepdots_app_crash', crashRecordToParams(rec));
+            }
+        }
 
         this.initialized = true;
         this.log('SDK initialized', this.config);
@@ -215,6 +238,12 @@ export class DeepdotsPopups {
     setUserAttributes(attributes: Record<string, string | number | boolean>): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         this.analytics?.setUserAttributes(attributes);
+    }
+
+    /** Reporta un error del host (manejado o no) → evento `deepdots_app_crash`. No-op si tracking off. */
+    reportError(error: unknown, options?: ReportErrorOptions): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.crashReporter?.reportError(error, options);
     }
 
     /**
