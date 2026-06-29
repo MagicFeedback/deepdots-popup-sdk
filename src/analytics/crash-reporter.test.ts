@@ -81,8 +81,8 @@ describe('CrashReporter disk queue', () => {
     });
 
     // simula dos crashes no capturados persistidos
-    reporter.persistForTest(new Error('first'));
-    reporter.persistForTest(new Error('second'));
+    reporter._persistForTest(new Error('first'));
+    reporter._persistForTest(new Error('second'));
 
     const drained = reporter.drainPendingCrashes();
     expect(drained).toHaveLength(2);
@@ -100,7 +100,7 @@ describe('CrashReporter disk queue', () => {
       storage, emit: vi.fn(),
       device: () => ({}), sessionId: () => null, now: () => 1, enabled: () => true,
     });
-    for (let i = 0; i < 25; i++) reporter.persistForTest(new Error(`e${i}`));
+    for (let i = 0; i < 25; i++) reporter._persistForTest(new Error(`e${i}`));
     const drained = reporter.drainPendingCrashes();
     expect(drained).toHaveLength(20);
     expect(drained[0].message).toBe('e5'); // los 5 más viejos se descartaron

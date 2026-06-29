@@ -181,8 +181,8 @@ export class CrashReporter {
     });
   }
 
-  /** Test seam: ejercita el camino de persistencia (window handlers no son testeables en vitest). */
-  persistForTest(error: unknown): void {
+  /** @internal Test seam: ejercita el camino de persistencia (window handlers no son testeables en vitest). */
+  _persistForTest(error: unknown): void {
     this.persist(this.buildRecord(error, 'fatal', false, true));
   }
 }

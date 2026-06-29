@@ -149,4 +149,15 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     });
     expect(storage.getItem('deepdots.crash.queue')).toBeNull();
   });
+
+  it('con trackingEnabled:false no emite deepdots_session_start ni captura reportError', () => {
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({ apiKey: 'pk-1', trackingEnabled: false });
+
+    sdk.reportError(new Error('x'));
+    const names = sdk.previewAnalytics().events.map((e) => e.name);
+    expect(names).not.toContain('deepdots_session_start');
+    expect(names).not.toContain('deepdots_app_crash');
+  });
 });

@@ -171,7 +171,9 @@ export class DeepdotsPopups {
             now: () => Date.now(),
             enabled: () => this.tracking?.isTrackingEnabled() ?? false,
         });
-        this.crashReporter.install();
+        if (this.tracking?.isTrackingEnabled()) {
+            this.crashReporter.install();
+        }
         // Geolocalización por IP (fire-and-forget): rellena country/city cuando resuelve.
         collectGeoInfo().then((geo) => { if (geo) this.analytics?.updateDevice(geo); }).catch(() => {});
         // Fase 2: navegación → eventos page_view por el canal de analytics.
@@ -184,9 +186,11 @@ export class DeepdotsPopups {
         this.setupAnalyticsFlush();
         // Marca de inicio de sesión (base para Crash-Free Users #14).
         this.track('deepdots_session_start', {});
-        // Reenvía los crashes persistidos en sesiones anteriores.
+        // Drena SIEMPRE la cola (descarta los pendientes si tracking está off, spec §7);
+        // solo reenvía como evento cuando el tracking está activo.
+        const pendingCrashes = this.crashReporter.drainPendingCrashes();
         if (this.tracking?.isTrackingEnabled()) {
-            for (const rec of this.crashReporter.drainPendingCrashes()) {
+            for (const rec of pendingCrashes) {
                 this.track('deepdots_app_crash', crashRecordToParams(rec));
             }
         }
