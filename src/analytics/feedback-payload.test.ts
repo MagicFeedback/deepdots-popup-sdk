@@ -16,8 +16,8 @@ function envelope(overrides: Partial<AnalyticsEnvelope> = {}): AnalyticsEnvelope
       attributes: { pass_type: 'premium' },
     },
     events: [
-      { name: 'page_view', timestamp: 1000, params: { screen: '/home', duration_seconds: 5 } },
-      { name: 'user_engagement', timestamp: 2000, params: { engagement_time_msec: 4200 } },
+      { name: 'deepdots_page_view', timestamp: 1000, params: { screen: '/home', duration_seconds: 5 } },
+      { name: 'deepdots_user_engagement', timestamp: 2000, params: { engagement_time_msec: 4200 } },
     ],
     ...overrides,
   };
@@ -32,10 +32,10 @@ describe('buildAnalyticsFeedbackBody', () => {
   it('pone cada evento en metadata con {key: nombre, value: [JSON(timestamp+params)]}; answers vacío', () => {
     const body = buildAnalyticsFeedbackBody(envelope(), KEYS);
     const md = mdMap(body);
-    expect(md.page_view).toBe(JSON.stringify({ timestamp: 1000, screen: '/home', duration_seconds: 5 }));
-    expect(md.user_engagement).toBe(JSON.stringify({ timestamp: 2000, engagement_time_msec: 4200 }));
+    expect(md.deepdots_page_view).toBe(JSON.stringify({ timestamp: 1000, screen: '/home', duration_seconds: 5 }));
+    expect(md.deepdots_user_engagement).toBe(JSON.stringify({ timestamp: 2000, engagement_time_msec: 4200 }));
     // formato correcto: value es array
-    const evEntry = body.feedback.metadata.find((m) => m.key === 'page_view')!;
+    const evEntry = body.feedback.metadata.find((m) => m.key === 'deepdots_page_view')!;
     expect(evEntry.value).toBeInstanceOf(Array);
     expect(evEntry.value).toHaveLength(1);
     expect(body.feedback.answers).toEqual([]);
@@ -111,9 +111,9 @@ describe('createFeedbackSink', () => {
     expect(sent.completed).toBe(false);
     expect(sent.feedback).not.toHaveProperty('metrics');
     const keys = sent.feedback.metadata.map((m: { key: string }) => m.key);
-    expect(keys).toContain('page_view');
-    expect(keys).toContain('user_engagement');
-    const pv = sent.feedback.metadata.find((m: { key: string }) => m.key === 'page_view');
+    expect(keys).toContain('deepdots_page_view');
+    expect(keys).toContain('deepdots_user_engagement');
+    const pv = sent.feedback.metadata.find((m: { key: string }) => m.key === 'deepdots_page_view');
     expect(pv.value).toBeInstanceOf(Array);
     expect(pv.value).toHaveLength(1);
   });
