@@ -26,7 +26,7 @@ import { collectDeviceInfo } from '../analytics/device-info';
 import { collectGeoInfo } from '../analytics/geo-info';
 import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
-import { CrashReporter, crashRecordToParams, type ReportErrorOptions } from '../analytics/crash-reporter';
+import { CrashReporter, crashRecordToParams, type ReportErrorOptions, type ReactNativeErrorUtils } from '../analytics/crash-reporter';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -248,6 +248,12 @@ export class DeepdotsPopups {
     reportError(error: unknown, options?: ReportErrorOptions): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         this.crashReporter?.reportError(error, options);
+    }
+
+    /** Engancha `global.ErrorUtils` de RN para capturar errores JS no manejados. No-op si tracking off. */
+    installReactNativeCrashHandler(errorUtils: ReactNativeErrorUtils): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.crashReporter?.installReactNative(errorUtils);
     }
 
     /**

@@ -96,4 +96,18 @@ describe('setupReactNative', () => {
     expect(() => setupReactNative(sdk, { apiKey: 'k' }, { renderer: new NoopPopupRenderer() })).not.toThrow();
     expect(sdk.getUserId()).toBeTruthy(); // funciona con storage por defecto
   });
+
+  it('engancha global.ErrorUtils para capturar errores JS no manejados de RN', () => {
+    let handler: ((error: unknown, isFatal?: boolean) => void) | undefined;
+    const errorUtils = {
+      getGlobalHandler: () => handler,
+      setGlobalHandler: (h: (error: unknown, isFatal?: boolean) => void) => { handler = h; },
+    };
+    const spy = vi.spyOn(sdk, 'installReactNativeCrashHandler');
+
+    setupReactNative(sdk, { apiKey: 'k' }, { errorUtils, renderer: new NoopPopupRenderer() });
+
+    expect(spy).toHaveBeenCalledWith(errorUtils);
+    expect(typeof handler).toBe('function');
+  });
 });

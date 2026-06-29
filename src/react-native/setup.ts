@@ -11,6 +11,7 @@ import type { DeepdotsInitParams } from '../types';
 import type { KeyValueStorage } from '../tracking/tracking-manager';
 import type { DeviceInfo } from '../analytics/device-info';
 import type { PopupRenderer } from '../platform/renderer';
+import type { ReactNativeErrorUtils } from '../analytics/crash-reporter';
 
 /** Forma mínima de `react-native-mmkv` (instancia MMKV). */
 export interface MmkvLike {
@@ -38,6 +39,8 @@ export interface ReactNativeSetupDeps {
   appState?: AppStateLike | null;
   platform?: 'web' | 'android' | 'ios';
   renderer?: PopupRenderer;
+  /** `global.ErrorUtils` de RN (para capturar errores JS no manejados). Default: `globalThis.ErrorUtils`. */
+  errorUtils?: ReactNativeErrorUtils | null;
 }
 
 /** Adaptador KeyValueStorage (síncrono) sobre una instancia de MMKV. */
@@ -76,6 +79,14 @@ export function setupReactNative(
   const platform = deps.platform ?? config.platform;
 
   sdk.init({ ...config, storage, device, platform });
+
+  // Captura de errores JS no manejados en RN (no hay `window`): usa el ErrorUtils inyectado
+  // o el global del runtime RN. Degrada si no existe.
+  const errorUtils =
+    deps.errorUtils ?? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils;
+  if (errorUtils && typeof errorUtils.setGlobalHandler === 'function') {
+    sdk.installReactNativeCrashHandler(errorUtils);
+  }
 
   let subscription: { remove: () => void } | void;
   if (deps.appState?.addEventListener) {
