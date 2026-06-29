@@ -249,6 +249,8 @@ Crash o error reportado. Los crashes no capturados se persisten a disco y se ree
 | `crashed_app_version` / `crashed_os_version` / `crashed_device_model` | string? | Capturados EN EL MOMENTO del crash (no del envelope, que refleja el estado actual). Base de #15/#16 |
 | `ctx_*` | string | Contexto libre del host pasado a `reportError` |
 
+> **Cobertura por plataforma:** Web captura errores JS no manejados (`window.onerror` / `unhandledrejection`) y `reportError()`. KMP captura excepciones gestionadas — Android `Thread.UncaughtExceptionHandler` (JVM), iOS `NSSetUncaughtExceptionHandler` (NSException) — y `reportError()`. En KMP `crashed_os_version`/`crashed_device_model` van poblados de forma nativa; en Web suelen ir vacíos. Los crashes nativos por señal (NDK / Mach) requieren captura nativa dedicada (plan posterior).
+
 ---
 
 ### Eventos del host con helpers del SDK (prefijo `deepdots_`)
