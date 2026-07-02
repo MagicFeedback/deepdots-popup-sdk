@@ -160,4 +160,15 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     expect(names).not.toContain('deepdots_session_start');
     expect(names).not.toContain('deepdots_app_crash');
   });
+
+  it('trackMessage emite deepdots_message con stage + message_id/title/channel (#18–22)', () => {
+    popups.trackMessage('delivered', { id: 'msg-42', title: 'Rebajas de verano', channel: 'push', campaign: 'summer_sale' });
+    popups.trackMessage('clicked', { id: 'msg-42', title: 'Rebajas de verano', channel: 'push' });
+    popups.trackMessage('converted', { id: 'msg-42', title: 'Rebajas de verano', channel: 'push', value: 49.9, currency: 'EUR' });
+
+    const msgs = popups.previewAnalytics().events.filter((e) => e.name === 'deepdots_message');
+    expect(msgs).toHaveLength(3);
+    expect(msgs[0].params).toMatchObject({ stage: 'delivered', message_id: 'msg-42', message_title: 'Rebajas de verano', channel: 'push', campaign: 'summer_sale' });
+    expect(msgs[2].params).toMatchObject({ stage: 'converted', value: 49.9, currency: 'EUR' });
+  });
 });

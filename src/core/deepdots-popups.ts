@@ -27,6 +27,7 @@ import { collectGeoInfo } from '../analytics/geo-info';
 import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
 import { CrashReporter, crashRecordToParams, type ReportErrorOptions, type ReactNativeErrorUtils } from '../analytics/crash-reporter';
+import { buildMessageParams, type MessageStage, type TrackMessageOptions } from '../analytics/messaging';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -295,6 +296,11 @@ export class DeepdotsPopups {
     /** Funnel: un paso del embudo, correlacionado por `taskId`. El backend reconstruye conversión/drop-off/tiempo. */
     trackFunnelStep(funnel: string, step: string, taskId: string, params?: Record<string, unknown>): void {
         this.track('deepdots_funnel_step', { funnel, step, task_id: taskId, ...(params ?? {}) });
+    }
+
+    /** Messaging (#18–22): registra una etapa del funnel de una notificación (push/in-app). No-op si tracking off. */
+    trackMessage(stage: MessageStage, options: TrackMessageOptions): void {
+        this.track('deepdots_message', buildMessageParams(stage, options));
     }
 
     /**
