@@ -273,6 +273,30 @@ Crash o error reportado. Los crashes no capturados se persisten a disco y se ree
 
 El backend puede agrupar por `funnel` + `task_id` para calcular tasas de conversión entre pasos.
 
+#### `deepdots_message`
+Etapa del funnel de una notificación del host (push / in-app). Un único evento con un campo `stage` discriminador; el funnel se correlaciona por `message_id` y se agrupa por `message_title`.
+```json
+{ "timestamp": 1750000040000, "stage": "clicked", "message_id": "msg-42", "message_title": "Rebajas de verano", "channel": "push", "campaign": "summer_sale", "value": 49.9, "currency": "EUR" }
+```
+
+| Campo | Valores | Descripción |
+|---|---|---|
+| `stage` | `delivered` / `clicked` / `converted` | Etapa del funnel del mensaje |
+| `message_id` | string | Correlaciona las etapas del mismo mensaje |
+| `message_title` | string | Dimensión de agrupación de #18–22 |
+| `channel` | `push` / `in_app` | Canal de entrega |
+| `campaign` | string? | Campaña (opcional) |
+| `value` / `currency` | number / string | Valor de conversión (típico en `converted`) |
+
+**Derivación de Messaging (#18–22)** — group by `message_title`, breakdown por `registration_status` del contexto y opcionalmente `channel`:
+- **#18 Messages Delivered** = `count(stage='delivered')`
+- **#19 CTR** = `count(stage='clicked') / count(stage='delivered')`
+- **#20 Unique Click-Through Users** = `user_id` distintos con `stage='clicked'`
+- **#21 Conversion Rate** = `count(stage='converted') / count(stage='delivered')`
+- **#22 Action Users** = `user_id` distintos con `stage IN ('clicked','converted')`
+
+> **Nota:** Messaging es host-instrumentado (`trackMessage`). Cubre push + in-app; para push, el "delivered" real puede venir mejor del proveedor/backend.
+
 #### Eventos custom (`track(name, params)`)
 El host puede emitir cualquier evento libre. La única estructura garantizada es `timestamp`.
 
