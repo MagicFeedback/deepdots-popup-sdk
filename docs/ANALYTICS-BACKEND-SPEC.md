@@ -67,7 +67,7 @@ SDK (cliente)                          Backend
       { "key": "sector",             "value": ["retail"] },
       { "key": "deepdots_page_view",       "value": ["{\"timestamp\":1750000000000,\"screen\":\"HomeScreen\",\"duration_seconds\":42}"] },
       { "key": "deepdots_user_engagement", "value": ["{\"timestamp\":1750000005000,\"engagement_time_msec\":38000}"] },
-      { "key": "add_to_cart",        "value": ["{\"timestamp\":1750000010000,\"product_id\":\"p-99\",\"value\":49.9}"] }
+      { "key": "deepdots_event_add_to_cart", "value": ["{\"timestamp\":1750000010000,\"product_id\":\"p-99\",\"value\":49.9}"] }
     ]
   }
 }
@@ -80,11 +80,13 @@ SDK (cliente)                          Backend
 | `deepdots_` | Sistema — generado automáticamente por el SDK | `deepdots_user_id`, `deepdots_platform`, `deepdots_country` |
 | `deepdots_` | Eventos reservados del SDK | `deepdots_page_view`, `deepdots_user_engagement`, `deepdots_mini_service_enter/exit`, `deepdots_search`, `deepdots_findability_friction`, `deepdots_funnel_step` |
 | *(sin prefijo)* | Host — atributos del cliente vía `setUserAttributes()` | `plan`, `sector`, `age` |
-| *(sin prefijo)* | Eventos custom del host vía `track()` | `add_to_cart`, `checkout_started` |
+| `deepdots_event_` | Eventos custom del host vía `track()` | `deepdots_event_add_to_cart`, `deepdots_event_checkout_started` |
 
 El prefijo `deepdots_` garantiza que los campos del sistema **nunca colisionen** con los del host.
 
-> **Breaking change (2026-06-29):** todos los eventos generados por el SDK pasan a llevar prefijo `deepdots_` (`deepdots_page_view`, `deepdots_user_engagement`, `deepdots_mini_service_enter/exit`, `deepdots_search`, `deepdots_findability_friction`, `deepdots_funnel_step`). Solo los eventos custom del host (vía `track(name, …)`) van sin prefijo. El backend debe actualizar cualquier consulta que filtre por los nombres antiguos.
+> **Breaking change (2026-06-29):** todos los eventos generados por el SDK pasan a llevar prefijo `deepdots_` (`deepdots_page_view`, `deepdots_user_engagement`, `deepdots_mini_service_enter/exit`, `deepdots_search`, `deepdots_findability_friction`, `deepdots_funnel_step`).
+>
+> **Actualización (2026-07-06):** los eventos custom del host (vía `track(name, …)`) pasan a llevar prefijo **`deepdots_event_`** (p.ej. `track('add_to_cart')` → `deepdots_event_add_to_cart`), para poder identificarlos como eventos de usuario frente a los reservados del SDK. El SDK deja intactos los nombres que ya empiezan por `deepdots_`. El backend debe actualizar cualquier consulta que filtre por los nombres custom antiguos (sin prefijo).
 
 ### Campos raíz
 

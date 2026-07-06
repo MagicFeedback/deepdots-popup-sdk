@@ -28,7 +28,23 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     expect(preview.userId).toBeTruthy();
     expect(preview.publicKey).toBe('pk-1');
     expect(preview.events).toHaveLength(1);
-    expect(preview.events[0]).toMatchObject({ name: 'cta_click', params: { label: 'comprar' } });
+    expect(preview.events[0]).toMatchObject({ name: 'deepdots_event_cta_click', params: { label: 'comprar' } });
+  });
+
+  it('los eventos custom del host se prefijan con deepdots_event_', () => {
+    popups.track('cta_click', { label: 'comprar' });
+    popups.track('add_to_cart');
+    const names = popups.previewAnalytics().events.map((e) => e.name);
+    expect(names).toEqual(['deepdots_event_cta_click', 'deepdots_event_add_to_cart']);
+  });
+
+  it('los eventos reservados del SDK (namespace deepdots_) no se re-prefijan', () => {
+    popups.track('deepdots_page_view', { screen: '/home' });
+    popups.trackMessage('delivered', { id: 'm-1', channel: 'push' });
+    const names = popups.previewAnalytics().events.map((e) => e.name);
+    expect(names).toContain('deepdots_page_view');
+    expect(names).toContain('deepdots_message');
+    expect(names.some((n) => n.startsWith('deepdots_event_'))).toBe(false);
   });
 
   it('setUserAttributes() alimenta el context para breakdowns', () => {
@@ -44,7 +60,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     popups.track('task_started', { task_id: 't-9' });
 
     const names = popups.previewAnalytics().events.map((e) => e.name);
-    expect(names).toEqual(['deepdots_mini_service_enter', 'task_started']);
+    expect(names).toEqual(['deepdots_mini_service_enter', 'deepdots_event_task_started']);
     expect(popups.previewAnalytics().events[1].params).toMatchObject({ mini_service: 'checkout', task_id: 't-9' });
   });
 
@@ -78,7 +94,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     const body = JSON.parse((call![1] as RequestInit).body as string);
     expect(body.integration).toBe('int-7');
     expect(body.completed).toBe(false);
-    expect(body.feedback.metadata.some((m: any) => m.key === 'page_view')).toBe(true);
+    expect(body.feedback.metadata.some((m: any) => m.key === 'deepdots_event_page_view')).toBe(true);
     vi.unstubAllGlobals();
   });
 

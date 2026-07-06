@@ -33,6 +33,10 @@ const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const ANALYTICS_MAX_BATCH_SIZE = 20;
 const ANALYTICS_FLUSH_INTERVAL_MS = 30_000;
+/** Namespace reservado para los eventos que emite el propio SDK (page_view, message, mini_service…). */
+const RESERVED_EVENT_PREFIX = 'deepdots_';
+/** Prefijo que se antepone a los eventos custom del host para poder identificarlos frente a los reservados. */
+const CUSTOM_EVENT_PREFIX = 'deepdots_event_';
 
 interface DeferredExitPopup {
     id: string;
@@ -235,8 +239,11 @@ export class DeepdotsPopups {
     /** Registra un evento de analítica (modelo GA: nombre + params). No-op si tracking off. */
     track(name: string, params?: Record<string, unknown>): void {
         if (!this.tracking?.isTrackingEnabled()) return;
-        this.analytics?.track(name, params);
-        this.log('analytics · track:', name, params ?? {});
+        // Los eventos del SDK ya van en el namespace `deepdots_`; los custom del host se
+        // prefijan con `deepdots_event_` para poder distinguirlos en analítica.
+        const eventName = name.startsWith(RESERVED_EVENT_PREFIX) ? name : `${CUSTOM_EVENT_PREFIX}${name}`;
+        this.analytics?.track(eventName, params);
+        this.log('analytics · track:', eventName, params ?? {});
     }
 
     /** User attributes para breakdowns (registration_status, pass_type, sector, pass_status…). */
