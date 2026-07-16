@@ -1,4 +1,6 @@
 import type { IdentityAnswer } from '../tracking/tracking-manager';
+import { buildFontFaceCss, buildFontFamilyValue } from './font';
+import type { PopupFont } from '../types';
 
 /**
  * Construye un HTML autocontenido que renderiza el survey de `@magicfeedback/native`
@@ -16,6 +18,7 @@ export interface BuildSurveyHtmlOptions {
   profile?: IdentityAnswer[];
   metadata?: IdentityAnswer[];
   version?: string; // versión de @magicfeedback/native
+  font?: PopupFont; // fuente personalizada (family + url opcional)
 }
 
 export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
@@ -26,11 +29,13 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const pid = JSON.stringify(opts.productId);
   const profileJson = JSON.stringify(opts.profile ?? []);
   const metaJson = JSON.stringify(opts.metadata ?? []);
+  const fontFaceCss = opts.font ? buildFontFaceCss(opts.font.family, opts.font.url) : '';
+  const fontFamilyCss = opts.font ? buildFontFamilyValue(opts.font.family) : '-apple-system,system-ui,sans-serif';
 
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="color-scheme" content="light"/>
-<style>html,body{margin:0;padding:0;background:transparent;font-family:-apple-system,system-ui,sans-serif}#mf{width:100%;box-sizing:border-box}#mf *{max-width:100%;box-sizing:border-box}</style>
+<style>${fontFaceCss}html,body{margin:0;padding:0;background:transparent;font-family:${fontFamilyCss}}#mf{width:100%;box-sizing:border-box}#mf *{max-width:100%;box-sizing:border-box}</style>
 </head><body>
 <div id="mf"></div>
 <script>
