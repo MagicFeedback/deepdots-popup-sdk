@@ -138,7 +138,7 @@
     padding: 0;
     font-weight: 900;
     color: #222;
-    font-family: 'Montserrat';
+    font-family: var(--deepdots-font, 'Montserrat');
     font-size: 18px;
     text-transform: uppercase;
     text-align: center;

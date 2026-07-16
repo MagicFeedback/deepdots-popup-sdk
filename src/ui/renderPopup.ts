@@ -1,5 +1,6 @@
 import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
+import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
 
@@ -65,6 +66,20 @@ function ensureResponsiveStyles(_popup: HTMLElement) {
     document.head.appendChild(style);
 }
 
+// Inyecta (una sola vez) el @font-face de la fuente personalizada.
+function ensureFontFace(family: string, url: string) {
+    const css = buildFontFaceCss(family, url);
+    if (!css) return;
+    const STYLE_ID = 'deepdots-font-face';
+    let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+    if (!el) {
+        el = document.createElement('style');
+        el.id = STYLE_ID;
+        document.head.appendChild(el);
+    }
+    if (el.textContent !== css) el.textContent = css;
+}
+
 /**
  * Renderiza el popup dentro del contenedor dado usando MagicFeedback para la encuesta.
  */
@@ -120,6 +135,16 @@ export async function renderPopup(
       width: 90%;
       min-height: 200px;
     `;
+
+    const font = style?.font;
+    if (font?.family) {
+        const familyValue = buildFontFamilyValue(font.family);
+        // El survey vive dentro del contenedor y hereda esta fuente.
+        popup.style.fontFamily = familyValue;
+        // La variable habilita que el <h2> (Montserrat por defecto) también la use.
+        popup.style.setProperty('--deepdots-font', familyValue);
+        if (font.url) ensureFontFace(font.family, font.url);
+    }
 
     // Sección header (solo botón cerrar)
     const header = document.createElement('div');
