@@ -17,15 +17,28 @@ export function fontFormatFromUrl(url: string): string | undefined {
   return FORMAT_BY_EXT[ext];
 }
 
-/** Valor a aplicar en `font-family`: nombre custom + fallback de sistema. */
-export function buildFontFamilyValue(family: string): string {
-  return `"${family}", -apple-system, system-ui, sans-serif`;
+// family/url provienen de la API y se interpolan en CSS y en el <style> del HTML del WebView.
+// Saneamos para evitar romper el string/rule (CSS injection) o cerrar </style> (script injection).
+function sanitizeFamily(family: string): string {
+  return family.replace(/[^A-Za-z0-9 ._-]/g, '').trim();
 }
 
-/** CSS del `@font-face`. Devuelve "" si no hay url. */
+function isSafeFontUrl(url: string): boolean {
+  // Solo http(s)/data y sin caracteres que rompan url("...") o el <style>.
+  return /^(https?:|data:)/i.test(url) && !/["<>]/.test(url);
+}
+
+/** Valor a aplicar en `font-family`: nombre custom + fallback de sistema. */
+export function buildFontFamilyValue(family: string): string {
+  const safe = sanitizeFamily(family);
+  return `"${safe}", -apple-system, system-ui, sans-serif`;
+}
+
+/** CSS del `@font-face`. Devuelve "" si no hay url (o no es segura). */
 export function buildFontFaceCss(family: string, url?: string): string {
-  if (!url) return '';
+  if (!url || !isSafeFontUrl(url)) return '';
+  const safe = sanitizeFamily(family);
   const fmt = fontFormatFromUrl(url);
   const src = fmt ? `url("${url}") format("${fmt}")` : `url("${url}")`;
-  return `@font-face{font-family:"${family}";src:${src};font-display:swap;}`;
+  return `@font-face{font-family:"${safe}";src:${src};font-display:swap;}`;
 }
