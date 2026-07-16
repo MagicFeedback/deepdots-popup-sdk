@@ -64,4 +64,18 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
     expect(shown!.html).toContain('external-user-id');
     expect(shown!.html).toContain(popups.getUserId() as string);
   });
+
+  it('pasa style.font al HTML del survey', () => {
+    let captured: { html: string } | null = null;
+    const renderer = new ReactNativePopupRenderer({ onShow: (p) => { captured = p; } });
+    renderer.show(
+      's1', 'p1', undefined,
+      () => {}, () => {},
+      'production', 'u1',
+      { theme: 'light', position: 'center', font: { family: 'Inter', url: 'https://x.com/Inter.woff2' } },
+    );
+    expect(captured).not.toBeNull();
+    expect(captured!.html).toContain('@font-face{font-family:"Inter"');
+    expect(captured!.html).toContain('"Inter", -apple-system, system-ui, sans-serif');
+  });
 });

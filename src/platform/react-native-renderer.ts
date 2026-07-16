@@ -57,7 +57,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     onClose: () => void,
     env: string = 'production',
     userId?: string,
-    _style?: PopupStyle,
+    style?: PopupStyle,
     sessionId?: string,
     miniService?: string,
     analyticsFeedbackSessionId?: string,
@@ -68,7 +68,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     this.partialEmitted = false;
 
     const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null, analyticsFeedbackSessionId ?? null);
-    const html = buildSurveyHtml({ surveyId, productId, env, profile, metadata });
+    const html = buildSurveyHtml({ surveyId, productId, env, profile, metadata, font: style?.font });
     if (this.options.onShow) {
       this.options.onShow({ surveyId, productId, html });
     } else {
