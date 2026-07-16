@@ -141,12 +141,22 @@ export interface PopupActions {
     back?: PopupActionDecline;
 }
 
+/** Fuente personalizable del popup + survey (viene de la API por popup) */
+export interface PopupFont {
+    /** Nombre de la familia. Ej: "Inter" (nombre limpio, NO un stack). */
+    family: string;
+    /** Opcional: URL a un archivo de fuente (woff2/ttf/otf) para armar un @font-face. */
+    url?: string;
+}
+
 /** Configurable popup styles */
 export interface PopupStyle {
     theme: 'light' | 'dark';
     position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
     /** @deprecated Not used by the SDK; kept only for API compatibility */
     imageUrl?: string | null;
+    /** Fuente personalizada. Si falta, se mantiene el comportamiento actual. */
+    font?: PopupFont;
 }
 
 /** Segments/targeting rules for showing the popup */
