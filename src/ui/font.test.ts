@@ -43,4 +43,8 @@ describe('buildFontFaceCss', () => {
   it('acepta data: urls de fuente', () => {
     expect(buildFontFaceCss('Inter', 'data:font/woff2;base64,AAAA')).toContain('@font-face{font-family:"Inter";src:url("data:font/woff2;base64,AAAA")');
   });
+  it('rechaza urls con salto de línea o whitespace', () => {
+    expect(buildFontFaceCss('Inter', 'https://x.com/a.woff2\n}body{color:red}')).toBe('');
+    expect(buildFontFaceCss('Inter', 'https://x.com/a b.woff2')).toBe('');
+  });
 });

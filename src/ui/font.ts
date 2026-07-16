@@ -24,8 +24,11 @@ function sanitizeFamily(family: string): string {
 }
 
 function isSafeFontUrl(url: string): boolean {
-  // Solo http(s)/data y sin caracteres que rompan url("...") o el <style>.
-  return /^(https?:|data:)/i.test(url) && !/["<>]/.test(url);
+  // Solo http(s)/data y sin caracteres que rompan url("...") o el <style>:
+  // comillas, <>, backslash, y cualquier whitespace o carácter de control.
+  if (!/^(https?:|data:)/i.test(url)) return false;
+  // eslint-disable-next-line no-control-regex
+  return !/[\x00-\x20"<>\\]/.test(url);
 }
 
 /** Valor a aplicar en `font-family`: nombre custom + fallback de sistema. */
