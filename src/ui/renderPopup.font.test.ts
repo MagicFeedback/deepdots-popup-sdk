@@ -37,6 +37,8 @@ describe('renderPopup font DOM', () => {
     const popup = container.querySelector('.deepdots-popup') as HTMLElement;
     expect(popup).toBeTruthy();
     expect(popup.style.getPropertyValue('--deepdots-font')).toBe(buildFontFamilyValue('Inter'));
+    // La clase que fuerza a los controles de formulario (botones, etc.) a heredar la fuente.
+    expect(popup.classList.contains('deepdots-has-font')).toBe(true);
 
     const faces = document.head.querySelectorAll('#deepdots-font-face');
     expect(faces.length).toBe(1);
@@ -50,6 +52,15 @@ describe('renderPopup font DOM', () => {
     const popup = container.querySelector('.deepdots-popup') as HTMLElement;
     expect(popup.style.getPropertyValue('--deepdots-font')).toBe(buildFontFamilyValue('Inter'));
     expect(document.getElementById('deepdots-font-face')).toBeNull();
+  });
+
+  it('sin font: no marca deepdots-has-font ni fija --deepdots-font', async () => {
+    const container = makeContainer();
+    await render(container, { theme: 'light', position: 'center' });
+
+    const popup = container.querySelector('.deepdots-popup') as HTMLElement;
+    expect(popup.classList.contains('deepdots-has-font')).toBe(false);
+    expect(popup.style.getPropertyValue('--deepdots-font')).toBe('');
   });
 
   it('dedup: dos renders con la misma fuente dejan un único #deepdots-font-face', async () => {

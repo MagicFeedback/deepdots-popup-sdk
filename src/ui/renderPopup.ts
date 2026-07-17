@@ -143,6 +143,9 @@ export async function renderPopup(
         popup.style.fontFamily = familyValue;
         // La variable habilita que el <h2> (Montserrat por defecto) también la use.
         popup.style.setProperty('--deepdots-font', familyValue);
+        // Los controles de formulario (button/input/textarea/select) NO heredan
+        // font-family por defecto; esta clase activa la regla que los fuerza a heredar.
+        popup.classList.add('deepdots-has-font');
         if (font.url) ensureFontFace(font.family, font.url);
     }
 

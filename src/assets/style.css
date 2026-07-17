@@ -145,6 +145,15 @@
     margin-bottom: 40px;
 }
 
+/* Los controles de formulario no heredan font-family por defecto: cuando hay
+   fuente custom (clase deepdots-has-font), los forzamos a usar la del contenedor. */
+.deepdots-popup.deepdots-has-font button,
+.deepdots-popup.deepdots-has-font input,
+.deepdots-popup.deepdots-has-font textarea,
+.deepdots-popup.deepdots-has-font select {
+    font-family: var(--deepdots-font, inherit);
+}
+
 .deepdots-popup h6 {
     margin-bottom: 1rem;
 }
