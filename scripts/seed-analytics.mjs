@@ -48,9 +48,9 @@ const uuid = () =>
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
 
-/** Un timestamp realista en los últimos 30 días, sesgado a tardes/noches. */
+/** Un timestamp realista en los últimos 7 días (última semana), sesgado a tardes/noches. */
 function realisticStart() {
-  const daysAgo = randint(0, 30);
+  const daysAgo = randint(0, 6);
   const hourWeights = [1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 7, 8, 7, 6, 6, 7, 8, 9, 10, 9, 7, 4, 2];
   const total = hourWeights.reduce((a, b) => a + b, 0);
   let r = rnd() * total, hour = 0;
@@ -78,16 +78,59 @@ function weightedVersion() {
   return APP_VERSIONS.at(-1);
 }
 
+// Geografía diversa con peso (mercados principales pesan más) + zona horaria coherente.
 const GEO = [
-  { country: 'ES', city: 'Madrid', lang: 'es-ES' }, { country: 'ES', city: 'Barcelona', lang: 'es-ES' },
-  { country: 'ES', city: 'Valencia', lang: 'es-ES' }, { country: 'MX', city: 'Ciudad de México', lang: 'es-MX' },
-  { country: 'AR', city: 'Buenos Aires', lang: 'es-AR' }, { country: 'CO', city: 'Bogotá', lang: 'es-CO' },
-  { country: 'US', city: 'New York', lang: 'en-US' }, { country: 'US', city: 'San Francisco', lang: 'en-US' },
-  { country: 'GB', city: 'London', lang: 'en-GB' }, { country: 'DE', city: 'Berlin', lang: 'de-DE' },
-  { country: 'FR', city: 'Paris', lang: 'fr-FR' }, { country: 'IT', city: 'Rome', lang: 'it-IT' },
-  { country: 'PT', city: 'Lisbon', lang: 'pt-PT' }, { country: 'BR', city: 'São Paulo', lang: 'pt-BR' },
-  { country: 'NL', city: 'Amsterdam', lang: 'nl-NL' }, { country: 'JP', city: 'Tokyo', lang: 'ja-JP' },
+  // España (mercado principal)
+  { country: 'ES', city: 'Madrid', lang: 'es-ES', tz: 'Europe/Madrid', w: 14 },
+  { country: 'ES', city: 'Barcelona', lang: 'es-ES', tz: 'Europe/Madrid', w: 10 },
+  { country: 'ES', city: 'Valencia', lang: 'es-ES', tz: 'Europe/Madrid', w: 5 },
+  { country: 'ES', city: 'Sevilla', lang: 'es-ES', tz: 'Europe/Madrid', w: 4 },
+  { country: 'ES', city: 'Bilbao', lang: 'eu-ES', tz: 'Europe/Madrid', w: 2 },
+  // LATAM
+  { country: 'MX', city: 'Ciudad de México', lang: 'es-MX', tz: 'America/Mexico_City', w: 8 },
+  { country: 'MX', city: 'Guadalajara', lang: 'es-MX', tz: 'America/Mexico_City', w: 3 },
+  { country: 'AR', city: 'Buenos Aires', lang: 'es-AR', tz: 'America/Argentina/Buenos_Aires', w: 5 },
+  { country: 'CO', city: 'Bogotá', lang: 'es-CO', tz: 'America/Bogota', w: 4 },
+  { country: 'CL', city: 'Santiago', lang: 'es-CL', tz: 'America/Santiago', w: 3 },
+  { country: 'PE', city: 'Lima', lang: 'es-PE', tz: 'America/Lima', w: 2 },
+  { country: 'BR', city: 'São Paulo', lang: 'pt-BR', tz: 'America/Sao_Paulo', w: 6 },
+  { country: 'BR', city: 'Rio de Janeiro', lang: 'pt-BR', tz: 'America/Sao_Paulo', w: 3 },
+  // Norteamérica
+  { country: 'US', city: 'New York', lang: 'en-US', tz: 'America/New_York', w: 8 },
+  { country: 'US', city: 'San Francisco', lang: 'en-US', tz: 'America/Los_Angeles', w: 5 },
+  { country: 'US', city: 'Miami', lang: 'es-US', tz: 'America/New_York', w: 3 },
+  { country: 'US', city: 'Chicago', lang: 'en-US', tz: 'America/Chicago', w: 3 },
+  { country: 'CA', city: 'Toronto', lang: 'en-CA', tz: 'America/Toronto', w: 3 },
+  { country: 'CA', city: 'Montreal', lang: 'fr-CA', tz: 'America/Toronto', w: 2 },
+  // Europa
+  { country: 'GB', city: 'London', lang: 'en-GB', tz: 'Europe/London', w: 6 },
+  { country: 'GB', city: 'Manchester', lang: 'en-GB', tz: 'Europe/London', w: 2 },
+  { country: 'DE', city: 'Berlin', lang: 'de-DE', tz: 'Europe/Berlin', w: 5 },
+  { country: 'DE', city: 'Munich', lang: 'de-DE', tz: 'Europe/Berlin', w: 3 },
+  { country: 'FR', city: 'Paris', lang: 'fr-FR', tz: 'Europe/Paris', w: 5 },
+  { country: 'FR', city: 'Lyon', lang: 'fr-FR', tz: 'Europe/Paris', w: 2 },
+  { country: 'IT', city: 'Rome', lang: 'it-IT', tz: 'Europe/Rome', w: 4 },
+  { country: 'IT', city: 'Milan', lang: 'it-IT', tz: 'Europe/Rome', w: 3 },
+  { country: 'PT', city: 'Lisbon', lang: 'pt-PT', tz: 'Europe/Lisbon', w: 3 },
+  { country: 'NL', city: 'Amsterdam', lang: 'nl-NL', tz: 'Europe/Amsterdam', w: 3 },
+  { country: 'BE', city: 'Brussels', lang: 'nl-BE', tz: 'Europe/Brussels', w: 2 },
+  { country: 'IE', city: 'Dublin', lang: 'en-IE', tz: 'Europe/Dublin', w: 2 },
+  { country: 'PL', city: 'Warsaw', lang: 'pl-PL', tz: 'Europe/Warsaw', w: 2 },
+  { country: 'SE', city: 'Stockholm', lang: 'sv-SE', tz: 'Europe/Stockholm', w: 2 },
+  { country: 'CH', city: 'Zurich', lang: 'de-CH', tz: 'Europe/Zurich', w: 2 },
+  // Resto del mundo
+  { country: 'JP', city: 'Tokyo', lang: 'ja-JP', tz: 'Asia/Tokyo', w: 3 },
+  { country: 'IN', city: 'Mumbai', lang: 'en-IN', tz: 'Asia/Kolkata', w: 3 },
+  { country: 'AU', city: 'Sydney', lang: 'en-AU', tz: 'Australia/Sydney', w: 2 },
+  { country: 'AE', city: 'Dubai', lang: 'ar-AE', tz: 'Asia/Dubai', w: 2 },
+  { country: 'ZA', city: 'Cape Town', lang: 'en-ZA', tz: 'Africa/Johannesburg', w: 1 },
 ];
+function weightedGeo() {
+  const total = GEO.reduce((s, g) => s + (g.w ?? 1), 0);
+  let r = rnd() * total;
+  for (const g of GEO) if ((r -= (g.w ?? 1)) <= 0) return g;
+  return GEO[0];
+}
 
 const WEB_UA = {
   desktop: [
@@ -116,6 +159,35 @@ const IOS_DEVICES = [
   { os: '17.4', model: 'iPhone15,2', type: 'mobile' }, { os: '17.5', model: 'iPhone15,3', type: 'mobile' },
   { os: '18.0', model: 'iPhone16,1', type: 'mobile' }, { os: '17.4', model: 'iPad13,1', type: 'tablet' },
 ];
+
+// Resoluciones físicas (screen) y sus densidades, por form factor. El viewport lógico se deriva ÷ ratio.
+const RESOLUTIONS = {
+  desktop: [
+    { w: 1920, h: 1080, ratio: 1 }, { w: 2560, h: 1440, ratio: 1 }, { w: 1440, h: 900, ratio: 2 },
+    { w: 1366, h: 768, ratio: 1 }, { w: 3840, h: 2160, ratio: 2 }, { w: 1512, h: 982, ratio: 2 },
+  ],
+  mobile: [
+    { w: 1170, h: 2532, ratio: 3 }, { w: 1179, h: 2556, ratio: 3 }, { w: 1080, h: 2400, ratio: 3 },
+    { w: 1284, h: 2778, ratio: 3 }, { w: 828, h: 1792, ratio: 2 }, { w: 1440, h: 3120, ratio: 3.5 },
+  ],
+  tablet: [
+    { w: 1620, h: 2160, ratio: 2 }, { w: 1668, h: 2388, ratio: 2 }, { w: 1600, h: 2560, ratio: 2 },
+  ],
+};
+// Tipo de conexión (web + móvil nativo).
+const CONNECTION_TYPES = {
+  web: ['wifi', 'wifi', 'wifi', '4g', 'ethernet', '5g', '3g'],
+  mobile: ['4g', '4g', '5g', 'wifi', 'wifi', '3g'],
+};
+// Origen (solo web). document.referrer.
+const REFERRERS = [
+  null, null, null, // acceso directo (~30%)
+  'https://www.google.com/', 'https://www.google.com/', 'https://www.bing.com/',
+  'https://l.facebook.com/', 'https://t.co/', 'https://www.instagram.com/',
+  'https://duckduckgo.com/', 'https://news.ycombinator.com/', 'https://mail.google.com/',
+  'https://www.google.es/', 'https://www.reddit.com/',
+];
+const ENTRY_NAV_TYPES = ['navigate', 'navigate', 'navigate', 'reload', 'back_forward'];
 
 const WEB_SCREENS = {
   home: '/', search: '/search', category: '/category/:id', product: '/product/:id', reviews: '/product/:id/reviews',
@@ -245,19 +317,32 @@ const userPool = [];
 
 function newIdentity() {
   const platform = pick(['web', 'web', 'web', 'android', 'android', 'ios', 'ios', 'ios']);
-  const geo = pick(GEO);
+  const geo = weightedGeo();
   const registered = chance(0.55);
-  const device = { device_type: 'desktop', os_version: undefined, model: undefined, ua: undefined };
+  const device = {
+    device_type: 'desktop', os_version: undefined, model: undefined, ua: undefined,
+    screen_resolution: undefined, viewport_size: undefined, pixel_ratio: undefined, connection_type: undefined,
+  };
+
+  const formFactor = platform === 'web'
+    ? pick(['desktop', 'desktop', 'mobile', 'mobile', 'tablet'])
+    : pick(platform === 'android' ? ANDROID_DEVICES : IOS_DEVICES).type;
 
   if (platform === 'web') {
-    const formFactor = pick(['desktop', 'desktop', 'mobile', 'mobile', 'tablet']);
-    const ua = pick(WEB_UA[formFactor]);
-    device.ua = ua;
+    device.ua = pick(WEB_UA[formFactor]);
     device.device_type = formFactor;
+    device.connection_type = pick(CONNECTION_TYPES.web);
   } else {
     const d = pick(platform === 'android' ? ANDROID_DEVICES : IOS_DEVICES);
     device.device_type = d.type; device.os_version = d.os; device.model = d.model;
+    device.connection_type = pick(CONNECTION_TYPES.mobile);
   }
+
+  // Resolución/viewport/densidad coherentes con el form factor.
+  const res = pick(RESOLUTIONS[device.device_type] ?? RESOLUTIONS.desktop);
+  device.screen_resolution = `${res.w}x${res.h}`;
+  device.pixel_ratio = String(res.ratio);
+  device.viewport_size = `${Math.round(res.w / res.ratio)}x${Math.round(res.h / res.ratio)}`;
 
   const registered2 = registered;
   return {
@@ -273,6 +358,9 @@ function newIdentity() {
       ab_test_variant: pick(AB_VARIANTS),
       ltv_bucket: pick(LTV_BUCKETS),
       notifications_enabled: chance(0.6),
+      account_age_days: String(randint(0, 1200)),
+      churn_risk: pick(['low', 'low', 'mid', 'high']),
+      loyalty_tier: pick(['bronze', 'silver', 'gold', 'platinum']),
     },
   };
 }
@@ -289,11 +377,16 @@ function makeProfile() {
     userPool.push(identity);
   }
   const ver = weightedVersion();
+  // Campos de navegación web (por sesión, solo web).
+  const nav = identity.platform === 'web'
+    ? { referrer: pick(REFERRERS), entryType: pick(ENTRY_NAV_TYPES), pageLoadMs: randint(350, 4200) }
+    : { referrer: null, entryType: null, pageLoadMs: null };
   return {
     ...identity,
     appVersion: ver.v,
     appVersionCrash: ver.crash,
     startedAt: realisticStart(),
+    nav,
   };
 }
 
@@ -307,10 +400,13 @@ function buildTimeline(profile) {
   const actives = new Set();
   let lastMini = null;
 
+  // Igual que el SDK: los eventos reservados van en el namespace `deepdots_`; los custom
+  // del host se prefijan con `deepdots_event_` para poder identificarlos (cambio 2026-07-06).
+  const wireName = (name) => (name.startsWith('deepdots_') ? name : `deepdots_event_${name}`);
   const emit = (name, params = {}) => {
     const p = { ...params };
     if (lastMini) p.mini_service = lastMini;
-    events.push({ name, ts: t, params: p });
+    events.push({ name: wireName(name), ts: t, params: p });
   };
 
   emit('deepdots_session_start', {});
@@ -391,16 +487,20 @@ function buildTimeline(profile) {
     }
     if (key === 'order') {
       advance(randint(1, 4));
+      const orderValue = money(20, 400);
       emit('purchase', {
-        order_id: `o-${randint(100000, 999999)}`, value: money(20, 400), currency: 'EUR',
+        order_id: `o-${randint(100000, 999999)}`, value: orderValue, currency: 'EUR',
         items: randint(1, 5), payment_method: pick(['card', 'paypal', 'apple_pay', 'google_pay', 'klarna']),
       });
+      // CSAT / NPS post-compra (Product Effectiveness #32–33)
+      if (chance(0.4)) { advance(randint(3, 20)); emit('csat_submitted', { score: randint(1, 5), context: 'post_purchase' }); }
+      if (chance(0.2)) { advance(randint(2, 15)); emit('nps_submitted', { score: randint(0, 10), context: 'post_purchase' }); }
     }
     if (key === 'support' && chance(0.5)) emit('support_ticket_created', { topic: pick(['delivery', 'refund', 'product_issue', 'account']) });
     if (key === 'notifications' && chance(0.5)) emit(...pick([MISC_EVENTS[4], MISC_EVENTS[5]])()); // notification/push opened
 
-    // rociar 0-2 eventos misceláneos extra
-    const extra = randint(0, 2);
+    // rociar 1-3 eventos misceláneos extra (más densidad de datos por sesión)
+    const extra = randint(1, 3);
     for (let e = 0; e < extra; e++) { advance(randint(1, 4)); emit(...pick(MISC_EVENTS)()); }
 
     // cerrar algún mini-servicio activo (por nombre)
@@ -485,15 +585,25 @@ function buildTimeline(profile) {
 const kv = (key, value) => ({ key, value: [String(value)] });
 
 function contextMetadata(profile) {
+  const d = profile.device;
   const md = [];
   md.push(kv('deepdots_user_id', profile.sdkUserId));
   md.push(kv('deepdots_platform', profile.platform));
   md.push(kv('deepdots_language', profile.geo.lang));
-  md.push(kv('deepdots_device_type', profile.device.device_type));
-  if (profile.device.os_version) md.push(kv('deepdots_os_version', profile.device.os_version));
-  if (profile.device.model) md.push(kv('deepdots_device_model', profile.device.model));
+  md.push(kv('deepdots_device_type', d.device_type));
+  if (d.os_version) md.push(kv('deepdots_os_version', d.os_version));
+  if (d.model) md.push(kv('deepdots_device_model', d.model));
   md.push(kv('deepdots_app_version', profile.appVersion));
-  if (profile.device.ua) md.push(kv('deepdots_user_agent', profile.device.ua));
+  if (d.ua) md.push(kv('deepdots_user_agent', d.ua));
+  if (profile.geo.tz) md.push(kv('deepdots_timezone', profile.geo.tz));
+  if (d.screen_resolution) md.push(kv('deepdots_screen_resolution', d.screen_resolution));
+  if (d.viewport_size) md.push(kv('deepdots_viewport_size', d.viewport_size));
+  if (d.pixel_ratio) md.push(kv('deepdots_pixel_ratio', d.pixel_ratio));
+  if (d.connection_type) md.push(kv('deepdots_connection_type', d.connection_type));
+  // Solo web: referrer / entry_type / page_load_ms (Performance API).
+  if (profile.nav?.referrer) md.push(kv('deepdots_referrer', profile.nav.referrer));
+  if (profile.nav?.entryType) md.push(kv('deepdots_entry_type', profile.nav.entryType));
+  if (profile.nav?.pageLoadMs != null) md.push(kv('deepdots_page_load_ms', profile.nav.pageLoadMs));
   md.push(kv('deepdots_country', profile.geo.country));
   md.push(kv('deepdots_city', profile.geo.city));
   for (const [k, v] of Object.entries(profile.attributes)) md.push(kv(k, v));
