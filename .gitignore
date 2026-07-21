@@ -15,3 +15,7 @@ coverage/
 playwright-report/
 test-results/
 /playwright/.cache/
+
+# App RN local de pruebas (no versionar)
+/RnSandbox/
+*.tgz
