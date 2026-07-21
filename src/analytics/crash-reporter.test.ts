@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { CrashReporter, crashRecordToParams, type CrashRecord } from './crash-reporter';
 import { InMemoryStorage } from '../tracking/tracking-manager';
 
@@ -115,6 +115,29 @@ describe('CrashReporter disk queue', () => {
       device: () => ({}), sessionId: () => null, now: () => 1, enabled: () => true,
     });
     expect(reporter.drainPendingCrashes()).toEqual([]);
+  });
+});
+
+describe('CrashReporter.install (web)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is a no-op in React Native where window exists but addEventListener is not a function', () => {
+    // RN define un `window` global, pero SIN addEventListener. El guard debe
+    // detectarlo por capacidad (no solo por existencia de `window`).
+    vi.stubGlobal('window', {});
+    const { reporter } = make();
+    expect(() => reporter.install()).not.toThrow();
+  });
+
+  it('registers error/unhandledrejection listeners when addEventListener exists', () => {
+    const addEventListener = vi.fn();
+    vi.stubGlobal('window', { addEventListener });
+    const { reporter } = make();
+    reporter.install();
+    expect(addEventListener).toHaveBeenCalledWith('error', expect.any(Function));
+    expect(addEventListener).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
   });
 });
 

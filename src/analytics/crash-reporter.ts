@@ -180,7 +180,10 @@ export class CrashReporter {
 
   /** Instala los handlers globales de errores no capturados (no-op sin `window`). */
   install(): void {
-    if (typeof window === 'undefined') return;
+    // En React Native `window` existe pero NO tiene addEventListener; comprobamos
+    // la capacidad, no solo la existencia de `window`. En RN el host usa
+    // installReactNative(ErrorUtils) para capturar los errores no manejados.
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     window.addEventListener('error', (e: ErrorEvent) => {
       if (!this.isEnabled()) return;
       this.captureUnhandled(e.error ?? e.message ?? 'error');
