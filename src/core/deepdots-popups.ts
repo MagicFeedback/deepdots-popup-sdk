@@ -5,6 +5,7 @@ import {
     DeepdotsEventType,
     EventListener,
     DeepdotsInitParams,
+    DeepdotsLogger,
     PopupDefinition,
     PopupTriggerCondition,
     PopupActions,
@@ -19,7 +20,7 @@ import { setupTrigger } from '../triggers';
 import { resolveEnvironment } from '../config/env';
 import { PopupRenderer, createDefaultRenderer } from '../platform/renderer';
 import { TrackingManager, createDefaultStorage } from '../tracking/tracking-manager';
-import { AnalyticsManager, type AnalyticsEnvelope } from '../analytics/analytics-manager';
+import { AnalyticsManager, createDryRunSink, type AnalyticsEnvelope } from '../analytics/analytics-manager';
 import { createFeedbackSink } from '../analytics/feedback-payload';
 import { NavigationObserver } from '../tracking/navigation-observer';
 import { collectDeviceInfo } from '../analytics/device-info';
@@ -68,6 +69,8 @@ export class DeepdotsPopups {
     private triggers: TriggerConfig[] = [];
     private initialized = false;
     private renderer: PopupRenderer = createDefaultRenderer();
+    /** Logger para el output de debug. Default `console`; el host puede inyectar el suyo en init(). */
+    private logger: DeepdotsLogger = console;
     private popupContainer: HTMLElement | null = null; // deprecated: mantenido para compatibilidad interna
     private popupDefinitions: NormalizedPopupDefinition[] = [];
     private popupsLoaded = false;
@@ -103,6 +106,7 @@ export class DeepdotsPopups {
 
     /** Initialize the SDK with configuration */
     init(config: DeepdotsInitParams): void {
+        this.logger = config.logger ?? console;
         if (this.initialized) {
             this.log('SDK already initialized');
             return;
@@ -155,7 +159,7 @@ export class DeepdotsPopups {
                   log: (...a) => this.log(...a),
                   onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
               })
-            : undefined;
+            : createDryRunSink((...a) => this.logger.log(...a));
         const device = config.device ?? collectDeviceInfo(config.appVersion);
         this.analytics = new AnalyticsManager({
             sink: analyticsSink,
@@ -980,7 +984,8 @@ export class DeepdotsPopups {
                 try {
                     listener(event);
                 } catch (error) {
-                    console.error('Error in event listener:', error);
+                    if (this.logger.error) this.logger.error('Error in event listener:', error);
+                    else this.logger.log('Error in event listener:', error);
                 }
             });
         }
@@ -989,7 +994,7 @@ export class DeepdotsPopups {
     /** Log debug messages */
     private log(...args: unknown[]): void {
         if (this.config?.debug) {
-            console.log('[DeepdotsPopups]', ...args);
+            this.logger.log('[DeepdotsPopups]', ...args);
         }
     }
 

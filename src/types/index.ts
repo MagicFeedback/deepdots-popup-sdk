@@ -5,6 +5,18 @@ import type { KeyValueStorage } from '../tracking/tracking-manager';
 import type { DeviceInfo } from '../analytics/device-info';
 import type { AnalyticsKeys } from '../analytics/feedback-payload';
 
+/**
+ * Custom logger to receive the SDK's debug output instead of the console.
+ * Only `log` is required; `warn`/`error`/`info` fall back to `log` when omitted.
+ * Lets the host pipe debug output to a file, Firebase, etc. `console` satisfies this shape.
+ */
+export interface DeepdotsLogger {
+    log: (...args: unknown[]) => void;
+    warn?: (...args: unknown[]) => void;
+    error?: (...args: unknown[]) => void;
+    info?: (...args: unknown[]) => void;
+}
+
 export interface DeepdotsInitParams {
     /** API key for authentication */
     apiKey?: string;
@@ -12,6 +24,8 @@ export interface DeepdotsInitParams {
     nodeEnv?: 'development' | 'production';
     /** Enable debug logging */
     debug?: boolean;
+    /** Custom logger for debug output. When set (and `debug` is true), the SDK routes its logs here instead of `console`. Default: `console`. */
+    logger?: DeepdotsLogger;
     /** Optional user id to send with popup events */
     userId?: string;
     /** Starts tracking enabled (default) or disabled (e.g. until consent is granted). Equivalent to calling `setTrackingEnabled` after init. */

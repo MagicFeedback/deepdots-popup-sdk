@@ -44,14 +44,20 @@ export interface AnalyticsIdentity {
   sessionId: string | null;
 }
 
+/**
+ * Sink de dry-run: NO envía nada, solo vuelca lo que se enviaría por el `log` dado
+ * (default `console.log`, o el logger inyectado por el host en init()).
+ */
+export function createDryRunSink(log: (...args: unknown[]) => void = console.log): AnalyticsSink {
+  return (payload) =>
+    log(
+      '[DeepdotsAnalytics] (dry-run · NO enviado · sin init.analytics) POST /sdk/feedback →',
+      JSON.stringify(payload, null, 2),
+    );
+}
+
 /** Sink por defecto: NO envía nada, solo pinta por consola lo que se enviaría. */
-export const dryRunSink: AnalyticsSink = (payload) => {
-  // eslint-disable-next-line no-console
-  console.log(
-    '[DeepdotsAnalytics] (dry-run · NO enviado · sin init.analytics) POST /sdk/feedback →',
-    JSON.stringify(payload, null, 2),
-  );
-};
+export const dryRunSink: AnalyticsSink = createDryRunSink();
 
 export interface AnalyticsManagerOptions {
   sink?: AnalyticsSink;

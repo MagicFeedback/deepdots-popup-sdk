@@ -3,6 +3,8 @@ export { buildMessageParams } from './analytics/messaging';
 export type { MessageStage, TrackMessageOptions } from './analytics/messaging';
 export type {
   DeepdotsConfig,
+  DeepdotsInitParams,
+  DeepdotsLogger,
   TriggerConfig,
   DeepdotsEvent,
   DeepdotsEventType,
