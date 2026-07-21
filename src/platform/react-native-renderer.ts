@@ -2,6 +2,7 @@ import type { DeepdotsEventType, PopupActions, PopupStyle } from '../types';
 import type { PopupRenderer } from './renderer';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import { buildSurveyHtml } from '../ui/surveyHtml';
+import { sdkWarn } from '../util/logger';
 
 type EmitFn = (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void;
 
@@ -72,7 +73,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     if (this.options.onShow) {
       this.options.onShow({ surveyId, productId, html });
     } else {
-      console.warn(
+      sdkWarn(
         '[Deepdots] ReactNativePopupRenderer sin onShow: pasa { onShow } a new ReactNativePopupRenderer({...}) para montar el WebView del survey.',
       );
     }

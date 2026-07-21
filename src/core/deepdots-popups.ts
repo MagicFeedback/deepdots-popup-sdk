@@ -28,6 +28,7 @@ import { collectGeoInfo } from '../analytics/geo-info';
 import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
 import { CrashReporter, crashRecordToParams, type ReportErrorOptions, type ReactNativeErrorUtils } from '../analytics/crash-reporter';
+import { setLogger } from '../util/logger';
 import { buildMessageParams, type MessageStage, type TrackMessageOptions } from '../analytics/messaging';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
@@ -107,6 +108,7 @@ export class DeepdotsPopups {
     /** Initialize the SDK with configuration */
     init(config: DeepdotsInitParams): void {
         this.logger = config.logger ?? console;
+        setLogger(this.logger); // los módulos sin `this` (renderPopup, renderers) enrutan por aquí
         if (this.initialized) {
             this.log('SDK already initialized');
             return;

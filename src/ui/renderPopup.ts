@@ -1,6 +1,7 @@
 import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
+import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
 
@@ -480,7 +481,7 @@ export async function renderPopup(
 
     try {
         if (!magicfeedback || typeof magicfeedback.form !== 'function') {
-            console.warn('[MagicFeedback] form() no disponible. Fallback manual.');
+            sdkWarn('[MagicFeedback] form() no disponible. Fallback manual.');
             setLoading(false);
             return;
         }
@@ -602,7 +603,7 @@ export async function renderPopup(
 
                 if (s.startMessage && s.startMessage !== '') {
                     // Si hay mensaje de inicio, mostrar botón Start inicialmente
-                    console.log(s.startMessage);
+                    sdkLog(s.startMessage);
                     updateButtons('start');
                 } else {
                     // Si no hay mensaje de inicio, mostrar estado de primera página (solo Send)
@@ -672,11 +673,11 @@ export async function renderPopup(
         formInstance.generate(formDivId, generateOptions)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .catch((err: any) => {
-                console.error('[MagicFeedback] Error generating form:', err);
+                sdkError('[MagicFeedback] Error generating form:', err);
                 setLoading(false);
             });
     } catch (e) {
-        console.error('[MagicFeedback] Exception initializing form:', e);
+        sdkError('[MagicFeedback] Exception initializing form:', e);
         setLoading(false);
     }
 }
