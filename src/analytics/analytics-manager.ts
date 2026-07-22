@@ -32,6 +32,8 @@ export interface AnalyticsEnvelope {
     device?: DeviceInfo;
     /** User attributes del cliente, usados para breakdowns (registration_status, pass_type, …). */
     attributes: Record<string, string>;
+    /** Métricas del host: valores medibles persistentes → van en `feedback.metrics` del body. */
+    metrics?: Record<string, string>;
   };
   events: AnalyticsEvent[];
 }
@@ -83,6 +85,8 @@ export class AnalyticsManager {
 
   private events: AnalyticsEvent[] = [];
   private attributes: Record<string, string> = {};
+  /** Métricas del host (valores medibles persistentes). Sobrescriben por key; se reenvían en cada flush. */
+  private metrics: Record<string, string> = {};
   /** Mini-services activos: nombre → timestamp de entrada. El orden de inserción marca el "más reciente". */
   private activeMiniServices = new Map<string, number>();
   private maxBatchSize: number;
@@ -110,6 +114,15 @@ export class AnalyticsManager {
       if (!k) continue;
       this.attributes[k] = String(v);
     }
+  }
+
+  /**
+   * Registra/actualiza una métrica (valor medible). Persistente: se reenvía en cada flush.
+   * Repetir la misma key SOBRESCRIBE; el valor se coerciona a string; ignora key vacía.
+   */
+  setMetric(key: string, value: string | number | boolean): void {
+    if (!key) return;
+    this.metrics[key] = String(value);
   }
 
   /**
@@ -182,6 +195,7 @@ export class AnalyticsManager {
         language: this.language,
         device: this.device,
         attributes: { ...this.attributes },
+        metrics: { ...this.metrics },
       },
       events: [...this.events],
     };

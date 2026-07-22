@@ -43,6 +43,21 @@ describe('AnalyticsManager', () => {
     expect(ctx.platform).toBe('web');
   });
 
+  it('setMetric merges metrics into context.metrics (coerced to string), overwrites on repeat, ignores empty key', () => {
+    am.setMetric('cart_value', 49.99);
+    am.setMetric('items_in_cart', 3);
+    am.setMetric('vip', true);
+    am.setMetric('cart_value', 51.25); // misma key → sobrescribe
+    am.setMetric('', 'x'); // key vacía → ignorada
+
+    const ctx = am.buildPayload(identity).context;
+    expect(ctx.metrics).toEqual({
+      cart_value: '51.25',
+      items_in_cart: '3',
+      vip: 'true',
+    });
+  });
+
   it('enterMiniService emits an enter event and tags later events with mini_service', () => {
     am.enterMiniService('checkout', 'home');
     am.track('task_started', { task_id: 't-9' });

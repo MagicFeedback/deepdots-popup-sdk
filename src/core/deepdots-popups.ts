@@ -273,6 +273,16 @@ export class DeepdotsPopups {
         this.analytics?.setUserAttributes(attributes);
     }
 
+    /**
+     * Registra/actualiza una métrica (valor medible) → `feedback.metrics` del body.
+     * Persistente y sobrescribe por key. No-op si tracking off.
+     */
+    setMetric(key: string, value: string | number | boolean): void {
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.analytics?.setMetric(key, value);
+        this.log('analytics · setMetric:', key, value);
+    }
+
     /** Reporta un error del host (manejado o no) → evento `deepdots_app_crash`. No-op si tracking off. */
     reportError(error: unknown, options?: ReportErrorOptions): void {
         if (!this.tracking?.isTrackingEnabled()) return;

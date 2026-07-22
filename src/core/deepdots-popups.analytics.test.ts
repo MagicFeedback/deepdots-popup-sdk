@@ -55,6 +55,19 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     });
   });
 
+  it('setMetric() alimenta context.metrics y respeta el kill-switch', () => {
+    popups.setMetric('cart_value', 49.99);
+    popups.setMetric('items_in_cart', 3);
+    expect(popups.previewAnalytics().context.metrics).toMatchObject({
+      cart_value: '49.99',
+      items_in_cart: '3',
+    });
+
+    popups.setTrackingEnabled(false);
+    popups.setMetric('ignored', 1);
+    expect(popups.previewAnalytics().context.metrics).not.toHaveProperty('ignored');
+  });
+
   it('enterMiniService() etiqueta los eventos siguientes', () => {
     popups.enterMiniService('checkout', 'home');
     popups.track('task_started', { task_id: 't-9' });

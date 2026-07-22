@@ -10,7 +10,8 @@
  *  - cada entrada usa `value: string[]` (array de un elemento)
  *  - eventos: {key: nombre_evento, value: [JSON(timestamp + params)]}
  *  - identidad (user_id) → `profile` como `external-user-id`
- *  - `answers` vacío, `metrics` no se usa
+ *  - métricas del host (setMetric) → `feedback.metrics` (mismo shape que metadata, sin prefijo)
+ *  - `answers` vacío
  *  - `text` vacío
  */
 
@@ -30,6 +31,7 @@ export interface AnalyticsFeedbackBody {
   feedback: {
     text: string;
     answers: FeedbackKV[];
+    metrics: FeedbackKV[];
     metadata: FeedbackKV[];
     profile: FeedbackKV[];
     finished: boolean;
@@ -92,10 +94,17 @@ export function buildAnalyticsFeedbackBody(
     });
   }
 
+  // Métricas del host → campo dedicado `feedback.metrics` (mismo shape que metadata, sin prefijo).
+  const metrics: FeedbackKV[] = [];
+  for (const [k, v] of Object.entries(context.metrics ?? {})) {
+    pushKV(metrics, k, v);
+  }
+
   return {
     feedback: {
       text: '',
       answers: [],
+      metrics,
       metadata,
       profile,
       finished: false,

@@ -39,7 +39,22 @@ describe('buildAnalyticsFeedbackBody', () => {
     expect(evEntry.value).toBeInstanceOf(Array);
     expect(evEntry.value).toHaveLength(1);
     expect(body.feedback.answers).toEqual([]);
-    expect(body.feedback).not.toHaveProperty('metrics');
+  });
+
+  it('vuelca context.metrics en feedback.metrics con {key, value:[String]} sin prefijo', () => {
+    const body = buildAnalyticsFeedbackBody(
+      envelope({ context: { platform: 'web', attributes: {}, metrics: { cart_value: '49.99', items: '3' } } }),
+      KEYS,
+    );
+    expect(body.feedback.metrics).toEqual([
+      { key: 'cart_value', value: ['49.99'] },
+      { key: 'items', value: ['3'] },
+    ]);
+  });
+
+  it('feedback.metrics es [] cuando no hay métricas', () => {
+    const body = buildAnalyticsFeedbackBody(envelope(), KEYS);
+    expect(body.feedback.metrics).toEqual([]);
   });
 
   it('pone la identidad en profile (external-user-id) y deepdots_user_id/deepdots_session_id en metadata', () => {
@@ -109,7 +124,7 @@ describe('createFeedbackSink', () => {
     const sent = JSON.parse((init as RequestInit).body as string);
     expect(sent.integration).toBe('int-1');
     expect(sent.completed).toBe(false);
-    expect(sent.feedback).not.toHaveProperty('metrics');
+    expect(sent.feedback.metrics).toEqual([]);
     const keys = sent.feedback.metadata.map((m: { key: string }) => m.key);
     expect(keys).toContain('deepdots_page_view');
     expect(keys).toContain('deepdots_user_engagement');
