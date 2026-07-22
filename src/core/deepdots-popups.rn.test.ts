@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeepdotsPopups } from './deepdots-popups';
 import { NoopPopupRenderer } from '../platform/renderer';
 import { InMemoryStorage, STORAGE_KEYS } from '../tracking/tracking-manager';
+import { writeCachedGeo } from '../analytics/geo-info';
 
 /**
  * Puntos de inyección para React Native (SDK JS sin APIs de navegador):
@@ -38,6 +39,20 @@ describe('DeepdotsPopups — inyección RN', () => {
     const ctx = popups.previewAnalytics().context;
     expect(ctx.platform).toBe('ios');
     expect(ctx.device).toEqual(device);
+  });
+
+  it('aplica el geo cacheado en storage de inmediato al init (sin red)', () => {
+    const storage = new InMemoryStorage();
+    writeCachedGeo(storage, { country: 'ES', city: 'Madrid' }, Date.now());
+    popups.init({ apiKey: 'k', platform: 'ios', storage });
+    const device = popups.previewAnalytics().context.device;
+    expect(device?.country).toBe('ES');
+    expect(device?.city).toBe('Madrid');
+  });
+
+  it('usa el language explícito del init en el context de analytics', () => {
+    popups.init({ apiKey: 'k', platform: 'ios', language: 'fr-CA' });
+    expect(popups.previewAnalytics().context.language).toBe('fr-CA');
   });
 
   it('setScreen() emite page_view manual (React Navigation)', () => {

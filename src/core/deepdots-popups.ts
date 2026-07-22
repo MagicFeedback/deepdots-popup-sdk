@@ -24,7 +24,8 @@ import { AnalyticsManager, createDryRunSink, type AnalyticsEnvelope } from '../a
 import { createFeedbackSink } from '../analytics/feedback-payload';
 import { NavigationObserver } from '../tracking/navigation-observer';
 import { collectDeviceInfo } from '../analytics/device-info';
-import { collectGeoInfo } from '../analytics/geo-info';
+import { readCachedGeo, writeCachedGeo, fetchGeo } from '../analytics/geo-info';
+import { resolveLanguage } from '../analytics/language';
 import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
 import { CrashReporter, crashRecordToParams, type ReportErrorOptions, type ReactNativeErrorUtils } from '../analytics/crash-reporter';
@@ -166,7 +167,11 @@ export class DeepdotsPopups {
         this.analytics = new AnalyticsManager({
             sink: analyticsSink,
             publicKey: config.analytics?.publicKey ?? this.config.apiKey,
-            language: typeof navigator !== 'undefined' ? navigator.language : undefined,
+            language: resolveLanguage({
+                explicit: config.language,
+                navigator: typeof navigator !== 'undefined' ? navigator : undefined,
+                intl: typeof Intl !== 'undefined' ? Intl : undefined,
+            }),
             platform: config.platform ?? 'web',
             device,
             maxBatchSize: ANALYTICS_MAX_BATCH_SIZE,
@@ -185,8 +190,18 @@ export class DeepdotsPopups {
         if (this.tracking?.isTrackingEnabled()) {
             this.crashReporter.install();
         }
-        // Geolocalización por IP (fire-and-forget): rellena country/city cuando resuelve.
-        collectGeoInfo().then((geo) => { if (geo) this.analytics?.updateDevice(geo); }).catch(() => {});
+        // Geolocalización por IP: aplica el cache persistente de inmediato (sin gap de timing)
+        // y refresca en background (cadena de proveedores + timeout), recacheando el resultado.
+        const cachedGeo = readCachedGeo(storage, Date.now());
+        if (cachedGeo) this.analytics.updateDevice(cachedGeo);
+        fetchGeo()
+            .then((geo) => {
+                if (geo) {
+                    this.analytics?.updateDevice(geo);
+                    writeCachedGeo(storage, geo, Date.now());
+                }
+            })
+            .catch(() => {});
         // Fase 2: navegación → eventos page_view por el canal de analytics.
         this.navObserver = new NavigationObserver();
         this.navObserver.onVisit((v) => this.track('deepdots_page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));

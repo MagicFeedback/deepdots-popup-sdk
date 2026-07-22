@@ -12,12 +12,14 @@ export async function initDemoSdk({modeLabelEl, eventLogEl} = {}) {
     const sdk = new DeepdotsPopups();
     sdk.init({
         debug: true,
-        apiKey: 'jGeIP9g7Dyjf5HYAFDM8ozxZqQSiQMfJ',
+        apiKey: 'EOywGj6yluqJRyQoY9jCSwJtSdffvKJR',
+        /*
         userId: new Date().toLocaleDateString('es-ES', {year: 'numeric', month: '2-digit', day: '2-digit'}).split('/').reverse().join(''),
         analytics: {
             publicKey: '5a148214cdd4d164b9ff189c201d0e75',
             integration: 'a0365bd0-6ee1-11f1-94c7-45c08829a73b'
         },
+         */
     });
 
     if (modeLabelEl) {

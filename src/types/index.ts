@@ -36,6 +36,12 @@ export interface DeepdotsInitParams {
     storage?: KeyValueStorage;
     /** Platform used in the analytics envelope. Default is 'web'; in RN pass 'android'/'ios'. */
     platform?: 'web' | 'android' | 'ios';
+    /**
+     * BCP-47 language tag for the analytics context (e.g. 'es-ES'). If omitted, the SDK
+     * auto-detects: `navigator.language` on web, or the `Intl` locale as a fallback (works in
+     * React Native with Hermes, where `navigator.language` is absent).
+     */
+    language?: string;
     /** Injectable device info (RN: from react-native-device-info). If missing, it is derived from the browser. */
     device?: DeviceInfo;
     /**
