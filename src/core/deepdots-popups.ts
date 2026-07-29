@@ -165,6 +165,11 @@ export class DeepdotsPopups {
                   baseUrl: this.baseUrl,
                   keys: config.analytics,
                   log: (...a) => this.log(...a),
+                  // sendBeacon: único transporte que sobrevive al cierre de la página.
+                  sendBeaconImpl:
+                      typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function'
+                          ? (url, body) => navigator.sendBeacon(url, body)
+                          : undefined,
                   onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
               })
             : createDryRunSink((...a) => this.logger.log(...a));
@@ -391,10 +396,14 @@ export class DeepdotsPopups {
         );
     }
 
-    /** Envía (hoy dry-run → console.log) el lote acumulado de analytics y vacía el buffer. */
-    flushAnalytics(): void {
+    /**
+     * Envía el lote acumulado de analytics y vacía el buffer.
+     * `final: true` (cierre de página/app) cambia el transporte a `sendBeacon`, que sobrevive
+     * al unload; un lote que falle por red o 5xx se re-encola para el siguiente flush.
+     */
+    flushAnalytics(options?: { final?: boolean }): void {
         if (!this.tracking?.isTrackingEnabled()) return;
-        this.analytics?.flush(this.analyticsIdentity());
+        this.analytics?.flush(this.analyticsIdentity(), options);
     }
 
     /** Emite un evento `user_engagement` con el tiempo activo acumulado (#8). */
@@ -422,7 +431,7 @@ export class DeepdotsPopups {
             this.navObserver?.stop();
             if (this.tracking?.isTrackingEnabled()) this.analytics?.exitAllMiniServices();
             this.flushEngagement();
-            this.flushAnalytics();
+            this.flushAnalytics({ final: true });
         });
         // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado
         document.addEventListener('visibilitychange', () => {
