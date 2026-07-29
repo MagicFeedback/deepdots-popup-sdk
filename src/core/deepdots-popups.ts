@@ -105,6 +105,11 @@ export class DeepdotsPopups {
     private contact: ContactManager | null = null;
     /** Marca si ya se inició la navegación manual (setScreen) — para RN sin History API. */
     private navStarted = false;
+    /**
+     * Idioma resuelto en init() (explícito > navigator.language > Intl). Única fuente de
+     * verdad para el context de analytics Y para la segmentación por idioma de los popups.
+     */
+    private language: string | undefined = undefined;
 
     /** Initialize the SDK with configuration */
     init(config: DeepdotsInitParams): void {
@@ -164,14 +169,15 @@ export class DeepdotsPopups {
               })
             : createDryRunSink((...a) => this.logger.log(...a));
         const device = config.device ?? collectDeviceInfo(config.appVersion);
+        this.language = resolveLanguage({
+            explicit: config.language,
+            navigator: typeof navigator !== 'undefined' ? navigator : undefined,
+            intl: typeof Intl !== 'undefined' ? Intl : undefined,
+        });
         this.analytics = new AnalyticsManager({
             sink: analyticsSink,
             publicKey: config.analytics?.publicKey ?? this.config.apiKey,
-            language: resolveLanguage({
-                explicit: config.language,
-                navigator: typeof navigator !== 'undefined' ? navigator : undefined,
-                intl: typeof Intl !== 'undefined' ? Intl : undefined,
-            }),
+            language: this.language,
             platform: config.platform ?? 'web',
             device,
             maxBatchSize: ANALYTICS_MAX_BATCH_SIZE,
@@ -558,21 +564,24 @@ export class DeepdotsPopups {
         const langs = def.segments?.lang;
         if (!langs || langs.length === 0) return true;
 
-        // navigator.language puede ser "en", "en-US", "da", "da-DK", etc.
-        const browserLang = (
-            typeof navigator !== 'undefined' ? navigator.language : ''
-        ).toLowerCase();
+        // Mismo idioma que reporta el context de analytics: explícito > navigator.language
+        // > Intl. ⚠️ NO leer `navigator.language` aquí: en React Native `navigator` existe
+        // pero no tiene `language`, y `undefined.toLowerCase()` reventaba la evaluación
+        // COMPLETA del trigger (no solo este popup).
+        const currentLang = (this.language ?? '').toLowerCase();
 
-        if (!browserLang) {
-            this.debug('No navigator.language available for lang comparison', { popupId: def.id, langs });
+        if (!currentLang) {
+            this.debug('No language available for lang comparison', { popupId: def.id, langs });
             return true;
         }
 
-        // Acepta si el idioma del browser empieza con alguno de los configurados
-        // ej: browser "en-US" coincide con segment "en"
-        const matches = langs.some((lang) => browserLang.startsWith(lang.toLowerCase()));
+        // Acepta si el idioma actual empieza con alguno de los configurados
+        // ej: "en-US" coincide con segment "en". Ignora entradas no-string del backend.
+        const matches = langs.some(
+            (lang) => typeof lang === 'string' && currentLang.startsWith(lang.toLowerCase()),
+        );
         if (!matches) {
-            this.debug('Lang mismatch for popup', { popupId: def.id, langs, browserLang });
+            this.debug('Lang mismatch for popup', { popupId: def.id, langs, currentLang });
         }
         return matches;
     }
