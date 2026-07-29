@@ -159,4 +159,154 @@ describe('createFeedbackSink', () => {
     const sent1 = JSON.parse((init1 as RequestInit).body as string);
     expect(sent1).not.toHaveProperty('sessionId');
   });
+
+  it('envía con keepalive para que el navegador no cancele el POST al navegar fuera', () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    const sink = createFeedbackSink({
+      baseUrl: 'https://api-dev.deepdots.com',
+      keys: KEYS,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    void sink(envelope());
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).keepalive).toBe(true);
+  });
+
+  it('omite keepalive si el lote excede el límite del navegador (~64KB)', () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    const sink = createFeedbackSink({
+      baseUrl: 'https://api-dev.deepdots.com',
+      keys: KEYS,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const huge = envelope({
+      events: [{ name: 'deepdots_app_crash', timestamp: 1, params: { stack: 'x'.repeat(70_000) } }],
+    });
+    void sink(huge);
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).keepalive).toBeUndefined();
+  });
+
+  describe('errores del backend', () => {
+    it('rechaza (para que el manager re-encole) en fallo transitorio: 500, 408, 429', async () => {
+      for (const status of [500, 503, 408, 429]) {
+        const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status, text: async () => 'upstream boom' });
+        const sink = createFeedbackSink({
+          baseUrl: 'https://api-dev.deepdots.com',
+          keys: KEYS,
+          fetchImpl: fetchImpl as unknown as typeof fetch,
+        });
+        await expect(sink(envelope())).rejects.toThrow(new RegExp(String(status)));
+      }
+    });
+
+    it('loguea y descarta (sin reintento) un 4xx como el 406 Contact not found', async () => {
+      const log = vi.fn();
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 406, text: async () => 'Contact not found' });
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        log,
+      });
+
+      await expect(sink(envelope())).resolves.toBeUndefined(); // no reintentable
+      const logged = log.mock.calls.map((c) => c.join(' ')).join('\n');
+      expect(logged).toContain('406');
+      expect(logged).toContain('Contact not found');
+    });
+
+    it('rechaza cuando fetch falla por red', async () => {
+      const fetchImpl = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+      await expect(sink(envelope())).rejects.toThrow('Failed to fetch');
+    });
+  });
+
+  it('serializa los lotes hasta conocer el sessionId (no crea dos registros en paralelo)', async () => {
+    let resolveFirst!: (v: unknown) => void;
+    const fetchImpl = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }))
+      .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
+    const sink = createFeedbackSink({
+      baseUrl: 'https://api-dev.deepdots.com',
+      keys: KEYS,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const first = sink(envelope());
+    const second = sink(envelope()); // sale antes de que responda el primero
+
+    // el segundo lote NO se envía todavía: espera al sessionId del primero
+    await Promise.resolve();
+    expect(fetchImpl).toHaveBeenCalledOnce();
+
+    resolveFirst({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
+    await first;
+    await second;
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const sent2 = JSON.parse((fetchImpl.mock.calls[1][1] as RequestInit).body as string);
+    expect(sent2.sessionId).toBe('fbk-1'); // agrupado en el mismo registro
+  });
+
+  describe('flush final (cierre de página)', () => {
+    it('usa sendBeacon, que sobrevive al unload, en vez de fetch', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      const sendBeaconImpl = vi.fn().mockReturnValue(true);
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        sendBeaconImpl,
+      });
+
+      await sink(envelope(), { final: true });
+
+      expect(sendBeaconImpl).toHaveBeenCalledOnce();
+      expect(fetchImpl).not.toHaveBeenCalled();
+      const [beaconUrl] = sendBeaconImpl.mock.calls[0];
+      expect(beaconUrl).toBe('https://api-dev.deepdots.com/sdk/feedback');
+    });
+
+    it('cae a fetch si sendBeacon rechaza el lote (cola del navegador llena)', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      const sendBeaconImpl = vi.fn().mockReturnValue(false);
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        sendBeaconImpl,
+      });
+
+      await sink(envelope(), { final: true });
+
+      expect(sendBeaconImpl).toHaveBeenCalledOnce();
+      expect(fetchImpl).toHaveBeenCalledOnce();
+    });
+
+    it('no espera al primer POST en vuelo: la página se muere, mejor enviar sin sessionId', async () => {
+      const fetchImpl = vi
+        .fn()
+        .mockImplementationOnce(() => new Promise(() => {})) // primer POST nunca responde
+        .mockResolvedValue({ ok: true, json: async () => ({}) });
+      const sendBeaconImpl = vi.fn().mockReturnValue(true);
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        sendBeaconImpl,
+      });
+
+      void sink(envelope());
+      await sink(envelope(), { final: true }); // no se queda colgado
+
+      expect(sendBeaconImpl).toHaveBeenCalledOnce();
+    });
+  });
 });

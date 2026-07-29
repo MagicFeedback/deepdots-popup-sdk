@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AnalyticsManager, type AnalyticsEnvelope } from './analytics-manager';
 
+/** Deja correr las microtasks pendientes (el re-encolado ocurre al rechazar el sink). */
+const settle = () => new Promise((r) => setTimeout(r, 0));
+
 /**
  * Analytics = canal SEPARADO del feedback (send()). Eventos GA-style enviados a un
  * endpoint propio, vinculados por user_id. Aquí el "envío" es un sink inyectable; en
@@ -156,5 +159,78 @@ describe('AnalyticsManager', () => {
   it('exitMiniService is a no-op when that mini-service is not active', () => {
     am.exitMiniService('nope');
     expect(am.pending()).toBe(0);
+  });
+
+  /**
+   * Entrega: un fallo de envío no puede hacer desaparecer los eventos. El buffer se vacía
+   * al enviar, pero si el sink falla el lote vuelve para reintentarse en el siguiente flush.
+   */
+  describe('re-encolado en fallo de envío', () => {
+    it('devuelve el lote al buffer cuando el sink rechaza y lo reenvía en el flush siguiente', async () => {
+      const failing = vi.fn().mockRejectedValue(new Error('network down'));
+      const am2 = new AnalyticsManager({ sink: failing, now: () => now });
+      am2.track('e1');
+      am2.track('e2');
+
+      expect(am2.flush(identity)).not.toBeNull();
+      expect(am2.pending()).toBe(0); // se vacía de forma optimista
+      await settle(); // el rechazo se procesa fuera del flush
+
+      expect(am2.pending()).toBe(2); // ...y vuelve al re-encolar
+      failing.mockResolvedValue(undefined);
+      am2.track('e3');
+      const payload = am2.flush(identity) as AnalyticsEnvelope;
+      // orden cronológico: los reintentados delante de los nuevos
+      expect(payload.events.map((e) => e.name)).toEqual(['e1', 'e2', 'e3']);
+      await settle();
+      expect(am2.pending()).toBe(0);
+    });
+
+    it('no re-encola cuando el sink resuelve, ni cuando es síncrono', async () => {
+      const ok = vi.fn().mockResolvedValue(undefined);
+      const am2 = new AnalyticsManager({ sink: ok, now: () => now });
+      am2.track('e1');
+      am2.flush(identity);
+      await settle();
+      expect(am2.pending()).toBe(0);
+
+      const syncSink = vi.fn(); // sink legacy, sin promesa
+      const am3 = new AnalyticsManager({ sink: syncSink, now: () => now });
+      am3.track('e1');
+      am3.flush(identity);
+      await settle();
+      expect(am3.pending()).toBe(0);
+    });
+
+    it('re-encola también si el sink lanza de forma síncrona', () => {
+      const throwing = vi.fn(() => {
+        throw new Error('boom');
+      });
+      const am2 = new AnalyticsManager({ sink: throwing, now: () => now });
+      am2.track('e1');
+      am2.flush(identity);
+      expect(am2.pending()).toBe(1);
+    });
+
+    it('descarta los eventos más antiguos al superar maxBufferedEvents', async () => {
+      const failing = vi.fn().mockRejectedValue(new Error('down'));
+      const am2 = new AnalyticsManager({ sink: failing, now: () => now, maxBufferedEvents: 3 });
+      am2.track('e1');
+      am2.track('e2');
+      am2.track('e3');
+      am2.flush(identity);
+      await settle();
+
+      am2.track('e4'); // el buffer ya está lleno con el lote re-encolado
+      expect(am2.pending()).toBe(3);
+      const payload = am2.buildPayload(identity);
+      expect(payload.events.map((e) => e.name)).toEqual(['e2', 'e3', 'e4']); // e1 (el más viejo) fuera
+    });
+  });
+
+  it('propaga meta.final al sink (cierre de página → transporte que sobrevive al unload)', () => {
+    am.track('e1');
+    am.flush(identity, { final: true });
+    expect(sink).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u-1' }), { final: true });
   });
 });

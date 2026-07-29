@@ -124,47 +124,128 @@ export interface FeedbackSinkOptions {
   log?: (...args: unknown[]) => void;
   /** fetch inyectable (tests / RN). */
   fetchImpl?: typeof fetch;
+  /**
+   * `navigator.sendBeacon` inyectable. Solo se usa en el flush final (cierre de página):
+   * sobrevive al unload, a cambio de no poder leer la respuesta. Si no se pasa, el flush
+   * final usa `fetch` con `keepalive`.
+   */
+  sendBeaconImpl?: (url: string, body: Blob | string) => boolean;
   /** Callback invocado cuando el backend devuelve un nuevo sessionId (primer POST). */
   onSessionId?: (id: string) => void;
 }
 
+/** Límite práctico de `fetch({keepalive:true})` y de `sendBeacon` (~64KB en Chrome). */
+const KEEPALIVE_MAX_BYTES = 60_000;
+
+/** Un fallo transitorio merece reintento; un 4xx (payload/claves/Contact) no. */
+function isRetryableStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
+async function safeBodyText(res: Response): Promise<string> {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Sink real: transforma el envelope y hace `POST {baseUrl}/sdk/feedback`.
- * Fire-and-forget (no bloquea el flush); errores solo se loguean.
- * Stateful: cachea el `sessionId` que devuelve el backend en la primera respuesta
- * y lo envía en los siguientes POSTs para que el backend agrupe todos los eventos
- * en un único registro de feedback.
+ *
+ * Stateful: cachea el `sessionId` que devuelve el backend en la primera respuesta y lo
+ * envía en los siguientes POSTs para que el backend agrupe todos los eventos en un único
+ * registro de feedback.
+ *
+ * Garantías de entrega:
+ *  - mientras no se conozca el `sessionId`, los lotes se **serializan** (esperan la primera
+ *    respuesta): dos POSTs a la vez sin `sessionId` crearían dos registros y partirían los datos;
+ *  - `keepalive` para que el navegador no cancele el POST al navegar fuera, y `sendBeacon`
+ *    en el flush final (cierre de página), donde `fetch` puede morir con el documento;
+ *  - la promesa **rechaza** en fallo transitorio (red, 5xx, 408, 429) para que el
+ *    `AnalyticsManager` re-encole el lote; un 4xx se loguea y se descarta.
  */
 export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink {
   let feedbackSessionId: string | undefined;
+  /** Primer POST (aún sin sessionId) en vuelo: los siguientes lotes lo esperan. */
+  let firstPostInFlight: Promise<void> | null = null;
 
-  return (envelope: AnalyticsEnvelope) => {
-    const body = buildAnalyticsFeedbackBody(envelope, options.keys, feedbackSessionId);
+  const url = `${options.baseUrl}/sdk/feedback`;
+
+  const post = async (body: AnalyticsFeedbackBody, final: boolean): Promise<void> => {
+    const json = JSON.stringify(body);
+    const small = json.length <= KEEPALIVE_MAX_BYTES;
+
+    // Cierre de página: sendBeacon sobrevive al unload (a cambio, no hay respuesta que leer).
+    if (final && options.sendBeaconImpl && small) {
+      const payload = typeof Blob !== 'undefined' ? new Blob([json], { type: 'application/json' }) : json;
+      if (options.sendBeaconImpl(url, payload)) {
+        options.log?.('[DeepdotsAnalytics] flush final vía sendBeacon');
+        return;
+      }
+      options.log?.('[DeepdotsAnalytics] sendBeacon rechazó el lote; fallback a fetch');
+    }
+
     const f = options.fetchImpl ?? (typeof fetch !== 'undefined' ? fetch : undefined);
     if (!f) {
       options.log?.('[DeepdotsAnalytics] no fetch disponible; payload no enviado', body);
       return;
     }
-    options.log?.('[DeepdotsAnalytics] POST /sdk/feedback →', body);
-    f(`${options.baseUrl}/sdk/feedback`, {
+
+    const res = await f(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          try {
-            const data = (await res.json()) as { sessionId?: string };
-            if (data?.sessionId && data.sessionId !== feedbackSessionId) {
-              feedbackSessionId = data.sessionId;
-              options.log?.('[DeepdotsAnalytics] feedbackSessionId cacheado:', feedbackSessionId);
-              options.onSessionId?.(feedbackSessionId);
-            }
-          } catch {
-            /* respuesta sin JSON — ignorar */
-          }
-        }
-      })
-      .catch((err) => options.log?.('[DeepdotsAnalytics] error enviando feedback', err));
+      body: json,
+      // keepalive: el POST sobrevive a la navegación mientras el body sea pequeño.
+      ...(small ? { keepalive: true } : {}),
+    });
+
+    if (!res.ok) {
+      const detail = await safeBodyText(res);
+      if (isRetryableStatus(res.status)) {
+        // Rechazar → el manager re-encola el lote y se reintenta en el siguiente flush.
+        throw new Error(`POST /sdk/feedback ${res.status} (reintentable): ${detail}`);
+      }
+      options.log?.(
+        `[DeepdotsAnalytics] POST /sdk/feedback rechazado con ${res.status}; lote DESCARTADO:`,
+        detail,
+      );
+      return;
+    }
+
+    try {
+      const data = (await res.json()) as { sessionId?: string };
+      if (data?.sessionId && data.sessionId !== feedbackSessionId) {
+        feedbackSessionId = data.sessionId;
+        options.log?.('[DeepdotsAnalytics] feedbackSessionId cacheado:', feedbackSessionId);
+        options.onSessionId?.(feedbackSessionId);
+      }
+    } catch {
+      /* respuesta sin JSON — ignorar */
+    }
+  };
+
+  return async (envelope: AnalyticsEnvelope, meta) => {
+    const final = meta?.final === true;
+
+    // Sin sessionId todavía: esperar al primer POST para heredarlo y no partir el registro.
+    // En el flush final no se espera (la página se está muriendo): mejor un registro
+    // partido que perder el lote — el backend cose por user_id.
+    if (!feedbackSessionId && firstPostInFlight && !final) {
+      await firstPostInFlight;
+    }
+
+    const body = buildAnalyticsFeedbackBody(envelope, options.keys, feedbackSessionId);
+    options.log?.('[DeepdotsAnalytics] POST /sdk/feedback →', body);
+
+    const sent = post(body, final);
+    if (!feedbackSessionId) {
+      // nunca rechaza: es solo una barrera de orden, el fallo lo propaga `sent`
+      firstPostInFlight = sent.then(
+        () => undefined,
+        () => undefined,
+      );
+    }
+    await sent;
   };
 }

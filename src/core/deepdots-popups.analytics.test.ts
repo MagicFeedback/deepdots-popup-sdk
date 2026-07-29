@@ -200,4 +200,33 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     expect(msgs[0].params).toMatchObject({ stage: 'delivered', message_id: 'msg-42', message_title: 'Rebajas de verano', channel: 'push', campaign: 'summer_sale' });
     expect(msgs[2].params).toMatchObject({ stage: 'converted', value: 49.9, currency: 'EUR' });
   });
+
+  /**
+   * Al cerrar la pestaña el navegador puede cancelar un fetch en vuelo: ese último lote
+   * (con el page_view y el engagement finales) se perdía. El flush de `pagehide` va por
+   * sendBeacon, que sobrevive al unload.
+   */
+  it('el flush de pagehide sale por sendBeacon, no por fetch', () => {
+    const beacon = vi.fn().mockReturnValue(true);
+    Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true, writable: true });
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({
+      apiKey: 'pk-1',
+      nodeEnv: 'development',
+      analytics: { publicKey: 'pub-a', integration: 'int-7' },
+    });
+    sdk.track('cta_click');
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(beacon).toHaveBeenCalled();
+    expect(beacon.mock.calls[0][0]).toBe('https://api-dev.deepdots.com/sdk/feedback');
+    expect(fetchSpy.mock.calls.some(([u]) => typeof u === 'string' && u.endsWith('/sdk/feedback'))).toBe(false);
+
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, 'sendBeacon');
+  });
 });
