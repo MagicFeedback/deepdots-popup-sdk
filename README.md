@@ -177,6 +177,11 @@ Config fields:
 - `mode?: 'server' | 'client'`
 - `debug?: boolean`
 - `popups?: PopupDefinition[]`
+- `language?: string` — BCP-47 tag (`'en'`, `'en-US'`, …) used for popup language
+  segmentation (`segments.lang`) and for the analytics context. If omitted it is
+  auto-detected from `navigator.language`, falling back to the `Intl` locale (which is
+  what makes it work in React Native, where `navigator.language` does not exist). If no
+  source resolves a language, popups with `segments.lang` cannot be filtered and are shown.
 
 ### `autoLaunch()`
 

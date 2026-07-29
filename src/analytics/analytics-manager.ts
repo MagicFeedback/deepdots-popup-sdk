@@ -38,7 +38,21 @@ export interface AnalyticsEnvelope {
   events: AnalyticsEvent[];
 }
 
-export type AnalyticsSink = (payload: AnalyticsEnvelope) => void;
+/** Contexto del flush, para que el sink pueda adaptar el transporte. */
+export interface AnalyticsFlushMeta {
+  /**
+   * `true` cuando el flush ocurre porque la página/app se está cerrando. El sink debe usar
+   * un transporte que sobreviva al unload (sendBeacon) y no puede esperar respuestas.
+   */
+  final?: boolean;
+}
+
+/**
+ * Envío del lote. Si devuelve una promesa que **rechaza**, el manager re-encola los
+ * eventos para reintentarlos en el siguiente flush (fallo transitorio: red o 5xx).
+ * Resolver = lote entregado o descartado definitivamente (no se reintenta).
+ */
+export type AnalyticsSink = (payload: AnalyticsEnvelope, meta?: AnalyticsFlushMeta) => void | Promise<void>;
 
 /** Identidad resuelta por el tracking, inyectada al construir el payload. */
 export interface AnalyticsIdentity {
@@ -71,6 +85,11 @@ export interface AnalyticsManagerOptions {
   platform?: string;
   /** Nº máximo de eventos en buffer antes de solicitar un flush automático (default 20). */
   maxBatchSize?: number;
+  /**
+   * Techo de eventos retenidos en memoria contando los re-encolados por fallo de envío
+   * (default 200). Al superarlo se descartan los más antiguos.
+   */
+  maxBufferedEvents?: number;
   /** Callback invocado cuando el buffer alcanza `maxBatchSize`. El caller hace el flush real. */
   onFlushNeeded?: () => void;
 }
@@ -90,6 +109,7 @@ export class AnalyticsManager {
   /** Mini-services activos: nombre → timestamp de entrada. El orden de inserción marca el "más reciente". */
   private activeMiniServices = new Map<string, number>();
   private maxBatchSize: number;
+  private maxBufferedEvents: number;
   private onFlushNeeded?: () => void;
 
   constructor(options: AnalyticsManagerOptions = {}) {
@@ -100,6 +120,7 @@ export class AnalyticsManager {
     this.device = options.device;
     this.platform = options.platform ?? 'web';
     this.maxBatchSize = options.maxBatchSize ?? 20;
+    this.maxBufferedEvents = options.maxBufferedEvents ?? 200;
     this.onFlushNeeded = options.onFlushNeeded;
   }
 
@@ -167,6 +188,7 @@ export class AnalyticsManager {
       timestamp: this.now(),
       params: Object.keys(merged).length ? merged : undefined,
     });
+    this.enforceBufferCap();
     if (this.events.length >= this.maxBatchSize) {
       this.onFlushNeeded?.();
     }
@@ -201,12 +223,45 @@ export class AnalyticsManager {
     };
   }
 
-  /** Envía (vía sink) el lote acumulado y vacía el buffer. No-op si no hay eventos. */
-  flush(identity: AnalyticsIdentity): AnalyticsEnvelope | null {
+  /**
+   * Envía (vía sink) el lote acumulado y vacía el buffer. No-op si no hay eventos.
+   *
+   * Si el sink falla de forma transitoria (promesa rechazada o excepción síncrona) el lote
+   * se **re-encola** al principio del buffer y se reintenta en el siguiente flush: un error
+   * de red o un 5xx no debe hacer desaparecer los eventos.
+   */
+  flush(identity: AnalyticsIdentity, meta?: AnalyticsFlushMeta): AnalyticsEnvelope | null {
     if (this.events.length === 0) return null;
+    const batch = this.events;
     const payload = this.buildPayload(identity);
-    this.sink(payload);
     this.events = [];
+
+    let result: void | Promise<void>;
+    try {
+      // sin meta se invoca con un solo argumento (compatibilidad con sinks del host)
+      result = meta ? this.sink(payload, meta) : this.sink(payload);
+    } catch {
+      this.requeue(batch);
+      return payload;
+    }
+    if (result && typeof (result as Promise<void>).then === 'function') {
+      (result as Promise<void>).catch(() => this.requeue(batch));
+    }
     return payload;
+  }
+
+  /**
+   * Devuelve un lote fallido al buffer, delante de lo que haya llegado mientras se enviaba
+   * (orden cronológico). Con el buffer lleno se descartan los eventos más antiguos.
+   */
+  private requeue(batch: AnalyticsEvent[]): void {
+    this.events = [...batch, ...this.events];
+    this.enforceBufferCap();
+  }
+
+  /** Techo del buffer: si el envío lleva rato fallando, se sacrifica lo más antiguo. */
+  private enforceBufferCap(): void {
+    const overflow = this.events.length - this.maxBufferedEvents;
+    if (overflow > 0) this.events.splice(0, overflow);
   }
 }
