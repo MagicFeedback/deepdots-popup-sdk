@@ -74,7 +74,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
       this.options.onShow({ surveyId, productId, html });
     } else {
       sdkWarn(
-        '[Deepdots] ReactNativePopupRenderer sin onShow: pasa { onShow } a new ReactNativePopupRenderer({...}) para montar el WebView del survey.',
+        '[Deepdots] ReactNativePopupRenderer has no onShow: pass { onShow } to new ReactNativePopupRenderer({...}) to mount the survey WebView.',
       );
     }
   }

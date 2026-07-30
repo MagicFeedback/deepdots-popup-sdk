@@ -196,15 +196,15 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
     if (final && options.sendBeaconImpl && small) {
       const payload = typeof Blob !== 'undefined' ? new Blob([json], { type: 'application/json' }) : json;
       if (options.sendBeaconImpl(url, payload)) {
-        options.log?.('[DeepdotsAnalytics] flush final vía sendBeacon');
+        options.log?.('[DeepdotsAnalytics] final flush via sendBeacon');
         return;
       }
-      options.log?.('[DeepdotsAnalytics] sendBeacon rechazó el lote; fallback a fetch');
+      options.log?.('[DeepdotsAnalytics] sendBeacon rejected the batch; falling back to fetch');
     }
 
     const f = options.fetchImpl ?? (typeof fetch !== 'undefined' ? fetch : undefined);
     if (!f) {
-      options.log?.('[DeepdotsAnalytics] no fetch disponible; payload no enviado', body);
+      options.log?.('[DeepdotsAnalytics] no fetch available; payload not sent', body);
       return;
     }
 
@@ -220,10 +220,10 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       const detail = await safeBodyText(res);
       if (isRetryableStatus(res.status)) {
         // Rechazar → el manager re-encola el lote y se reintenta en el siguiente flush.
-        throw new Error(`POST /sdk/feedback ${res.status} (reintentable): ${detail}`);
+        throw new Error(`POST /sdk/feedback ${res.status} (retryable): ${detail}`);
       }
       options.log?.(
-        `[DeepdotsAnalytics] POST /sdk/feedback rechazado con ${res.status}; lote DESCARTADO:`,
+        `[DeepdotsAnalytics] POST /sdk/feedback rejected with ${res.status}; batch DISCARDED:`,
         detail,
       );
       return;
@@ -237,7 +237,7 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       const data = (await res.json()) as { sessionId?: string };
       if (data?.sessionId && data.sessionId !== feedbackSessionId) {
         feedbackSessionId = data.sessionId;
-        options.log?.('[DeepdotsAnalytics] feedbackSessionId cacheado:', feedbackSessionId);
+        options.log?.('[DeepdotsAnalytics] feedbackSessionId cached:', feedbackSessionId);
         options.onSessionId?.(feedbackSessionId);
       }
     } catch {
