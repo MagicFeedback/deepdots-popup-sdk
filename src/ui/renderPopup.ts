@@ -104,6 +104,11 @@ export async function renderPopup(
     const isDark = style?.theme === 'dark';
     const theme = {
         popupBg:          isDark ? '#1e1e1e' : '#fff',
+        // El popup fija su propio fondo, así que debe fijar también el esquema de color.
+        // Sin esto los controles de formulario (input/textarea/select) caen al estilo por
+        // defecto del navegador: en un host con `prefers-color-scheme: dark` se pintan
+        // oscuros con texto blanco sobre el fondo claro del popup.
+        colorScheme:      isDark ? 'dark' : 'light',
         textPrimary:      isDark ? '#f0f0f0' : '#111',
         closeBtnHoverBg:  isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)',
         closeBtnHoverColor: isDark ? '#fff' : '#000000',
@@ -129,6 +134,7 @@ export async function renderPopup(
       flex-direction: column;
       justify-content: flex-start;
       background: ${theme.popupBg};
+      color-scheme: ${theme.colorScheme};
       border-radius: 8px;
       padding: 24px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
