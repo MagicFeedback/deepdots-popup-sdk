@@ -238,10 +238,10 @@ Rules to follow when instrumenting it:
   notification plus a deep link), make sure only one of them emits `clicked`.
 
 Since **1.2.0** the SDK discards events that break these rules instead of forwarding them, and
-warns on the console (the warning text is in Spanish, as shipped):
+warns on the console:
 
 ```
-[DeepdotsPopups] trackMessage descartado (channel_conflict): message_id "msg-42" ya se reportó en channel "push"; se descarta "in_app"
+[DeepdotsPopups] trackMessage discarded (channel_conflict): message_id "msg-42" was already reported on channel "push"; discarding "in_app"
 ```
 
 | Rule | What is discarded | `reason` |

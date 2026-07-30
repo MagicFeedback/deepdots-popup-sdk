@@ -73,7 +73,7 @@ export class MessageGuard {
       return {
         emit: false,
         reason: 'invalid_channel',
-        detail: `channel "${channel}" no válido (esperado ${MESSAGE_CHANNELS.join(' | ')})`,
+        detail: `invalid channel "${channel}" (expected ${MESSAGE_CHANNELS.join(' | ')})`,
       };
     }
 
@@ -86,14 +86,14 @@ export class MessageGuard {
       return {
         emit: false,
         reason: 'channel_conflict',
-        detail: `message_id "${options.id}" ya se reportó en channel "${entry.channel}"; se descarta "${channel}"`,
+        detail: `message_id "${options.id}" was already reported on channel "${entry.channel}"; discarding "${channel}"`,
       };
     }
     if (entry.stages.has(stage)) {
       return {
         emit: false,
         reason: 'duplicate_stage',
-        detail: `stage "${stage}" ya emitido para message_id "${options.id}"`,
+        detail: `stage "${stage}" was already sent for message_id "${options.id}"`,
       };
     }
     entry.stages.add(stage);

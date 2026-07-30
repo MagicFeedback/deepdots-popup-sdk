@@ -73,7 +73,7 @@ export interface AnalyticsIdentity {
 export function createDryRunSink(log: (...args: unknown[]) => void = console.log): AnalyticsSink {
   return (payload) =>
     log(
-      '[DeepdotsAnalytics] (dry-run · NO enviado · sin init.analytics) POST /sdk/feedback →',
+      '[DeepdotsAnalytics] (dry-run · NOT sent · no init.analytics) POST /sdk/feedback →',
       JSON.stringify(payload, null, 2),
     );
 }

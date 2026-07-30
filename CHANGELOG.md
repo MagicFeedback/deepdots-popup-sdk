@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **All console output is now in English.** Ten log strings were still in Spanish, including
+  the `trackMessage` rejection warning added in 1.2.0. The text is what an integrator reads
+  when something is wrong, and the rest of the SDK's output, docs and API were already in
+  English — so grepping the console for the message from the docs found nothing.
+
+  Affected: the `trackMessage discarded (…)` warning and the three `MessageGuard` reasons,
+  the analytics dry-run label, the `/sdk/feedback` transport logs (final flush via
+  `sendBeacon`, `sendBeacon` rejection, missing `fetch`, rejected batch, cached
+  `feedbackSessionId`), the retryable-status rejection message, and the
+  `ReactNativePopupRenderer` missing-`onShow` warning.
+
+  Log text is not API: nothing to change in your code unless you were matching on these
+  strings. Mirrored in the KMP SDK, so both platforms print the same text.
+
 ## [1.2.0] — 2026-07-30
 
 ### Added

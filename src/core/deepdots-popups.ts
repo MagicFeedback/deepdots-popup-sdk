@@ -383,7 +383,7 @@ export class DeepdotsPopups {
     trackMessage(stage: MessageStage, options: TrackMessageOptions): void {
         const verdict = this.messageGuard.evaluate(stage, options);
         if (!verdict.emit) {
-            console.warn(`[DeepdotsPopups] trackMessage descartado (${verdict.reason}): ${verdict.detail}`);
+            console.warn(`[DeepdotsPopups] trackMessage discarded (${verdict.reason}): ${verdict.detail}`);
             return;
         }
         this.track('deepdots_message', buildMessageParams(stage, options));
