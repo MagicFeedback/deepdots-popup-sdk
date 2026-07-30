@@ -92,6 +92,14 @@ describe('buildAnalyticsFeedbackBody', () => {
     expect(body.sessionId).toBe('fbk-sess-1');
   });
 
+  it('con sessionEnd marca completed:true sobre el sessionId que se cierra (finished sigue false)', () => {
+    const body = buildAnalyticsFeedbackBody(envelope(), KEYS, 'fbk-sess-1', { sessionEnd: true });
+    expect(body.completed).toBe(true);
+    expect(body.sessionId).toBe('fbk-sess-1');
+    // `finished` no es la señal de cierre acordada con backend: solo `completed`.
+    expect(body.feedback.finished).toBe(false);
+  });
+
   it('omite claves de metadata/profile sin valor (userId/session null, sin device)', () => {
     const body = buildAnalyticsFeedbackBody(
       envelope({ userId: null, sessionId: null, context: { platform: 'web', attributes: {} } }),
@@ -307,6 +315,64 @@ describe('createFeedbackSink', () => {
       await sink(envelope(), { final: true }); // no se queda colgado
 
       expect(sendBeaconImpl).toHaveBeenCalledOnce();
+    });
+  });
+
+  /**
+   * Fin de sesión: el último lote cierra el registro con `completed:true`, y el siguiente
+   * OMITE el sessionId viejo para que el backend abra un registro nuevo (sesión o usuario nuevos).
+   */
+  describe('fin de sesión (completed:true)', () => {
+    it('cierra con el sessionId cacheado y el lote siguiente ya no lo lleva', async () => {
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) })
+        .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      await sink(envelope()); // abre registro → cachea fbk-1
+      await sink(envelope(), { sessionEnd: true }); // cierra fbk-1
+      await sink(envelope()); // sesión nueva
+
+      const bodies = fetchImpl.mock.calls.map(([, i]) => JSON.parse((i as RequestInit).body as string));
+      expect(bodies[0].completed).toBe(false);
+      expect(bodies[1]).toMatchObject({ completed: true, sessionId: 'fbk-1' });
+      // El tercero abre registro nuevo: sin sessionId y sin completed.
+      expect(bodies[2]).not.toHaveProperty('sessionId');
+      expect(bodies[2].completed).toBe(false);
+    });
+
+    it('no re-cachea el sessionId que devuelve el POST de cierre', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      await sink(envelope(), { sessionEnd: true });
+      await sink(envelope());
+
+      const last = JSON.parse((fetchImpl.mock.calls[1][1] as RequestInit).body as string);
+      expect(last).not.toHaveProperty('sessionId');
+    });
+
+    it('avisa por onSessionReset para que el host olvide el sessionId', async () => {
+      const onSessionReset = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }) as unknown as typeof fetch,
+        onSessionReset,
+      });
+
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(onSessionReset).toHaveBeenCalledOnce();
     });
   });
 });

@@ -94,9 +94,9 @@ El prefijo `deepdots_` garantiza que los campos del sistema **nunca colisionen**
 |---|---|---|---|
 | `publicKey` | string | ✅ | Public key de la integración de analytics |
 | `integration` | string | ✅ | ID de la integración en la plataforma |
-| `completed` | boolean | ✅ | Siempre `false` — modelo de streaming, nunca se cierra |
-| `finished` | boolean | ✅ | Siempre `false` |
-| `sessionId` | string | ❌ | Ausente en la primera llamada. Presente a partir de la segunda (devuelto por el backend). Agrupa los lotes de la misma sesión |
+| `completed` | boolean | ✅ | `false` en los lotes de streaming; **`true` solo en el ÚLTIMO lote de la sesión** (ver §7) |
+| `finished` | boolean | ✅ | Siempre `false` (no es la señal de cierre) |
+| `sessionId` | string | ❌ | Ausente en la primera llamada de cada sesión. Presente a partir de la segunda (devuelto por el backend). Agrupa los lotes de la misma sesión |
 
 ### `feedback.profile`
 
@@ -215,10 +215,23 @@ Se emite en cada flush. Acumula el tiempo activo en primer plano desde el flush 
 ```
 
 #### `deepdots_session_start`
-Se emite una vez al `init()`. Base para Crash-Free Users (#14).
+Se emite al abrir sesión: en el `init()`, al volver a foreground tras un cierre, al conceder el consentimiento (`setTrackingEnabled(true)`) y tras un cambio de usuario. Base para Crash-Free Users (#14).
 ```json
 { "timestamp": 1750000000000 }
 ```
+
+#### `deepdots_session_end`
+Último evento de la sesión: viaja en el lote que lleva `completed: true` (ver §7). El `reason` dice qué lo provocó.
+```json
+{ "timestamp": 1750000090000, "reason": "page_hide" }
+```
+| `reason` | Cuándo |
+|---|---|
+| `page_hide` | La página web se cierra o se navega fuera (`pagehide`) |
+| `background` | La app pasa a background (RN/nativo) |
+| `user_change` | `setUserId()` o un `init()` con otro `userId` (login/logout) |
+| `tracking_disabled` | `setTrackingEnabled(false)` (consentimiento revocado) |
+| `manual` | El host llamó a `endSession()` |
 
 #### `deepdots_app_crash`
 Crash o error reportado. Los crashes no capturados se persisten a disco y se reenvían en el siguiente arranque; los `reportError()` del host se emiten en el momento.
@@ -299,19 +312,6 @@ Etapa del funnel de una notificación del host (push / in-app). Un único evento
 
 > **Nota:** Messaging es host-instrumentado (`trackMessage`). Cubre push + in-app; para push, el "delivered" real puede venir mejor del proveedor/backend.
 
-#### Eventos custom (`track(name, params)`)
-El host puede emitir cualquier evento libre. La única estructura garantizada es `timestamp`.
-
-```json
-{ "timestamp": 1750000035000, "product_id": "p-123", "value": 49.9, "currency": "EUR" }
-```
-
-> Todos los eventos pueden incluir `mini_service: "nombre"` si se emitieron dentro de un mini-service activo.
-
----
-
-## 4. Respuesta esperada del backend
-
 **Protecciones del SDK (⚠️ 2026-07-30).** A raíz de CTR/conversion imposibles en BQ (300%, 700%), `trackMessage` descarta —con `console.warn`— los eventos malformados antes de encolarlos, así que estas formas ya no pueden llegar al backend desde un SDK ≥ esta versión:
 
 | Regla | Qué se descarta | `reason` del warning |
@@ -325,6 +325,19 @@ Vigencia: la **sesión** (se reinicia en cada `init()`), con un techo de 500 `me
 Lo que el SDK **no** puede arreglar: la ausencia de `delivered`. Es host-instrumentado y en push solo es observable si el proceso de la app recibe la notificación (data/silent push en Android, `UNNotificationServiceExtension` en iOS) → medido en cliente queda estructuralmente por debajo del real. El denominador fiable de #18/#19/#21 debería venir del proveedor de envío. Mientras tanto el dashboard debe mostrar `n/d` (no un porcentaje) cuando `delivered = 0`.
 
 ⚠️ Estas reglas son **por sesión y por dispositivo**: no sustituyen el dedupe de backend por `(deepdots_user_id, nombre_evento, timestamp)` (§6), que es lo que cubre los reenvíos at-least-once.
+
+#### Eventos custom (`track(name, params)`)
+El host puede emitir cualquier evento libre. La única estructura garantizada es `timestamp`.
+
+```json
+{ "timestamp": 1750000035000, "product_id": "p-123", "value": 49.9, "currency": "EUR" }
+```
+
+> Todos los eventos pueden incluir `mini_service: "nombre"` si se emitieron dentro de un mini-service activo.
+
+---
+
+## 4. Respuesta esperada del backend
 
 ```json
 { "sessionId": "67868972-1864-40a2-9abd-030529aeac33" }
@@ -359,5 +372,52 @@ El `deepdots_user_id` es la clave principal para cruzar datos entre sesiones y e
 - **Atributos de usuario en `metadata`** pueden variar entre lotes si el host llama a `setUserAttributes()` varias veces — el valor del último lote es el más reciente.
 - **`mini_service` en eventos**: cualquier evento emitido mientras hay un mini-service activo incluirá `mini_service: "nombre"` en sus parámetros.
 - **Normalización de rutas web**: el SDK reemplaza segmentos numéricos y UUIDs por `:id` (e.g. `/orders/123` → `/orders/:id`). En React Native la pantalla es el nombre tal como lo pasa el host.
-- **`completed` y `finished` siempre `false`**: modelo de streaming; el backend debe acumular sin esperar un cierre.
+- **`finished` siempre `false`**; el cierre de sesión se señaliza solo con `completed` (§7).
 - **Stability (#14–17)** se derivan de estos eventos: **#14 Crash-Free Users** = 1 − (sesiones con `deepdots_app_crash` / sesiones con `deepdots_session_start`); **#15 Latest Release** = crashes filtrados por el `crashed_app_version` más reciente (del propio evento); **#16 Breakdown** = group by `crash_type` × `crashed_os_version` × `crashed_device_model` × `crashed_app_version`; **#17 Summary** = totales. La simbolización del stack (dSYM / mapping) es responsabilidad de backend + pipeline de build, no del SDK.
+
+---
+
+## 7. Cierre de sesión (`completed: true`)
+
+Desde 2026-07-30 el SDK **marca el final de la sesión**. El último lote de una sesión sale con:
+
+```json
+{ "completed": true, "sessionId": "<el de la sesión que se cierra>", "feedback": { "finished": false, "…": "…" } }
+```
+
+Ese lote contiene, en este orden, todo lo que quedaba abierto: el `deepdots_page_view` de la
+pantalla actual, los `deepdots_mini_service_exit` pendientes, el `deepdots_user_engagement`
+acumulado y por último `deepdots_session_end` con su `reason`.
+
+**Contrato:**
+
+1. `completed: true` **cierra el registro** identificado por ese `sessionId`. No llegarán más eventos con él.
+2. El SDK **olvida el `sessionId`** tras cerrar: el lote siguiente llega **sin `sessionId`** y el backend debe **abrir un registro nuevo** (y devolver un `sessionId` nuevo en la respuesta).
+3. `feedback.finished` sigue siendo `false` siempre — `completed` es la única señal de cierre.
+4. El POST de cierre puede ir por `sendBeacon` (cierre de página): su respuesta **no se lee**, así que el `sessionId` que devuelva se descarta.
+
+### Cuándo se cierra la sesión
+
+| Señal | Plataforma | Fiabilidad |
+|---|---|---|
+| `pagehide` | Web | Alta. En Safari iOS puede no dispararse si el SO mata la pestaña |
+| `AppState → background` | RN / nativo | Alta. `inactive` (llamada entrante, app switcher) **no** cierra: solo hace flush |
+| `setUserId()` / `init()` con otro `userId` | Todas | Total (lo dispara el host) |
+| `setTrackingEnabled(false)` | Todas | Total |
+| `endSession()` | Todas | Total |
+
+### ⚠️ El backend necesita igualmente una ventana de inactividad
+
+Hay cierres que **ningún SDK puede detectar**: kill de la app por el usuario o por el SO
+(no hay callback ni en iOS ni en Android), crash del proceso, pérdida de conexión, apagón.
+En esos casos el registro se queda **abierto sin `completed: true`**. El backend debe cerrarlo
+por inactividad (p. ej. sin eventos durante X minutos). `completed: true` es una señal
+**oportunista** que permite cerrar antes y con datos completos, no una garantía.
+
+### Impacto en el conteo de sesiones
+
+Con esto, "sesión" pasa a tener un límite explícito: un `deepdots_session_start` … `deepdots_session_end`.
+En móvil, cada ida a background cierra sesión y cada vuelta a foreground abre otra — es el
+comportamiento de GA con `session_start`, salvo que aquí no hay ventana de gracia de 30 min.
+Si se prefiere reanudar la sesión anterior cuando la vuelta es inmediata, la ventana la tiene
+que aplicar el backend (mismo `deepdots_user_id`, hueco < N minutos → fusionar).

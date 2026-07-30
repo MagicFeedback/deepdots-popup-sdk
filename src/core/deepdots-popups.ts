@@ -13,13 +13,14 @@ import {
     PopupTriggerConditionStatus,
     POPUP_TRIGGER_CONDITION_STATUSES, POPUPSESSIONSTATUS,
     PopupStyle,
+    SessionEndReason,
 } from '../types';
 // renderPopup se carga de forma PEREZOSA (dynamic import) para no arrastrar
 // `@magicfeedback/native` (browser) ni el CSS al importar el SDK en entornos sin DOM (React Native).
 import { setupTrigger } from '../triggers';
 import { resolveEnvironment } from '../config/env';
 import { PopupRenderer, createDefaultRenderer } from '../platform/renderer';
-import { TrackingManager, createDefaultStorage } from '../tracking/tracking-manager';
+import { TrackingManager, createDefaultStorage, type KeyValueStorage } from '../tracking/tracking-manager';
 import { AnalyticsManager, createDryRunSink, type AnalyticsEnvelope } from '../analytics/analytics-manager';
 import { createFeedbackSink } from '../analytics/feedback-payload';
 import { NavigationObserver } from '../tracking/navigation-observer';
@@ -105,8 +106,16 @@ export class DeepdotsPopups {
     private engagement: EngagementTracker | null = null;
     /** Atributos internos del usuario identificado → POST /sdk/popups/contact. Null si no hay userId. */
     private contact: ContactManager | null = null;
+    /** Storage resuelto en init() (inyectado por el host o localStorage). Reusado al cambiar de usuario. */
+    private storage: KeyValueStorage | null = null;
     /** Marca si ya se inició la navegación manual (setScreen) — para RN sin History API. */
     private navStarted = false;
+    /**
+     * `true` entre `session_start` y `session_end`. Hace idempotente tanto la apertura como
+     * el cierre (p. ej. `visibilitychange` + `pagehide` seguidos) y permite abrir una sesión
+     * nueva al volver a foreground o al conceder el consentimiento más tarde.
+     */
+    private sessionOpen = false;
     /**
      * Idioma resuelto en init() (explícito > navigator.language > Intl). Única fuente de
      * verdad para el context de analytics Y para la segmentación por idioma de los popups.
@@ -118,6 +127,14 @@ export class DeepdotsPopups {
         this.logger = config.logger ?? console;
         setLogger(this.logger); // los módulos sin `this` (renderPopup, renderers) enrutan por aquí
         if (this.initialized) {
+            // Un init() con OTRO userId es un CAMBIO DE USUARIO (login/logout del host): cierra
+            // la sesión anterior y cambia la identidad en caliente. Reinicializar de verdad
+            // duplicaría listeners, timers y la carga de popups.
+            const nextUserId = config.userId || undefined;
+            if (nextUserId !== this.config?.userId) {
+                this.setUserId(nextUserId);
+                return;
+            }
             this.log('SDK already initialized');
             return;
         }
@@ -136,6 +153,7 @@ export class DeepdotsPopups {
         // user_id lo gestiona el SDK (persistente); el session_id lo provee el backend
         // (respuesta de POST /sdk/popups) y se cachea — el SDK no genera ni expira sesiones.
         const storage = config.storage ?? createDefaultStorage();
+        this.storage = storage;
         this.tracking = new TrackingManager({
             storage,
             clientUserId: this.config.userId,
@@ -173,6 +191,7 @@ export class DeepdotsPopups {
                           ? (url, body) => navigator.sendBeacon(url, body)
                           : undefined,
                   onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
+                  onSessionReset: () => { this.analyticsFeedbackSessionId = undefined; },
               })
             : createDryRunSink((...a) => this.logger.log(...a));
         const device = config.device ?? collectDeviceInfo(config.appVersion);
@@ -225,7 +244,7 @@ export class DeepdotsPopups {
         this.engagement.resume();
         this.setupAnalyticsFlush();
         // Marca de inicio de sesión (base para Crash-Free Users #14).
-        this.track('deepdots_session_start', {});
+        this.openSession();
         // Drena SIEMPRE la cola (descarta los pendientes si tracking está off, spec §7);
         // solo reenvía como evento cuando el tracking está activo.
         const pendingCrashes = this.crashReporter.drainPendingCrashes();
@@ -265,7 +284,12 @@ export class DeepdotsPopups {
 
     /** Activa/desactiva el tracking (identidad + sesión + analytics). Kill-switch del contrato §7bis. */
     setTrackingEnabled(enabled: boolean): void {
+        // Al revocar el consentimiento se cierra la sesión ANTES de apagar el canal: si no, lo
+        // acumulado se quedaría sin enviar y el registro abierto sin cerrar.
+        if (!enabled) this.closeSession('tracking_disabled');
         this.tracking?.setTrackingEnabled(enabled);
+        // Consentimiento concedido (ahora o más tarde que el init): abre sesión.
+        if (enabled) this.openSession();
         this.log('tracking · setTrackingEnabled:', enabled, '· session_id:', this.tracking?.getSessionId() ?? null);
     }
 
@@ -379,22 +403,101 @@ export class DeepdotsPopups {
         }
     }
 
-    /** App a foreground (RN: AppState 'active'): reanuda el engagement time. */
+    /** App a foreground (RN: AppState 'active'): reanuda el engagement time y abre sesión nueva. */
     onForeground(): void {
         this.engagement?.resume();
+        this.openSession();
     }
 
     /**
-     * App a background (RN: AppState 'background'): cierra pantalla actual (page_view),
-     * mini-service (mini_service_exit), emite engagement y hace flush del lote.
+     * App a background (RN: AppState 'background'): FIN DE SESIÓN. Cierra pantalla actual
+     * (page_view), mini-services (mini_service_exit), emite engagement + `session_end` y
+     * envía el último lote con `completed:true`.
+     *
+     * Es la única señal disponible en móvil: el kill de la app (swipe) NO da callback.
      */
     onBackground(): void {
-        this.navObserver?.stop();
-        this.navStarted = false;
-        if (this.tracking?.isTrackingEnabled()) this.analytics?.exitAllMiniServices();
-        this.flushEngagement();
+        this.closeSession('background');
         this.engagement?.pause();
-        this.flushAnalytics();
+    }
+
+    /**
+     * Cierre EXPLÍCITO de la sesión por parte del host (logout, fin de flujo…): emite
+     * `session_end` y envía el último lote con `completed:true`.
+     */
+    endSession(): void {
+        this.closeSession('manual');
+    }
+
+    /**
+     * Cambio de usuario (login / logout / cambio de cuenta). Cierra la sesión del usuario
+     * anterior (`session_end` con `reason: 'user_change'` + `completed:true`), cambia la
+     * identidad y abre una sesión nueva. Sin `userId` vuelve al id anónimo del SDK.
+     *
+     * Equivale a llamar a `init()` otra vez con otro `userId`.
+     */
+    setUserId(userId?: string): void {
+        const next = userId || undefined;
+        if (!this.initialized || !this.config || next === this.config.userId) return;
+
+        this.closeSession('user_change');
+
+        const enabled = this.tracking?.isTrackingEnabled() ?? true;
+        const storage = this.storage ?? createDefaultStorage();
+        this.config.userId = next;
+        this.tracking = new TrackingManager({ storage, clientUserId: next, enabled });
+        // El Contact solo existe para usuarios identificados.
+        this.contact = next
+            ? new ContactManager({
+                  storage,
+                  publicKey: this.config.apiKey ?? '',
+                  userId: next,
+                  post: (body) => this.postContact(body),
+              })
+            : null;
+        // Atributos, métricas y protecciones de messaging pertenecían al usuario anterior.
+        this.analytics?.resetUserScope();
+        this.messageGuard.reset();
+
+        this.log('tracking · user_change · user_id:', this.tracking.getUserId());
+        this.openSession();
+    }
+
+    /**
+     * Cierra la sesión actual: vuelca todo lo que quedaba abierto y envía el último lote
+     * marcado con `completed:true`, para que el backend cierre el registro. El `sessionId`
+     * cacheado se olvida → el lote siguiente abre un registro nuevo.
+     *
+     * Idempotente: dos cierres seguidos (p. ej. `visibilitychange` + `pagehide`) no duplican
+     * el `session_end`.
+     */
+    private closeSession(reason: SessionEndReason): void {
+        if (!this.sessionOpen) return;
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.sessionOpen = false;
+
+        this.navObserver?.stop(); // cierra la pantalla actual → page_view
+        this.navStarted = false;
+        this.analytics?.exitAllMiniServices(); // → mini_service_exit con duración
+        this.flushEngagement(); // → user_engagement con el tiempo activo
+        this.track('deepdots_session_end', { reason });
+        // `final` solo cuando el documento se está muriendo: ahí hace falta sendBeacon.
+        this.flushAnalytics({ final: reason === 'page_hide', sessionEnd: true });
+        // El session_id del canal de analytics y el de popups pertenecían a la sesión cerrada.
+        this.analyticsFeedbackSessionId = undefined;
+        this.tracking?.setSessionId(null);
+        this.log('tracking · session_end:', reason);
+    }
+
+    /**
+     * Abre sesión (`session_start`) si no hay una abierta y el tracking está activo. Idempotente:
+     * se llama en init(), al volver a foreground y al conceder el consentimiento.
+     */
+    private openSession(): void {
+        if (this.sessionOpen) return;
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.sessionOpen = true;
+        this.track('deepdots_session_start', {});
     }
 
     /** Payload que se ENVIARÍA al endpoint de analytics (no envía ni vacía el buffer). */
@@ -414,7 +517,7 @@ export class DeepdotsPopups {
      * `final: true` (cierre de página/app) cambia el transporte a `sendBeacon`, que sobrevive
      * al unload; un lote que falle por red o 5xx se re-encola para el siguiente flush.
      */
-    flushAnalytics(options?: { final?: boolean }): void {
+    flushAnalytics(options?: { final?: boolean; sessionEnd?: boolean }): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         this.analytics?.flush(this.analyticsIdentity(), options);
     }
@@ -438,13 +541,11 @@ export class DeepdotsPopups {
         if (typeof document === 'undefined' || typeof window === 'undefined') return;
         // flush periódico mientras la app está en primer plano
         this.analyticsFlushTimer = setInterval(() => this.flushAnalytics(), ANALYTICS_FLUSH_INTERVAL_MS);
-        // al cerrar la página: cerrar pantalla (page_view) + mini-service + engagement, y enviar el lote
+        // al cerrar la página: FIN DE SESIÓN (page_view + mini_service_exit + engagement +
+        // session_end) y último lote con completed:true vía sendBeacon.
         window.addEventListener('pagehide', () => {
             clearInterval(this.analyticsFlushTimer);
-            this.navObserver?.stop();
-            if (this.tracking?.isTrackingEnabled()) this.analytics?.exitAllMiniServices();
-            this.flushEngagement();
-            this.flushAnalytics({ final: true });
+            this.closeSession('page_hide');
         });
         // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado
         document.addEventListener('visibilitychange', () => {

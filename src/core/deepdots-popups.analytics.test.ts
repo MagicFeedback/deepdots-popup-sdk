@@ -266,4 +266,137 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     vi.unstubAllGlobals();
     Reflect.deleteProperty(navigator, 'sendBeacon');
   });
+
+  /**
+   * Fin de sesión: el host necesita que el último lote diga "esto se acabó". Se emite
+   * `deepdots_session_end` y el lote sale con `completed:true`; el siguiente abre registro nuevo.
+   */
+  describe('fin de sesión', () => {
+    /** Devuelve los bodies POSTeados a /sdk/feedback por un spy de fetch. */
+    function bodies(spy: ReturnType<typeof vi.fn>) {
+      return spy.mock.calls
+        .filter(([u]) => typeof u === 'string' && (u as string).endsWith('/sdk/feedback'))
+        .map(([, i]) => JSON.parse((i as RequestInit).body as string));
+    }
+
+    function initSdk(extra: Record<string, unknown> = {}) {
+      const sdk = new DeepdotsPopups();
+      sdk.setRenderer(new NoopPopupRenderer());
+      sdk.init({
+        apiKey: 'pk-1',
+        nodeEnv: 'development',
+        analytics: { publicKey: 'pub-a', integration: 'int-7' },
+        ...extra,
+      });
+      return sdk;
+    }
+
+    it('endSession() emite deepdots_session_end y envía el lote con completed:true', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk();
+
+      sdk.track('cta_click');
+      sdk.endSession();
+
+      const [body] = bodies(fetchSpy);
+      expect(body.completed).toBe(true);
+      const names = body.feedback.metadata.map((m: { key: string }) => m.key);
+      expect(names).toContain('deepdots_session_end');
+      expect(names).toContain('deepdots_event_cta_click');
+      const end = body.feedback.metadata.find((m: { key: string }) => m.key === 'deepdots_session_end');
+      expect(JSON.parse(end.value[0])).toMatchObject({ reason: 'manual' });
+      vi.unstubAllGlobals();
+    });
+
+    it('es idempotente: un segundo cierre no duplica el session_end', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk();
+
+      sdk.endSession();
+      sdk.endSession();
+
+      expect(bodies(fetchSpy)).toHaveLength(1);
+      vi.unstubAllGlobals();
+    });
+
+    it('onBackground cierra la sesión (background) y onForeground abre otra', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk();
+
+      sdk.onBackground();
+      const [closing] = bodies(fetchSpy);
+      expect(closing.completed).toBe(true);
+      const end = closing.feedback.metadata.find((m: { key: string }) => m.key === 'deepdots_session_end');
+      expect(JSON.parse(end.value[0])).toMatchObject({ reason: 'background' });
+
+      sdk.onForeground();
+      expect(sdk.previewAnalytics().events.map((e) => e.name)).toContain('deepdots_session_start');
+      vi.unstubAllGlobals();
+    });
+
+    it('un init() con otro userId cierra la sesión (user_change), cambia identidad y abre otra', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk({ userId: 'user-a' });
+      expect(sdk.getUserId()).toBe('user-a');
+
+      sdk.setUserAttributes({ pass_type: 'premium' });
+      sdk.init({ apiKey: 'pk-1', nodeEnv: 'development', analytics: { publicKey: 'pub-a', integration: 'int-7' }, userId: 'user-b' });
+
+      const [closing] = bodies(fetchSpy);
+      expect(closing.completed).toBe(true);
+      const end = closing.feedback.metadata.find((m: { key: string }) => m.key === 'deepdots_session_end');
+      expect(JSON.parse(end.value[0])).toMatchObject({ reason: 'user_change' });
+      // El lote de cierre es del usuario ANTERIOR.
+      expect(closing.feedback.profile).toEqual([{ key: 'external-user-id', value: ['user-a'] }]);
+
+      expect(sdk.getUserId()).toBe('user-b');
+      expect(sdk.previewAnalytics().events.map((e) => e.name)).toContain('deepdots_session_start');
+      // Los atributos eran del usuario anterior.
+      expect(sdk.previewAnalytics().context.attributes).toEqual({});
+      vi.unstubAllGlobals();
+    });
+
+    it('setUserId(undefined) vuelve al id anónimo del SDK cerrando la sesión identificada', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk({ userId: 'user-a' });
+
+      sdk.setUserId(undefined);
+
+      expect(bodies(fetchSpy)[0].completed).toBe(true);
+      const anon = sdk.getUserId();
+      expect(anon).toBeTruthy();
+      expect(anon).not.toBe('user-a');
+      vi.unstubAllGlobals();
+    });
+
+    it('setTrackingEnabled(false) cierra la sesión antes de apagar el canal; (true) abre otra', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk();
+
+      sdk.track('cta_click');
+      sdk.setTrackingEnabled(false);
+
+      const [body] = bodies(fetchSpy);
+      expect(body.completed).toBe(true);
+      expect(body.feedback.metadata.map((m: { key: string }) => m.key)).toContain('deepdots_event_cta_click');
+
+      sdk.setTrackingEnabled(true);
+      expect(sdk.previewAnalytics().events.map((e) => e.name)).toContain('deepdots_session_start');
+      vi.unstubAllGlobals();
+    });
+
+    it('con trackingEnabled:false, el consentimiento posterior abre la primera sesión', () => {
+      const sdk = initSdk({ trackingEnabled: false });
+      expect(sdk.previewAnalytics().events).toHaveLength(0);
+
+      sdk.setTrackingEnabled(true);
+      expect(sdk.previewAnalytics().events.map((e) => e.name)).toEqual(['deepdots_session_start']);
+    });
+  });
 });

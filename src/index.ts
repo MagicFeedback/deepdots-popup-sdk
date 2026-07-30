@@ -19,6 +19,7 @@ export type {
   PopupTrigger,
   PopupTriggerCondition,
   PopupTriggerConditionStatus,
+  SessionEndReason,
 } from './types';
 export { POPUP_TRIGGER_CONDITION_STATUSES } from './types';
 export { NoopPopupRenderer, BrowserPopupRenderer, createDefaultRenderer } from './platform/renderer';
@@ -31,7 +32,7 @@ export { ContactManager } from './contact/contact-manager';
 export type { ContactAttributes, ContactAttributeValue, ContactBody } from './contact/contact-manager';
 // Canal de analytics → POST /sdk/feedback (modelo de Feedback del Surveys SDK).
 export { buildAnalyticsFeedbackBody, createFeedbackSink } from './analytics/feedback-payload';
-export type { AnalyticsKeys, AnalyticsFeedbackBody, FeedbackKV } from './analytics/feedback-payload';
+export type { AnalyticsKeys, AnalyticsFeedbackBody, FeedbackKV, BuildBodyOptions } from './analytics/feedback-payload';
 // Crash & error reporting (#14–17).
 export { CrashReporter, crashRecordToParams } from './analytics/crash-reporter';
 export type { CrashRecord, CrashSeverity, ReportErrorOptions, DeviceSnapshot, ReactNativeErrorUtils } from './analytics/crash-reporter';

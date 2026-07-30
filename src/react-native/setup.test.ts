@@ -88,6 +88,12 @@ describe('setupReactNative', () => {
     expect(onFg).toHaveBeenCalledTimes(1);
     expect(onBg).toHaveBeenCalledTimes(1);
 
+    // 'inactive' (iOS: llamada entrante, app switcher) NO cierra sesión: solo envía lo acumulado.
+    const flush = vi.spyOn(sdk, 'flushAnalytics');
+    handler!('inactive');
+    expect(onBg).toHaveBeenCalledTimes(1);
+    expect(flush).toHaveBeenCalledTimes(1);
+
     dispose();
     expect(remove).toHaveBeenCalled();
   });
