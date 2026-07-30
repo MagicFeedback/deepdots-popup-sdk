@@ -1,6 +1,12 @@
 export { DeepdotsPopups } from './core/deepdots-popups';
-export { buildMessageParams } from './analytics/messaging';
-export type { MessageStage, TrackMessageOptions } from './analytics/messaging';
+export { buildMessageParams, MessageGuard, MESSAGE_CHANNELS, MAX_TRACKED_MESSAGES } from './analytics/messaging';
+export type {
+  MessageStage,
+  TrackMessageOptions,
+  MessageChannel,
+  MessageGuardVerdict,
+  MessageRejectionReason,
+} from './analytics/messaging';
 export type {
   DeepdotsConfig,
   DeepdotsInitParams,

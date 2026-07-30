@@ -30,7 +30,7 @@ import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
 import { CrashReporter, crashRecordToParams, type ReportErrorOptions, type ReactNativeErrorUtils } from '../analytics/crash-reporter';
 import { setLogger } from '../util/logger';
-import { buildMessageParams, type MessageStage, type TrackMessageOptions } from '../analytics/messaging';
+import { buildMessageParams, MessageGuard, type MessageStage, type TrackMessageOptions } from '../analytics/messaging';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -97,6 +97,8 @@ export class DeepdotsPopups {
     private analyticsFlushTimer: ReturnType<typeof setInterval> | undefined = undefined;
     /** Crash & error reporting (#14–17). Null hasta init(). */
     private crashReporter: CrashReporter | null = null;
+    /** Protecciones del funnel de Messaging (#18–22). Vigencia de sesión: se reinicia en init(). */
+    private messageGuard = new MessageGuard();
     /** Observador de navegación (Fase 2): emite page_view por el canal de analytics. */
     private navObserver: NavigationObserver | null = null;
     /** Tiempo activo (engagement time, #8). */
@@ -179,6 +181,7 @@ export class DeepdotsPopups {
             navigator: typeof navigator !== 'undefined' ? navigator : undefined,
             intl: typeof Intl !== 'undefined' ? Intl : undefined,
         });
+        this.messageGuard.reset();
         this.analytics = new AnalyticsManager({
             sink: analyticsSink,
             publicKey: config.analytics?.publicKey ?? this.config.apiKey,
@@ -347,8 +350,18 @@ export class DeepdotsPopups {
         this.track('deepdots_funnel_step', { funnel, step, task_id: taskId, ...(params ?? {}) });
     }
 
-    /** Messaging (#18–22): registra una etapa del funnel de una notificación (push/in-app). No-op si tracking off. */
+    /**
+     * Messaging (#18–22): registra una etapa del funnel de una notificación (push/in-app).
+     * No-op si tracking off. El evento se descarta (con warning) si el `channel` no es válido,
+     * si ese `(message_id, stage)` ya se emitió en la sesión, o si el `message_id` ya se reportó
+     * en otro canal — ver `MessageGuard`.
+     */
     trackMessage(stage: MessageStage, options: TrackMessageOptions): void {
+        const verdict = this.messageGuard.evaluate(stage, options);
+        if (!verdict.emit) {
+            console.warn(`[DeepdotsPopups] trackMessage descartado (${verdict.reason}): ${verdict.detail}`);
+            return;
+        }
         this.track('deepdots_message', buildMessageParams(stage, options));
     }
 

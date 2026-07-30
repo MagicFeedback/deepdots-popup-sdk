@@ -312,6 +312,20 @@ El host puede emitir cualquier evento libre. La única estructura garantizada es
 
 ## 4. Respuesta esperada del backend
 
+**Protecciones del SDK (⚠️ 2026-07-30).** A raíz de CTR/conversion imposibles en BQ (300%, 700%), `trackMessage` descarta —con `console.warn`— los eventos malformados antes de encolarlos, así que estas formas ya no pueden llegar al backend desde un SDK ≥ esta versión:
+
+| Regla | Qué se descarta | `reason` del warning |
+|---|---|---|
+| `channel` debe ser `push` o `in_app` | Cualquier otro valor (p. ej. `"PUSH"`, `"email"`) | `invalid_channel` |
+| Un `(message_id, stage)` se emite una vez por sesión | La 2ª y siguientes llamadas al mismo stage del mismo mensaje | `duplicate_stage` |
+| Un `message_id` tiene UN canal | Eventos de un canal distinto al primero visto para ese `message_id` | `channel_conflict` |
+
+Vigencia: la **sesión** (se reinicia en cada `init()`), con un techo de 500 `message_id` vigilados (los más antiguos se evictan). Un evento rechazado no consume estado: tras un `channel_conflict` en `in_app`, el mismo stage en el canal correcto sí se emite.
+
+Lo que el SDK **no** puede arreglar: la ausencia de `delivered`. Es host-instrumentado y en push solo es observable si el proceso de la app recibe la notificación (data/silent push en Android, `UNNotificationServiceExtension` en iOS) → medido en cliente queda estructuralmente por debajo del real. El denominador fiable de #18/#19/#21 debería venir del proveedor de envío. Mientras tanto el dashboard debe mostrar `n/d` (no un porcentaje) cuando `delivered = 0`.
+
+⚠️ Estas reglas son **por sesión y por dispositivo**: no sustituyen el dedupe de backend por `(deepdots_user_id, nombre_evento, timestamp)` (§6), que es lo que cubre los reenvíos at-least-once.
+
 ```json
 { "sessionId": "67868972-1864-40a2-9abd-030529aeac33" }
 ```
