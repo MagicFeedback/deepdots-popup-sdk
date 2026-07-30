@@ -202,6 +202,43 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
   });
 
   /**
+   * Protecciones del funnel de Messaging: el SDK no puede emitir las formas imposibles que
+   * producían CTR > 100% en BQ (stage duplicado, dos canales para el mismo message_id).
+   */
+  it('trackMessage descarta channel inválido, stage duplicado y cambio de canal', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const m = { id: 'msg-1', title: 'Rebajas' };
+
+    popups.trackMessage('delivered', { ...m, channel: 'PUSH' as 'push' }); // inválido
+    popups.trackMessage('delivered', { ...m, channel: 'push' }); // ok
+    popups.trackMessage('clicked', { ...m, channel: 'push' }); // ok
+    popups.trackMessage('clicked', { ...m, channel: 'push' }); // duplicado
+    popups.trackMessage('clicked', { ...m, channel: 'in_app' }); // conflicto de canal
+
+    const msgs = popups.previewAnalytics().events.filter((e) => e.name === 'deepdots_message');
+    expect(msgs.map((e) => e.params?.stage)).toEqual(['delivered', 'clicked']);
+    expect(msgs.every((e) => e.params?.channel === 'push')).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
+  });
+
+  it('el guard de messaging tiene vigencia de sesión: otra sesión vuelve a aceptar el mismo mensaje', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const m = { id: 'msg-1', title: 'Rebajas', channel: 'push' as const };
+    popups.trackMessage('clicked', m);
+
+    const otra = new DeepdotsPopups();
+    otra.setRenderer(new NoopPopupRenderer());
+    otra.init({ apiKey: 'pk-1' });
+    otra.trackMessage('clicked', m);
+
+    const msgs = otra.previewAnalytics().events.filter((e) => e.name === 'deepdots_message');
+    expect(msgs).toHaveLength(1);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  /**
    * Al cerrar la pestaña el navegador puede cancelar un fetch en vuelo: ese último lote
    * (con el page_view y el engagement finales) se perdía. El flush de `pagehide` va por
    * sendBeacon, que sobrevive al unload.
