@@ -16,7 +16,7 @@ Autenticación de cliente: `publicKey` (= `apiKey`). Endpoints de popup conocido
 ## 1. Popup Web/TS — `@magicfeedback/popup-sdk`
 
 - **Ruta:** `/Users/sarias/develop/deepdots-popup-sdk` (este repo)
-- **Versión:** 1.1.0 · **Plataforma:** Web (browser, React)
+- **Versión:** 1.2.0 · **Plataforma:** Web (browser, React)
 - **Build:** `tsup` → CJS + ESM + d.ts (`npm run build`). Entradas: `main` `dist/index.js`, `module` `dist/index.mjs`, `types` `dist/index.d.ts`.
 - **Tests:** `vitest` (`npm test`). **Lint:** `eslint src` (`npm run lint`).
 - **Publish:** `npm run release` (carga `NPM_TOKEN` desde `.npm.env`, `npm publish --access public`). Usuario npm: `sarias_wolf`. ⚠️ El script `publish` se renombró a `release` para evitar doble ejecución; `~/.npmrc` usa `${NPM_TOKEN}`.

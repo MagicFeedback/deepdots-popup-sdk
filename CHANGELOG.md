@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-07-30
+
 ### Added
 
 - **Session end is now signalled.** The last batch of a session is sent with
@@ -38,6 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `onSessionReset` on `FeedbackSinkOptions`; `sessionEnd` on `AnalyticsFlushMeta`;
   `AnalyticsManager.resetUserScope()`.
 
+- **`MessageGuard` — protections for the `trackMessage()` funnel.** Three shapes that were
+  impossible in reality but produced `CTR > 100%` in BigQuery are now rejected: a channel
+  outside the whitelist, a repeated `(message_id, stage)` pair (idempotency), and a
+  `message_id` that changes channel partway through the funnel.
+
+  New exports: `MessageGuard`, `MESSAGE_CHANNELS`, `MAX_TRACKED_MESSAGES` and the types
+  `MessageChannel`, `MessageGuardVerdict`, `MessageRejectionReason`.
+
 ### Changed
 
 - **`init()` with a different `userId` is no longer a silent no-op.** It is now treated as a
@@ -53,6 +63,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   goes out **without** `sessionId` and the backend opens a new record.
 
 `feedback.finished` remains `false` in all cases — `completed` is the only close signal.
+
+### Fixed
+
+- **Form controls were rendered dark on a light popup when the host page was in dark mode.**
+  The popup sets its own `background` (`#fff` light / `#1e1e1e` dark) but did not declare
+  `color-scheme`, so `input`/`textarea`/`select` fell back to the browser's default styling.
+  In a host with `prefers-color-scheme: dark` — and a page that declares
+  `<meta name="color-scheme" content="light dark">`, as any theme-aware app does — Chrome
+  painted them dark grey with white text on the popup's white background.
+
+  `.deepdots-popup` now declares `color-scheme` alongside its background, derived from
+  `style.theme`, so light and dark popups both stay coherent regardless of the host's
+  browser or OS preference.
 
 ### Backend requirement
 
