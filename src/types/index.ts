@@ -105,6 +105,17 @@ export interface DeepdotsEvent {
  */
 export type EventListener = (event: DeepdotsEvent) => void;
 
+/**
+ * Motivo del `deepdots_session_end` (último lote de la sesión, enviado con `completed:true`):
+ *  - `page_hide`: la página web se cierra o se navega fuera (`pagehide`).
+ *  - `background`: la app pasa a background (RN/nativo). Única señal disponible en móvil:
+ *    el kill de la app por el usuario o el SO NO produce ningún callback.
+ *  - `user_change`: `setUserId()` o un `init()` con otro `userId` (login/logout del host).
+ *  - `tracking_disabled`: `setTrackingEnabled(false)` (consentimiento revocado).
+ *  - `manual`: `endSession()` llamado por el host.
+ */
+export type SessionEndReason = 'page_hide' | 'background' | 'user_change' | 'tracking_disabled' | 'manual';
+
 /** Trigger type used by remote popup definitions */
 export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
 

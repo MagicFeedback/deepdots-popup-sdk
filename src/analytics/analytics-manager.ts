@@ -45,6 +45,12 @@ export interface AnalyticsFlushMeta {
    * un transporte que sobreviva al unload (sendBeacon) y no puede esperar respuestas.
    */
   final?: boolean;
+  /**
+   * `true` cuando este es el ÚLTIMO lote de la sesión (cierre de página, app a background,
+   * cambio de usuario, tracking desactivado). El sink lo envía con `completed:true` y olvida
+   * el `sessionId`, para que el lote siguiente abra un registro nuevo.
+   */
+  sessionEnd?: boolean;
 }
 
 /**
@@ -174,6 +180,16 @@ export class AnalyticsManager {
     for (const name of Array.from(this.activeMiniServices.keys()).reverse()) {
       this.exitMiniService(name);
     }
+  }
+
+  /**
+   * Olvida lo que pertenecía al usuario anterior (user attributes + métricas) al cambiar de
+   * usuario. NO toca el buffer de eventos: el cierre de sesión ya lo vació con la identidad
+   * vieja, y lo que llegue después es del usuario nuevo.
+   */
+  resetUserScope(): void {
+    this.attributes = {};
+    this.metrics = {};
   }
 
   /** Registra un evento de analítica (modelo GA: nombre + params). */

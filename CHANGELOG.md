@@ -5,6 +5,70 @@ All notable changes to `@magicfeedback/popup-sdk` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Session end is now signalled.** The last batch of a session is sent with
+  `completed: true`, closing the record on the backend, and carries a new
+  `deepdots_session_end` event with the reason. Before this, every batch went out with
+  `completed: false` and the backend had no way to tell which one was the last.
+
+  The closing batch flushes everything still open, in order: the current screen's
+  `deepdots_page_view`, any pending `deepdots_mini_service_exit`, the accumulated
+  `deepdots_user_engagement`, and finally `deepdots_session_end`.
+
+  Sessions close on: `pagehide` (web), `AppState → background` (React Native), a user
+  change, `setTrackingEnabled(false)`, and the new `endSession()`. The `reason` parameter
+  says which (`page_hide` / `background` / `user_change` / `tracking_disabled` / `manual`).
+
+- **`endSession()`** — closes the session explicitly (logout, end of a flow).
+
+- **`setUserId(userId?)`** — user change (login / logout / account switch). Closes the
+  previous user's session with `reason: 'user_change'`, swaps the identity, and opens a new
+  session. Called with no argument it reverts to the SDK's anonymous id. User attributes and
+  metrics from the previous user are discarded.
+
+- **`deepdots_session_start` is now emitted on every session open**, not just at `init()`:
+  on returning to foreground, on `setTrackingEnabled(true)`, and after a user change. If
+  you init with `trackingEnabled: false`, granting consent later now opens the first session
+  (previously no `session_start` was ever emitted in that flow).
+
+- New `SessionEndReason` type; `BuildBodyOptions` on `buildAnalyticsFeedbackBody`;
+  `onSessionReset` on `FeedbackSinkOptions`; `sessionEnd` on `AnalyticsFlushMeta`;
+  `AnalyticsManager.resetUserScope()`.
+
+### Changed
+
+- **`init()` with a different `userId` is no longer a silent no-op.** It is now treated as a
+  user change and delegates to `setUserId()`. Listeners, timers and the popup fetch are not
+  re-run. An `init()` with the *same* `userId` still no-ops as before.
+
+- **`onBackground()` now ends the session** (it used to only flush). In React Native,
+  `setupReactNative` no longer routes `AppState`'s `inactive` to it: on iOS `inactive` is
+  transient (incoming call, app switcher) and closing there would split one session in two.
+  `inactive` flushes without closing; only `background` closes.
+
+- After a session closes, the cached analytics `sessionId` is forgotten, so the next batch
+  goes out **without** `sessionId` and the backend opens a new record.
+
+`feedback.finished` remains `false` in all cases — `completed` is the only close signal.
+
+### Backend requirement
+
+`completed: true` must **close the record** for that `sessionId`; the next batch arrives
+with no `sessionId` and must open a new record.
+
+`completed: true` is **opportunistic, not a guarantee**: an app killed by the user or the OS,
+a crash, or a lost connection produce no callback on any platform, so those records will
+never receive it. **The backend still needs an inactivity window** to close them.
+
+Note also that each background/foreground cycle on mobile now closes and opens a session. If
+you want an immediate return to resume the previous session, the grace window has to be
+applied backend-side (same `deepdots_user_id`, gap < N minutes → merge).
+
+See `docs/ANALYTICS-BACKEND-SPEC.md` §7.
+
 ## [1.1.8] — 2026-07-29
 
 ### Fixed

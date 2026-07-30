@@ -2,8 +2,11 @@
  * Mapeo del envelope de analytics → body de `POST /sdk/feedback`.
  *
  * La analítica se envía como un Feedback del modelo del Surveys SDK, agrupado por una
- * INTEGRACIÓN creada en la plataforma. Se manda en streaming con `completed:false` y
- * `finished:false` (nunca se "cierra"); el backend cose por `sessionId` + `user_id`.
+ * INTEGRACIÓN creada en la plataforma. Se manda en streaming con `completed:false`; el
+ * backend cose por `sessionId` + `user_id`. El ÚLTIMO lote de una sesión (cierre de página,
+ * app a background, cambio de usuario) va con `completed:true`: cierra el registro y el
+ * siguiente lote omite el `sessionId` viejo para que el backend abra uno nuevo.
+ * `feedback.finished` se queda siempre en `false` (no es la señal de cierre acordada).
  *
  * Encoding:
  *  - todo va en `feedback.metadata`: contexto (user_id, session_id, platform…) + eventos
@@ -50,10 +53,20 @@ function pushKV(list: FeedbackKV[], key: string, value: unknown): void {
   list.push({ key, value: [String(value)] });
 }
 
+export interface BuildBodyOptions {
+  /**
+   * `true` en el último lote de la sesión → `completed:true` (cierra el registro en backend).
+   * El body SÍ lleva el `sessionId` actual (es el registro que se cierra); es el lote
+   * SIGUIENTE el que lo omite.
+   */
+  sessionEnd?: boolean;
+}
+
 export function buildAnalyticsFeedbackBody(
   envelope: AnalyticsEnvelope,
   keys: AnalyticsKeys,
   feedbackSessionId?: string,
+  options?: BuildBodyOptions,
 ): AnalyticsFeedbackBody {
   const { context } = envelope;
 
@@ -111,7 +124,8 @@ export function buildAnalyticsFeedbackBody(
     },
     publicKey: keys.publicKey,
     integration: keys.integration,
-    completed: false,
+    // Único marcador de cierre acordado con backend: el último lote de la sesión.
+    completed: options?.sessionEnd === true,
     ...(feedbackSessionId ? { sessionId: feedbackSessionId } : {}),
   };
 }
@@ -132,6 +146,8 @@ export interface FeedbackSinkOptions {
   sendBeaconImpl?: (url: string, body: Blob | string) => boolean;
   /** Callback invocado cuando el backend devuelve un nuevo sessionId (primer POST). */
   onSessionId?: (id: string) => void;
+  /** Callback invocado al cerrar la sesión (`completed:true`): el sessionId cacheado se olvida. */
+  onSessionReset?: () => void;
 }
 
 /** Límite práctico de `fetch({keepalive:true})` y de `sendBeacon` (~64KB en Chrome). */
@@ -172,7 +188,7 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
 
   const url = `${options.baseUrl}/sdk/feedback`;
 
-  const post = async (body: AnalyticsFeedbackBody, final: boolean): Promise<void> => {
+  const post = async (body: AnalyticsFeedbackBody, final: boolean, sessionEnd = false): Promise<void> => {
     const json = JSON.stringify(body);
     const small = json.length <= KEEPALIVE_MAX_BYTES;
 
@@ -213,6 +229,10 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       return;
     }
 
+    // El POST de cierre devuelve el sessionId del registro que acabamos de cerrar:
+    // NO se re-cachea (si no, el lote siguiente volvería a apuntar al registro cerrado).
+    if (sessionEnd) return;
+
     try {
       const data = (await res.json()) as { sessionId?: string };
       if (data?.sessionId && data.sessionId !== feedbackSessionId) {
@@ -227,6 +247,7 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
 
   return async (envelope: AnalyticsEnvelope, meta) => {
     const final = meta?.final === true;
+    const sessionEnd = meta?.sessionEnd === true;
 
     // Sin sessionId todavía: esperar al primer POST para heredarlo y no partir el registro.
     // En el flush final no se espera (la página se está muriendo): mejor un registro
@@ -235,11 +256,17 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       await firstPostInFlight;
     }
 
-    const body = buildAnalyticsFeedbackBody(envelope, options.keys, feedbackSessionId);
+    const body = buildAnalyticsFeedbackBody(envelope, options.keys, feedbackSessionId, { sessionEnd });
     options.log?.('[DeepdotsAnalytics] POST /sdk/feedback →', body);
 
-    const sent = post(body, final);
-    if (!feedbackSessionId) {
+    const sent = post(body, final, sessionEnd);
+    if (sessionEnd) {
+      // Registro cerrado con `completed:true`: olvidar el sessionId para que el siguiente
+      // lote lo OMITA y el backend abra uno nuevo (sesión nueva, o usuario nuevo).
+      feedbackSessionId = undefined;
+      firstPostInFlight = null;
+      options.onSessionReset?.();
+    } else if (!feedbackSessionId) {
       // nunca rechaza: es solo una barrera de orden, el fallo lo propaga `sent`
       firstPostInFlight = sent.then(
         () => undefined,

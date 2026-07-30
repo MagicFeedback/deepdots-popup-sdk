@@ -156,6 +156,22 @@ describe('AnalyticsManager', () => {
     expect(onFlushNeeded).toHaveBeenCalledOnce();
   });
 
+  it('propaga sessionEnd al sink para que cierre el registro con completed:true', () => {
+    am.track('e1');
+    am.flush(identity, { sessionEnd: true });
+    expect(sink).toHaveBeenCalledWith(expect.anything(), { sessionEnd: true });
+  });
+
+  it('resetUserScope olvida attributes y metrics del usuario anterior', () => {
+    am.setUserAttributes({ pass_type: 'premium' });
+    am.setMetric('cart_value', 10);
+    am.resetUserScope();
+
+    const ctx = am.buildPayload(identity).context;
+    expect(ctx.attributes).toEqual({});
+    expect(ctx.metrics).toEqual({});
+  });
+
   it('exitMiniService is a no-op when that mini-service is not active', () => {
     am.exitMiniService('nope');
     expect(am.pending()).toBe(0);

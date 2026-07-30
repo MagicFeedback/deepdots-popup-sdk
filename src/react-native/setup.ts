@@ -92,7 +92,11 @@ export function setupReactNative(
   if (deps.appState?.addEventListener) {
     subscription = deps.appState.addEventListener('change', (state) => {
       if (state === 'active') sdk.onForeground();
-      else sdk.onBackground(); // 'background' | 'inactive'
+      // Solo 'background' es fin de sesión. En iOS 'inactive' es transitorio (llamada
+      // entrante, app switcher) y cerrar sesión ahí partiría la sesión en dos: se envía
+      // lo acumulado, por si el SO mata la app, pero sin cerrar el registro.
+      else if (state === 'background') sdk.onBackground();
+      else sdk.flushAnalytics();
     });
   }
 
