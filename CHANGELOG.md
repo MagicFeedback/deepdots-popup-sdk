@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-07-31
+
 ### Changed
 
 - **All console output is now in English.** Ten log strings were still in Spanish, including
@@ -19,6 +21,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sendBeacon`, `sendBeacon` rejection, missing `fetch`, rejected batch, cached
   `feedbackSessionId`), the retryable-status rejection message, and the
   `ReactNativePopupRenderer` missing-`onShow` warning.
+
+### Fixed
+
+- **React Native survey popups now render the actual popup (header, logo, "Start survey"
+  gate, footer with Back/Send, spinner) instead of the bare, unstyled survey form.** The RN
+  `WebView` renderer only ever called `@magicfeedback/native`'s `form.generate()` directly —
+  it never had the chrome that `renderPopup.ts` builds by hand for the web popup. Ported
+  that same chrome and button/state logic into `buildSurveyHtml` (it has to be self-contained
+  markup, since it runs inside the WebView's own page), and wired `actions`/`theme`/`position`
+  through `ReactNativePopupRenderer.show()`, which received them already but discarded them.
+
+  Along the way, found and fixed the actual bugs that made the popup appear blank or broken:
+  - The `<WebView>` had no `style` prop, so it could render at zero size.
+  - `source={{ html }}` had no `baseUrl`. Without one, WKWebView gives the page an opaque
+    origin, and the survey's own internal fetch for its content silently failed (`<script>`/
+    `<link>` loads aren't affected, since those aren't subject to CORS the same way).
+  - The popup's own stylesheet was never linked — only the survey library's generic CDN
+    default was, which isn't the one the web popup actually uses.
+  - `.magicfeedback-radio` in `assets/style.css` was unqualified, so it also matched the
+    `<input>` of rating questions (`@magicfeedback/native` reuses that class name there),
+    breaking its size. Qualified to `div.magicfeedback-radio` — this was latent in the web
+    popup too, not RN-specific.
+  - The horizontal-overflow safety net was scoped to `#mf`, which the survey library replaces
+    with its own container on mount — the rule never matched anything real. Rescoped to
+    `.deepdots-popup-main` with `overflow-x:hidden`.
+
+  Also: option rows are more compact on narrow screens (`@media max-width:640px`), and the
+  popup logo's bottom margin is 20px instead of 42px.
 
   Log text is not API: nothing to change in your code unless you were matching on these
   strings. Mirrored in the KMP SDK, so both platforms print the same text.
