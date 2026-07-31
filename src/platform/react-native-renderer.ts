@@ -53,7 +53,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
   show(
     surveyId: string,
     productId: string,
-    _actions: PopupActions | undefined,
+    actions: PopupActions | undefined,
     emit: EmitFn,
     onClose: () => void,
     env: string = 'production',
@@ -69,7 +69,17 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     this.partialEmitted = false;
 
     const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null, analyticsFeedbackSessionId ?? null);
-    const html = buildSurveyHtml({ surveyId, productId, env, profile, metadata, font: style?.font });
+    const html = buildSurveyHtml({
+      surveyId,
+      productId,
+      env,
+      profile,
+      metadata,
+      font: style?.font,
+      theme: style?.theme,
+      position: style?.position,
+      actions,
+    });
     if (this.options.onShow) {
       this.options.onShow({ surveyId, productId, html });
     } else {

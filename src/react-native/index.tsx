@@ -72,9 +72,10 @@ export function DeepdotsProvider({ config, children }: DeepdotsProviderProps) {
         <Modal visible transparent animationType="slide">
           <View style={{ flex: 1 }}>
             <WebView
+              style={{ flex: 1 }}
               originWhitelist={['*']}
               javaScriptEnabled
-              source={{ html: survey.html }}
+              source={{ html: survey.html, baseUrl: 'https://sdk.deepdots.com/' }}
               onMessage={(e: { nativeEvent: { data: string } }) =>
                 rendererRef.current?.handleMessage(e.nativeEvent.data)
               }
