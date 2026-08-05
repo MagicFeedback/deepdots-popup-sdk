@@ -12,7 +12,7 @@ export async function initDemoSdk({modeLabelEl, eventLogEl} = {}) {
     const sdk = new DeepdotsPopups();
     sdk.init({
         debug: true,
-        apiKey: 'EOywGj6yluqJRyQoY9jCSwJtSdffvKJR',
+        apiKey: 'PhHDz8iAsOjfRqo46gaVB06Q9avm39XY',
         /*
         userId: new Date().toLocaleDateString('es-ES', {year: 'numeric', month: '2-digit', day: '2-digit'}).split('/').reverse().join(''),
         analytics: {
@@ -30,7 +30,7 @@ export async function initDemoSdk({modeLabelEl, eventLogEl} = {}) {
     document.addEventListener('click', (ev) => {
         const target = ev.target;
         if (target.id === 'btn-test') {
-            sdk.triggerEvent('custom-event');
+            sdk.triggerEvent('RATING');
         }
     });
 
