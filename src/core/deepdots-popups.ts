@@ -375,6 +375,24 @@ export class DeepdotsPopups {
     }
 
     /**
+     * Product Effectiveness: una interacción significativa del usuario (`interaction_type` es la
+     * dimensión de agrupación, p. ej. `get_help`, `homepage`, `contact_support`).
+     *
+     * Existe como evento RESERVADO para que la convención no la invente cada host: un `track()`
+     * custom acaba como `deepdots_event_…` y no lo cuenta la analítica de effectiveness.
+     * Un `interactionType` vacío se descarta con warning (no aporta dato agrupable).
+     */
+    trackMeaningfulInteraction(interactionType: string, params?: Record<string, unknown>): void {
+        const type = typeof interactionType === 'string' ? interactionType.trim() : '';
+        if (!type) {
+            // Siempre visible (como en `trackMessage`): es un error de integración del host.
+            console.warn('[DeepdotsPopups] trackMeaningfulInteraction discarded: empty interaction_type');
+            return;
+        }
+        this.track('deepdots_meaningful_interaction', { interaction_type: type, ...(params ?? {}) });
+    }
+
+    /**
      * Messaging (#18–22): registra una etapa del funnel de una notificación (push/in-app).
      * No-op si tracking off. El evento se descarta (con warning) si el `channel` no es válido,
      * si ese `(message_id, stage)` ya se emitió en la sesión, o si el `message_id` ya se reportó
