@@ -62,6 +62,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     sessionId?: string,
     miniService?: string,
     analyticsFeedbackSessionId?: string,
+    renderChrome?: boolean,
   ): void {
     this.emitFn = emit;
     this.onCloseFn = onClose;
@@ -79,6 +80,8 @@ export class ReactNativePopupRenderer implements PopupRenderer {
       theme: style?.theme,
       position: style?.position,
       actions,
+      // renderChrome:false (init) → HTML sin tarjeta/overlay: el host lo envuelve en su Modal.
+      chrome: renderChrome,
     });
     if (this.options.onShow) {
       this.options.onShow({ surveyId, productId, html });

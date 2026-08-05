@@ -57,6 +57,15 @@ export interface DeepdotsInitParams {
      * `setContactAttributes` after init (sends only when values changed from the last sync).
      */
     contactAttributes?: Record<string, string | number | boolean>;
+    /**
+     * Whether the SDK renders the popup "modal" (card + backdrop + positioning) around the survey.
+     * Default `true`. Only affects React Native (the survey WebView HTML); the web DOM popup is
+     * unaffected. With `false` the survey is delivered transparent and edge-to-edge so the host
+     * mounts its own Modal/container and controls the styling — avoids the "double modal" when the
+     * host already wraps the WebView. The survey stays fully functional (bridge, form, nav buttons,
+     * close). Ver `ReactNativePopupRenderer`.
+     */
+    renderChrome?: boolean;
 
 }
 export interface DeepdotsConfig {

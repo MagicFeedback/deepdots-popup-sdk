@@ -128,6 +128,11 @@ Config fields:
 - `platform?: 'web' | 'android' | 'ios'` — defaults to `'web'`
 - `device?: DeviceInfo` — device context override, for hosts where the SDK cannot detect it
 - `contactAttributes?: Record<string, string | number | boolean>`
+- `renderChrome?: boolean` — React Native only. Defaults to `true`. When `false`, the survey
+  WebView HTML is delivered transparent and edge-to-edge, without the SDK's own card, backdrop,
+  or positioning, so the host mounts its own `Modal`/container and controls the styling. This
+  avoids a "double modal" when the host already wraps the WebView. The survey stays fully
+  functional (message bridge, form, nav buttons, close). No effect on the web DOM popup.
 - `language?: string` — BCP-47 tag (`'en'`, `'en-US'`, …) used for popup language
   segmentation (`segments.lang`) and for the analytics context. If omitted it is
   auto-detected from `navigator.language`, falling back to the `Intl` locale (which is
