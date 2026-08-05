@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeepdotsPopups } from './deepdots-popups';
 import { NoopPopupRenderer } from '../platform/renderer';
 import { mockPopupsApi, flushPopupsLoad } from './test-helpers';

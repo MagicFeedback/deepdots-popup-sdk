@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { ContactManager } from './contact-manager';
+import type { ContactBody } from './contact-manager';
 import { InMemoryStorage, STORAGE_KEYS } from '../tracking/tracking-manager';
 
 /**
@@ -9,11 +10,11 @@ import { InMemoryStorage, STORAGE_KEYS } from '../tracking/tracking-manager';
  */
 describe('ContactManager', () => {
   let storage: InMemoryStorage;
-  let post: ReturnType<typeof vi.fn>;
+  let post: Mock<(body: ContactBody) => Promise<void>>;
 
   beforeEach(() => {
     storage = new InMemoryStorage();
-    post = vi.fn(async () => {});
+    post = vi.fn<(body: ContactBody) => Promise<void>>(async () => {});
   });
 
   it('envía el contact en la primera llamada con publicKey + userId + userAttributes', async () => {

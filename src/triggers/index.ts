@@ -1,6 +1,12 @@
 import type { TriggerConfig } from '../types';
 import type { DeepdotsPopups } from '../core/deepdots-popups';
 
+/** `TriggerConfig.value` también acepta string (id/nombre para click/event); para time/scroll se necesita un número. */
+function toNumericValue(value: number | string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function setupTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
   switch (trigger.type) {
     case 'time':
@@ -22,7 +28,7 @@ export function setupTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): vo
 }
 
 function setupTimeTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
-  const delay = trigger.value || 5000;
+  const delay = toNumericValue(trigger.value, 5000);
   setTimeout(() => {
     popups.triggerSurvey(trigger.surveyId, trigger.popupId);
   }, delay);
@@ -30,7 +36,7 @@ function setupTimeTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void 
 }
 
 function setupScrollTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
-  const threshold = trigger.value || 50;
+  const threshold = toNumericValue(trigger.value, 50);
   const handler = () => {
     const scrollPercentage = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
     if (scrollPercentage >= threshold) {

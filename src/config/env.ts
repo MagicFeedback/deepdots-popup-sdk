@@ -1,4 +1,4 @@
-import {DeepdotsConfig, DeepdotsInitParams} from '../types';
+import {DeepdotsInitParams} from '../types';
 
 /** Variables específicas por entorno derivadas de nodeEnv */
 export interface EnvironmentVariables {

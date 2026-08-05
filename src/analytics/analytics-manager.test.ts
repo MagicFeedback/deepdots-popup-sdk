@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AnalyticsManager, type AnalyticsEnvelope } from './analytics-manager';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { AnalyticsManager, type AnalyticsEnvelope, type AnalyticsSink } from './analytics-manager';
 
 /** Deja correr las microtasks pendientes (el re-encolado ocurre al rechazar el sink). */
 const settle = () => new Promise((r) => setTimeout(r, 0));
@@ -11,12 +11,12 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
  */
 describe('AnalyticsManager', () => {
   let now: number;
-  let sink: ReturnType<typeof vi.fn>;
+  let sink: Mock<AnalyticsSink>;
   let am: AnalyticsManager;
 
   beforeEach(() => {
     now = 1_000;
-    sink = vi.fn();
+    sink = vi.fn<AnalyticsSink>();
     am = new AnalyticsManager({ sink, now: () => now, publicKey: 'pk-1' });
   });
 
