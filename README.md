@@ -196,6 +196,7 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 | `trackSearch(query, resultsCount, params?)` | Searches, with `has_results` derived |
 | `trackFunnelStep(funnel, step, taskId, params?)` | A funnel step, correlated by `taskId` |
 | `trackFindabilityFriction(topic, params?)` | Friction signal |
+| `trackMeaningfulInteraction(interactionType, params?)` | A meaningful interaction, grouped by `interaction_type` |
 | `enterMiniService(name, entryPointType?)` / `exitMiniService(name)` | Mini-service, with duration |
 | `setUserAttributes(map)` / `setMetric(key, value)` | Breakdown dimensions / measurable values |
 | `setUserId(userId?)` | Login, logout or account switch |

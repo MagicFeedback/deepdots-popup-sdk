@@ -135,11 +135,23 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     expect(e?.params).toMatchObject({ funnel: 'outstanding_task', step: 'task_started', task_id: 'task-42' });
   });
 
+  it('trackMeaningfulInteraction emite un evento reservado con interaction_type (Product Effectiveness)', () => {
+    popups.trackMeaningfulInteraction('get_help', { screen: '/home' });
+    const e = popups.previewAnalytics().events.find((x) => x.name === 'deepdots_meaningful_interaction');
+    expect(e?.params).toMatchObject({ interaction_type: 'get_help', screen: '/home' });
+  });
+
+  it('trackMeaningfulInteraction descarta un interaction_type vacío', () => {
+    popups.trackMeaningfulInteraction('   ');
+    expect(popups.previewAnalytics().events).toHaveLength(0);
+  });
+
   it('los helpers respetan el kill-switch', () => {
     popups.setTrackingEnabled(false);
     popups.trackSearch('x', 1);
     popups.trackFunnelStep('f', 's', 't');
     popups.trackFindabilityFriction('topic');
+    popups.trackMeaningfulInteraction('get_help');
     expect(popups.previewAnalytics().events).toHaveLength(0);
   });
   // Nota: la navegación real (History API → page_view) se valida en E2E (Chromium),

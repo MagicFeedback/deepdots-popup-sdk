@@ -78,7 +78,7 @@ SDK (cliente)                          Backend
 | Prefijo | Origen | Ejemplos |
 |---|---|---|
 | `deepdots_` | Sistema — generado automáticamente por el SDK | `deepdots_user_id`, `deepdots_platform`, `deepdots_country` |
-| `deepdots_` | Eventos reservados del SDK | `deepdots_page_view`, `deepdots_user_engagement`, `deepdots_mini_service_enter/exit`, `deepdots_search`, `deepdots_findability_friction`, `deepdots_funnel_step` |
+| `deepdots_` | Eventos reservados del SDK | `deepdots_page_view`, `deepdots_user_engagement`, `deepdots_mini_service_enter/exit`, `deepdots_search`, `deepdots_findability_friction`, `deepdots_funnel_step`, `deepdots_meaningful_interaction` |
 | *(sin prefijo)* | Host — atributos del cliente vía `setUserAttributes()` | `plan`, `sector`, `age` |
 | `deepdots_event_` | Eventos custom del host vía `track()` | `deepdots_event_add_to_cart`, `deepdots_event_checkout_started` |
 
@@ -285,6 +285,18 @@ Crash o error reportado. Los crashes no capturados se persisten a disco y se ree
 ```json
 { "timestamp": 1750000030000, "funnel": "onboarding", "step": "profile_completed", "task_id": "task-42" }
 ```
+
+#### `deepdots_meaningful_interaction`
+Interacción significativa del usuario (Product Effectiveness). `interaction_type` es la dimensión de agrupación.
+```json
+{ "timestamp": 1750000035000, "interaction_type": "get_help", "screen": "/home" }
+```
+
+| Campo | Valores | Descripción |
+|---|---|---|
+| `interaction_type` | string | Tipo de interacción (`get_help`, `homepage`, `contact_support`…). El SDK descarta el evento si viene vacío |
+
+> **Ojo backend:** este evento se añadió porque los hosts lo estaban enviando como evento custom vía `track('meaningful_interaction')`, que llega como **`deepdots_event_meaningful_interaction`** (prefijo de eventos custom, ver 2026-07-06). Las consultas de effectiveness deben leer el evento reservado `deepdots_meaningful_interaction` y, mientras haya SDKs antiguos en producción, también el nombre custom prefijado.
 
 El backend puede agrupar por `funnel` + `task_id` para calcular tasas de conversión entre pasos.
 
