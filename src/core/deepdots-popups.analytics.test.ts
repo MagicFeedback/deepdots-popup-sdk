@@ -40,7 +40,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
   it('los eventos reservados del SDK (namespace deepdots_) no se re-prefijan', () => {
     popups.track('deepdots_page_view', { screen: '/home' });
-    popups.trackMessage('delivered', { id: 'm-1', channel: 'push' });
+    popups.trackMessage('delivered', { id: 'm-1', title: 'Oferta especial', channel: 'push' });
     const names = popups.previewAnalytics().events.map((e) => e.name);
     expect(names).toContain('deepdots_page_view');
     expect(names).toContain('deepdots_message');
@@ -82,7 +82,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     popups.flushAnalytics();
 
     expect(logSpy).toHaveBeenCalled();
-    const printed = logSpy.mock.calls.flat().some((a) => typeof a === 'string' && a.includes('/sdk/feedback'));
+    const printed = logSpy.mock.calls.flat().some((a: unknown) => typeof a === 'string' && a.includes('/sdk/feedback'));
     expect(printed).toBe(true);
     expect(popups.previewAnalytics().events).toHaveLength(0);
   });

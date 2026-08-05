@@ -527,7 +527,7 @@ export async function renderPopup(
                 if (available > 120) { // asegurar un mínimo razonable
                     main.style.maxHeight = available + 'px';
                 } */
-            } catch (e) {
+            } catch {
                 // silencioso
             }
             // Personalización del popup basada en formData.style
