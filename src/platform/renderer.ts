@@ -19,6 +19,7 @@ export interface PopupRenderer {
     sessionId?: string,
     miniService?: string,
     analyticsFeedbackSessionId?: string,
+    renderChrome?: boolean,
   ): void;
   /** Ocultar popup */
   hide(): void;
@@ -70,6 +71,7 @@ export class BrowserPopupRenderer implements PopupRenderer {
     sessionId?: string,
     miniService?: string,
     analyticsFeedbackSessionId?: string,
+    _renderChrome?: boolean, // solo aplica a RN (WebView); el popup DOM web siempre lleva su chrome
   ): void {
     if (this.visible) return;
     if (!this.container || !document.body.contains(this.container)) this.init();

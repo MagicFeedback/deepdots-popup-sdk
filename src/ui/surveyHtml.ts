@@ -26,6 +26,13 @@ export interface BuildSurveyHtmlOptions {
   theme?: 'light' | 'dark';
   position?: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
   actions?: PopupActions;
+  /**
+   * Renderiza el "modal" del popup (tarjeta con fondo/sombra/bordes + overlay + posicionamiento).
+   * Default `true`. Con `false` el HTML es transparente y llena el contenedor: el host monta su
+   * propio Modal/tarjeta y controla el estilo. El survey sigue siendo funcional (bridge, form,
+   * botones y botón de cerrar). Pensado para React Native cuando el host gestiona el contenedor.
+   */
+  chrome?: boolean;
 }
 
 interface PositionRule {
@@ -63,6 +70,20 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const textPrimary = isDark ? '#f0f0f0' : '#111';
   const pos = POSITION_MAP[opts.position ?? 'center'] ?? POSITION_MAP.center;
 
+  // chrome:false → el host envuelve el survey en su propio Modal/tarjeta. El HTML se vuelve
+  // transparente y llena el contenedor (sin fondo/sombra/borde/overlay/posicionamiento propios);
+  // así se evita el "doble modal" cuando el host ya monta el suyo. Survey funcional intacto.
+  const chrome = opts.chrome !== false;
+  const bodyBg = chrome ? pos.background : 'transparent';
+  const bodyPadding = chrome ? pos.padding : '0';
+  const bodyDisplay = chrome ? 'flex' : 'block';
+  const cardBg = chrome ? popupBg : 'transparent';
+  const cardShadow = chrome ? '0 4px 6px rgba(0,0,0,0.1)' : 'none';
+  const cardRadius = chrome ? '8px' : '0';
+  const cardMaxWidth = chrome ? '600px' : 'none';
+  const cardWidth = chrome ? '90%' : '100%';
+  const cardMinHeight = chrome ? '200px' : '0';
+
   const backLabel = JSON.stringify(opts.actions?.back?.label ?? 'Back');
   const startLabel = JSON.stringify(opts.actions?.start?.label ?? 'Start survey');
   const completeLabel = JSON.stringify(opts.actions?.complete?.label ?? 'Complete survey');
@@ -75,8 +96,8 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
 ${magicfeedbackCss}
 ${fontFaceCss}
 html,body{margin:0;padding:0;height:100%;font-family:${fontFamilyValue}}
-body{display:flex;justify-content:${pos.justifyContent};align-items:${pos.alignItems};background:${pos.background};padding:${pos.padding};box-sizing:border-box}
-.deepdots-popup{position:relative;display:flex;flex-direction:column;justify-content:flex-start;background:${popupBg};color-scheme:${colorScheme};border-radius:8px;padding:24px;box-shadow:0 4px 6px rgba(0,0,0,0.1);max-width:600px;width:90%;min-height:200px;box-sizing:border-box}
+body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${pos.alignItems};background:${bodyBg};padding:${bodyPadding};box-sizing:border-box}
+.deepdots-popup{position:relative;display:flex;flex-direction:column;justify-content:flex-start;background:${cardBg};color-scheme:${colorScheme};border-radius:${cardRadius};padding:24px;box-shadow:${cardShadow};max-width:${cardMaxWidth};width:${cardWidth};min-height:${cardMinHeight};box-sizing:border-box}
 .deepdots-popup-header{display:flex;justify-content:flex-end;align-items:center;width:100%}
 #dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:${textPrimary};padding:4px}
 .deepdots-popup-container-content{display:flex;flex-direction:column;padding:0 20px 12px 20px;max-height:80vh;overflow:hidden;box-sizing:border-box}
@@ -134,6 +155,7 @@ body{display:flex;justify-content:${pos.justifyContent};align-items:${pos.alignI
   function emit(s){ try{ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(s); } }catch(e){} }
   function emitJSON(n,p){ try{ emit(JSON.stringify({name:n,payload:p||{}})); }catch(e){} }
   window.DeepdotsClose = function(){ emitJSON('popup_close'); };
+  var chromeOn=${chrome ? 'true' : 'false'};
 
   var popup=document.getElementById('dd-popup');
   var main=document.getElementById('dd-main');
@@ -209,7 +231,7 @@ body{display:flex;justify-content:${pos.justifyContent};align-items:${pos.alignI
           var s=args && args.formData ? args.formData.style : null;
           if(s && !stylesInjected){
             stylesInjected=true;
-            if(s.boxBackgroundColor){ popup.style.background=s.boxBackgroundColor; }
+            if(chromeOn && s.boxBackgroundColor){ popup.style.background=s.boxBackgroundColor; }
             if(s.contentAlign){ main.style.justifyContent = s.contentAlign==='center' ? 'center' : 'flex-start'; }
             if(s.buttonPrimaryColor){
               submitBtn.style.background=s.buttonPrimaryColor; submitBtn.style.border='none'; submitBtn.style.color='#fff';

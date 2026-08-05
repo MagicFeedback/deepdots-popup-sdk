@@ -87,6 +87,8 @@ export class DeepdotsPopups {
 
     private baseUrl: string = '';
     private env: 'production' | 'development' = 'production';
+    /** Si el SDK pinta el "modal" del popup (RN). Default true; false = el host lo envuelve. */
+    private renderChrome = true;
 
     /** Identidad + sesión (Fase 1 tracking). Null hasta init(). */
     private tracking: TrackingManager | null = null;
@@ -143,6 +145,7 @@ export class DeepdotsPopups {
 
         this.baseUrl = env.apiBaseUrl;
         this.env = config.nodeEnv || 'production';
+        this.renderChrome = config.renderChrome ?? true;
 
         this.config = {
             apiKey: config.apiKey || undefined,
@@ -1091,6 +1094,7 @@ export class DeepdotsPopups {
                 sessionId,
                 miniService,
                 analyticsFeedbackSessionId,
+                this.renderChrome,
             );
             return;
         }

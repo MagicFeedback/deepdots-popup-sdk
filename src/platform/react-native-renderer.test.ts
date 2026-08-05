@@ -78,4 +78,30 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
     expect(captured!.html).toContain('@font-face{font-family:"Inter"');
     expect(captured!.html).toContain('"Inter", -apple-system, system-ui, sans-serif');
   });
+
+  it('renderChrome:false en init → entrega el survey sin tarjeta/overlay (host gestiona el modal)', () => {
+    let captured: ReactNativeSurveyPayload | null = null;
+    const r = new ReactNativePopupRenderer({ onShow: (p) => { captured = p; } });
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(r);
+    sdk.init({ apiKey: 'k', renderChrome: false });
+    (sdk as any).showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
+    expect(captured).not.toBeNull();
+    expect(captured!.html).toContain('box-shadow:none');
+    expect(captured!.html).toContain('var chromeOn=false');
+    expect(captured!.html).not.toContain('box-shadow:0 4px 6px rgba(0,0,0,0.1)');
+    // sigue siendo funcional
+    expect(captured!.html).toContain('id="dd-submit"');
+  });
+
+  it('por defecto (sin flag) → el survey lleva su propia tarjeta', () => {
+    let captured: ReactNativeSurveyPayload | null = null;
+    const r = new ReactNativePopupRenderer({ onShow: (p) => { captured = p; } });
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(r);
+    sdk.init({ apiKey: 'k' });
+    (sdk as any).showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
+    expect(captured!.html).toContain('box-shadow:0 4px 6px rgba(0,0,0,0.1)');
+    expect(captured!.html).toContain('var chromeOn=true');
+  });
 });

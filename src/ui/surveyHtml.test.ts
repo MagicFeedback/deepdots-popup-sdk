@@ -97,6 +97,42 @@ describe('buildSurveyHtml chrome (paridad con renderPopup.ts)', () => {
   });
 });
 
+describe('buildSurveyHtml chrome flag (host gestiona el contenedor)', () => {
+  it('por defecto (chrome on): tarjeta con fondo, sombra y bordes redondeados', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain('box-shadow:0 4px 6px rgba(0,0,0,0.1)');
+    expect(html).toContain('border-radius:8px');
+    expect(html).toContain('max-width:600px');
+  });
+
+  it('chrome:false: sin tarjeta (transparente, sin sombra, sin borde, llena el contenedor)', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', chrome: false });
+    // el popup deja de pintar su propio "modal": lo envuelve el host
+    expect(html).toContain('.deepdots-popup{');
+    expect(html).toContain('box-shadow:none');
+    expect(html).toContain('border-radius:0');
+    expect(html).not.toContain('box-shadow:0 4px 6px rgba(0,0,0,0.1)');
+    // sin backdrop de página aunque la position sea center (no oscurece: lo hace el host)
+    const centered = buildSurveyHtml({ surveyId: 's1', productId: 'p1', chrome: false, position: 'center' });
+    expect(centered).not.toContain('background:rgba(0,0,0,0.5)');
+  });
+
+  it('chrome:false: sigue siendo un survey funcional (bridge, form y botones)', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', chrome: false });
+    expect(html).toContain('ReactNativeWebView');
+    expect(html).toContain('id="mf"');
+    expect(html).toContain('id="dd-submit"');
+    expect(html).toContain('id="dd-close"');
+  });
+
+  it('chrome:false: no aplica el color de fondo del popup que viene de la API (lo controla el host)', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', chrome: false });
+    expect(html).toContain('var chromeOn=false');
+    const withChrome = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(withChrome).toContain('var chromeOn=true');
+  });
+});
+
 describe('buildSurveyHtml stylesheet (legacy)', () => {
   it('sigue cargando el JS del survey desde el CDN', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', version: '2.2.4' });
