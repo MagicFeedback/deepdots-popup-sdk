@@ -66,6 +66,20 @@ export interface DeepdotsInitParams {
      * close). Ver `ReactNativePopupRenderer`.
      */
     renderChrome?: boolean;
+    /**
+     * Barra de progreso ("Question X of Y" + barra) en la cabecera del popup. Si se omite,
+     * manda el `showProgressBar` que la plataforma configura en el estilo del survey; `true` o
+     * `false` lo fuerzan desde el host. Solo se pinta con más de una página, fuera de la
+     * pantalla de inicio y antes de completar, igual que en la web de surveys.
+     */
+    showProgressBar?: boolean;
+    /**
+     * CSS propio del host, inyectado como último bloque de estilos del popup: gana en cascada
+     * sobre el del SDK y sobre el de `@magicfeedback/native` sin tener que tocar ninguno. Es la
+     * vía para reestilar el área de preguntas (enunciados, opciones, escalas) por integración,
+     * en vez de cambiar los defaults que comparten todos los clientes.
+     */
+    surveyCss?: string;
 
 }
 export interface DeepdotsConfig {

@@ -3,6 +3,19 @@ import { isReactNativeEnv, createReactNativeRenderer } from './react-native-rend
 // renderPopup (DOM + @magicfeedback/native) se carga PEREZOSAMENTE solo al mostrar
 // un popup en navegador, para que importar el SDK sea seguro en React Native/SSR.
 
+/**
+ * Ajustes de presentación que no vienen del estilo del popup. Van agrupados para no seguir
+ * alargando la lista posicional de `show`, que ya arrastra doce parámetros.
+ */
+export interface PopupRenderOptions {
+  /** Título de la cabecera (de `PopupDefinition.title`). Sin él se usa el del survey. */
+  title?: string;
+  /** Barra de progreso: `undefined` deja decidir a la plataforma, `true`/`false` la fuerzan. */
+  showProgressBar?: boolean;
+  /** CSS del host, inyectado el último: gana sobre el del SDK y el de `@magicfeedback/native`. */
+  surveyCss?: string;
+}
+
 export interface PopupRenderer {
   /** Preparar recursos si aplica */
   init?(): void;
@@ -20,6 +33,7 @@ export interface PopupRenderer {
     miniService?: string,
     analyticsFeedbackSessionId?: string,
     renderChrome?: boolean,
+    options?: PopupRenderOptions,
   ): void;
   /** Ocultar popup */
   hide(): void;
@@ -72,6 +86,7 @@ export class BrowserPopupRenderer implements PopupRenderer {
     miniService?: string,
     analyticsFeedbackSessionId?: string,
     _renderChrome?: boolean, // solo aplica a RN (WebView); el popup DOM web siempre lleva su chrome
+    options?: PopupRenderOptions,
   ): void {
     if (this.visible) return;
     if (!this.container || !document.body.contains(this.container)) this.init();
@@ -79,7 +94,7 @@ export class BrowserPopupRenderer implements PopupRenderer {
     this.visible = true;
     const container = this.container;
     void import('../ui/renderPopup').then(({ renderPopup }) => {
-      renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService, analyticsFeedbackSessionId);
+      renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService, analyticsFeedbackSessionId, options);
     });
   }
 

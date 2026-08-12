@@ -1,5 +1,6 @@
 import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
+import type { PopupRenderOptions } from '../platform/renderer';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import magicfeedback from "@magicfeedback/native";
@@ -48,7 +49,9 @@ function ensureResponsiveStyles(_popup: HTMLElement) {
       .deepdots-popup button { font-size: 16px !important; }
       .deepdots-popup-header button { width:48px; height:48px; }
       .deepdots-popup-header button svg { width:26px; height:26px; }
-      .deepdots-popup-footer { flex-direction: column-reverse !important; gap: 12px !important; }
+      /* Apilados en el orden del DOM: la acción principal (Send/Start/Complete) arriba y
+         Back debajo. */
+      .deepdots-popup-footer { flex-direction: column !important; gap: 8px !important; }
       .deepdots-popup-footer button { width: 100%; }
     }
     @media (max-width: 400px) {
@@ -65,6 +68,25 @@ function ensureResponsiveStyles(_popup: HTMLElement) {
     }
   `;
     document.head.appendChild(style);
+}
+
+/**
+ * CSS del host, en un <style> propio añadido DESPUÉS de los del SDK y de
+ * `@magicfeedback/native` para que gane en cascada sin tocar ninguno de los dos.
+ * Se reemplaza en cada render por si cambia entre popups.
+ */
+function ensureCustomCss(css?: string) {
+    const STYLE_ID = 'deepdots-custom-css';
+    const existing = document.getElementById(STYLE_ID);
+    if (!css) {
+        existing?.remove();
+        return;
+    }
+    const el = (existing as HTMLStyleElement | null) ?? document.createElement('style');
+    el.id = STYLE_ID;
+    if (el.textContent !== css) el.textContent = css;
+    // Reanexar mueve el nodo al final del head: garantiza que va tras las hojas del SDK.
+    document.head.appendChild(el);
 }
 
 // Inyecta (una sola vez) el @font-face de la fuente personalizada.
@@ -97,9 +119,16 @@ export async function renderPopup(
     sessionId?: string,
     miniService?: string,
     analyticsFeedbackSessionId?: string,
+    options?: PopupRenderOptions,
 ): Promise<void> {
     let surveyCompletedEmitted = false;
     let stylesInjected = false;
+    // Profundidad de navegación dentro del survey: +1 al avanzar, -1 al volver. Sustituye a
+    // `total > 1 && progress > 0 && progress < total`, que escondía el Back cuando la pantalla
+    // siguiente era una follow-up dinámica (no entran en el grafo: suman +0.5 al progress y
+    // dejan el total igual, así que un survey de una pregunta con follow-up nunca lo mostraba).
+    let pageDepth = 0;
+    let onStartPage = false;
 
     const isDark = style?.theme === 'dark';
     const theme = {
@@ -112,6 +141,8 @@ export async function renderPopup(
         textPrimary:      isDark ? '#f0f0f0' : '#111',
         closeBtnHoverBg:  isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)',
         closeBtnHoverColor: isDark ? '#fff' : '#000000',
+        textMuted:        isDark ? '#9ca3af' : '#6b7280',
+        progressTrack:    isDark ? '#3f3f46' : '#e5e7eb',
     };
 
     const positionMap: Record<string, { justifyContent: string; alignItems: string; padding?: string; background: string }> = {
@@ -140,6 +171,7 @@ export async function renderPopup(
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       max-width: 600px;
       width: 90%;
+      max-height: 90vh;
       min-height: 200px;
     `;
 
@@ -156,10 +188,25 @@ export async function renderPopup(
         if (font.url) ensureFontFace(font.family, font.url);
     }
 
-    // Sección header (solo botón cerrar)
+    // Sección header (título + botón cerrar)
     const header = document.createElement('div');
     header.className = 'deepdots-popup-header';
-    header.style.cssText = 'display:flex; justify-content:flex-end; align-items:center; width:100%;';
+    header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; flex:0 0 auto;';
+
+    // Título: `textContent`, nunca innerHTML — el valor viene de la API.
+    const titleEl = document.createElement('h2');
+    titleEl.className = 'deepdots-popup-title';
+    // text-transform/text-align/margin neutralizan la regla `.deepdots-popup h2` del CSS del
+    // survey (uppercase, centrado, margin-bottom 40px), pensada para los enunciados.
+    titleEl.style.cssText = `margin:0; font-size:17px; font-weight:600; line-height:1.3; color:${theme.textPrimary}; text-transform:none; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`;
+    titleEl.hidden = true;
+    const setTitle = (value?: string) => {
+        if (!value) return;
+        titleEl.textContent = value;
+        titleEl.hidden = false;
+    };
+    setTitle(options?.title);
+    header.appendChild(titleEl);
 
     // Botón de cierre (X)
     const closeBtn = document.createElement('button');
@@ -199,26 +246,92 @@ export async function renderPopup(
         emit('popup_clicked', surveyId, {action: 'close_icon'});
         onClose();
     };
+    closeBtn.style.flex = '0 0 auto';
+    closeBtn.style.marginLeft = 'auto';
     header.appendChild(closeBtn);
+
+    // Barra de progreso ("Question X of Y" + barra), espejo de LineProgressQuestion (MagicSurvey).
+    // `undefined` en el init deja decidir a la plataforma (style.showProgressBar).
+    let progressEnabled = options?.showProgressBar === true;
+    let progressShowUnit = true;
+    let progressUnit: 'percentage' | 'fraction' = 'fraction';
+
+    const progressEl = document.createElement('div');
+    progressEl.className = 'deepdots-progress';
+    // Sin padding horizontal propio: se alinea con el título y con el contenido.
+    progressEl.style.cssText = 'display:none; flex-direction:column; gap:8px; width:100%; flex:0 0 auto; padding:12px 0 16px 0; box-sizing:border-box;';
+    const progressHead = document.createElement('div');
+    progressHead.style.cssText = 'display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; gap:8px;';
+    const progressLabel = document.createElement('span');
+    progressLabel.style.cssText = 'font-size:13px; line-height:1.2;';
+    // "Question 1" en negrita y "of 3" en regular gris, como el mockup.
+    const progressCurrent = document.createElement('span');
+    progressCurrent.style.cssText = `font-weight:700; color:${theme.textPrimary};`;
+    const progressTotal = document.createElement('span');
+    progressTotal.style.cssText = `font-weight:400; color:${theme.textMuted};`;
+    progressLabel.appendChild(progressCurrent);
+    progressLabel.appendChild(progressTotal);
+    const progressFollowUp = document.createElement('span');
+    progressFollowUp.textContent = 'Follow-up';
+    progressFollowUp.style.cssText = 'display:none; font-size:12px; font-weight:600; color:#fff; background:rgba(59,130,246,0.44); border-radius:999px; padding:2px 10px;';
+    progressHead.appendChild(progressLabel);
+    progressHead.appendChild(progressFollowUp);
+    const progressTrack = document.createElement('div');
+    progressTrack.style.cssText = `width:100%; height:4px; border-radius:999px; background:${theme.progressTrack}; overflow:hidden;`;
+    const progressBar = document.createElement('div');
+    progressBar.style.cssText = 'height:100%; width:0%; background:#22C55E; border-radius:999px; transition:width 450ms ease;';
+    progressTrack.appendChild(progressBar);
+    progressEl.appendChild(progressHead);
+    progressEl.appendChild(progressTrack);
+
+    function updateProgress(p: { progress?: number; total?: number; completed?: boolean; followup?: boolean }) {
+        const total = typeof p.total === 'number' ? p.total : 0;
+        const progress = typeof p.progress === 'number' ? p.progress : 0;
+        if (!progressEnabled || onStartPage || p.completed || total <= 1) {
+            progressEl.style.display = 'none';
+            return;
+        }
+        progressEl.style.display = 'flex';
+        // La barra usa el valor real (las follow-up suman +0.5 y avanzan media casilla); la
+        // etiqueta redondea hacia abajo, porque una follow-up es un paso DENTRO de la misma
+        // pregunta y no la siguiente.
+        const current = Math.min(total, Math.max(1, progress + 1));
+        const pct = Math.min(100, Math.max(0, (current / total) * 100));
+        progressBar.style.width = `${pct}%`;
+        const label = Math.min(total, Math.max(1, Math.floor(progress) + 1));
+        progressLabel.style.display = progressShowUnit ? 'block' : 'none';
+        if (progressUnit === 'percentage') {
+            progressCurrent.textContent = `${Math.round(pct)}%`;
+            progressTotal.textContent = '';
+        } else {
+            progressCurrent.textContent = `Question ${label}`;
+            progressTotal.textContent = ` of ${total}`;
+        }
+        progressFollowUp.style.display = p.followup ? 'inline-block' : 'none';
+    }
 
     ensureMagicFeedbackStyles(popup);
     ensureSpinnerStyles(popup);
     ensureResponsiveStyles(popup);
+    // El último en entrar: el CSS del host gana sobre todo lo anterior.
+    ensureCustomCss(options?.surveyCss);
 
     const containerContent = document.createElement('div');
-    containerContent.className = 'deepdots-popup-container-conetent';
-    containerContent.style.cssText = `
-    display:flex; 
-    flex-direction:column; 
-    padding: 0 20px 12px 20px;
-      max-height: 80vh; /* límite general del popup */
-      overflow: hidden; /* quita scroll del contenedor principal */
-`
+    // Estaba escrito 'conetent'; el HTML del WebView siempre usó la forma correcta. Con
+    // `surveyCss` esta clase pasa a ser superficie pública, así que las dos rutas deben coincidir.
+    containerContent.className = 'deepdots-popup-container-content';
+    // El popup es una columna: solo el bloque de preguntas hace scroll, para que el footer con
+    // las acciones quede siempre pegado al borde inferior (antes vivía dentro del área
+    // scrollable y en un survey largo había que bajar hasta el final para ver "Send").
+    // Sin sangrado extra: el contenido se alinea con el título y con la barra de progreso
+    // (antes sumaba 20px a los lados sobre el padding de la tarjeta). `overflow:hidden` deja
+    // el scroll en `main`, no en el contenedor.
+    containerContent.style.cssText = 'display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:0 0 4px 0; overflow:hidden;'
 
     // Sección principal (main) - Contenedor formulario + spinner
     const main = document.createElement('div');
     main.className = 'deepdots-popup-main';
-    main.style.cssText = 'display:flex; flex-direction:column; width:100%; max-height:80vh; overflow-y:auto;';
+    main.style.cssText = 'display:flex; flex-direction:column; width:100%; flex:1 1 auto; min-height:0; overflow-y:auto;';
 
     const formWrapper = document.createElement('div');
     formWrapper.style.cssText = 'width:100%; flex: 1 1 auto;';
@@ -270,10 +383,12 @@ export async function renderPopup(
       background: transparent;
       color: #333;
       border: 1px solid #999;
+      min-height: 44px;
       padding: 12px 24px;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
+      font-weight: 600;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       transition: filter .15s ease;
       display: inline-flex;
@@ -301,10 +416,12 @@ export async function renderPopup(
       background: #1E293B;
       color: #fff;
       border: none;
+      min-height: 44px;
       padding: 12px 24px;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
+      font-weight: 600;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       transition: filter .15s ease;
       display: inline-flex;
@@ -316,6 +433,8 @@ export async function renderPopup(
         emit('popup_clicked', surveyId, {action: 'start_survey'});
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (formInstance as any)?.startForm?.();
+        onStartPage = false;
+        updateProgress({progress: formInstance?.progress, total: formInstance?.total});
     };
 
     // Botón cerrar popup, solo aparece al terminar la encuesta
@@ -326,10 +445,12 @@ export async function renderPopup(
       background: #1E293B;
       color: #fff;
       border: none;
+      min-height: 44px;
       padding: 12px 24px;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
+      font-weight: 600;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       transition: filter .15s ease;
       display: inline-flex;
@@ -355,10 +476,12 @@ export async function renderPopup(
       background: #1E293B;
       color: #fff;
       border: none;
+      min-height: 44px;
       padding: 12px 24px;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
+      font-weight: 600;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       transition: filter .15s ease;
       display: inline-flex;
@@ -387,8 +510,10 @@ export async function renderPopup(
     footer.appendChild(startButton);
 
     // Añadir footer al main y main al containerContent
-    main.appendChild(footer);
     containerContent.appendChild(main);
+    // El footer va fuera del área scrollable, como hermano de `main`.
+    footer.style.flex = '0 0 auto';
+    containerContent.appendChild(footer);
 
     // Helper para controlar visibilidad de botones según estado
     type ViewState = 'loading' | 'start' | 'in_progress_first' | 'in_progress_next' | 'completed' | 'error';
@@ -440,8 +565,14 @@ export async function renderPopup(
         }
     }
 
+    /** Estado de navegación según la profundidad recorrida (no según `total`). */
+    function updateNavButtons() {
+        updateButtons(pageDepth > 0 ? 'in_progress_next' : 'in_progress_first');
+    }
+
     // Ensamblar popup
     popup.appendChild(header);
+    popup.appendChild(progressEl);
     popup.appendChild(containerContent);
 
     container.innerHTML = '';
@@ -507,7 +638,7 @@ export async function renderPopup(
                 progress?: number, total?: number
             }) => void;
             beforeSubmitEvent?: () => void;
-            afterSubmitEvent?: (args: { error?: string, completed: boolean, progress: number, total: number }) => void;
+            afterSubmitEvent?: (args: { error?: string, completed: boolean, progress: number, total: number, followup?: boolean }) => void;
             onBackEvent?: (args: { error?: string, progress: number, total: number, followup: boolean }) => void;
         }
 
@@ -534,6 +665,16 @@ export async function renderPopup(
             const s = formData?.style;
             if (s && !stylesInjected) {
                 stylesInjected = true;
+                // Sin título del popup, cae al del survey configurado en la plataforma.
+                if (!titleEl.textContent) setTitle(s.title);
+                // La barra de progreso la decide el host (init) y, si no se pronuncia, la plataforma.
+                if (options?.showProgressBar === undefined) progressEnabled = s.showProgressBar === true;
+                if (s.showProgressUnit !== undefined) progressShowUnit = s.showProgressUnit !== false;
+                if (s.progressUnit) progressUnit = s.progressUnit;
+                if (s.loadingBarColor) {
+                    progressBar.style.background = s.loadingBarColor;
+                    progressFollowUp.style.background = s.loadingBarColor;
+                }
                 // Fondo del contenedor popup
                 if (s.boxBackgroundColor) {
                     popup.style.background = s.boxBackgroundColor;
@@ -610,6 +751,7 @@ export async function renderPopup(
                 if (s.startMessage && s.startMessage !== '') {
                     // Si hay mensaje de inicio, mostrar botón Start inicialmente
                     sdkLog(s.startMessage);
+                    onStartPage = true;
                     updateButtons('start');
                 } else {
                     // Si no hay mensaje de inicio, mostrar estado de primera página (solo Send)
@@ -620,6 +762,8 @@ export async function renderPopup(
                 updateButtons('in_progress_first');
             }
 
+            // El total solo se conoce con el form ya montado.
+            updateProgress({progress: formInstance.progress, total: formInstance.total});
             emit('popup_clicked', surveyId, {action: 'loaded'});
             setLoading(false); // hace visible el formulario y oculta el spinner
         };
@@ -627,7 +771,7 @@ export async function renderPopup(
             setLoading(true);
             emit('popup_clicked', surveyId, {action: 'before_submit'});
         };
-        generateOptions.afterSubmitEvent = ({error, completed, total, progress}) => {
+        generateOptions.afterSubmitEvent = ({error, completed, total, progress, followup}) => {
             // No cambiar estado de loading aquí; lo gestiona cada transición
             // Normalizar el error a texto seguro
             const errText = error ? (typeof error === 'string' ? error : ((error as unknown as {message?: string}).message ?? String(error))) : '';
@@ -639,7 +783,8 @@ export async function renderPopup(
                     errorHint.textContent = 'Please answer the required question to continue.';
                     errorHint.style.display = 'block';
                     emit('popup_clicked', surveyId, {action: 'validation_error_required'});
-                    updateButtons('in_progress_next');
+                    // La página no ha cambiado: el estado de navegación se queda como estaba.
+                    updateNavButtons();
                     return;
                 }
                 // Otros errores: mostrar mensaje genérico y permitir cerrar
@@ -656,23 +801,21 @@ export async function renderPopup(
                 emit('survey_completed', surveyId, {action: 'completed'});
                 surveyCompletedEmitted = true;
                 updateButtons('completed');
+                updateProgress({progress, total, completed: true});
                 return;
             }
             emit('popup_clicked', surveyId, {action: 'partial'});
-            if (total > 1 && progress > 0 && progress < total) {
-                updateButtons('in_progress_next');
-            } else {
-                updateButtons('in_progress_first');
-            }
+            pageDepth++;
+            updateNavButtons();
+            updateProgress({progress, total, followup});
         };
-        generateOptions.onBackEvent = ({progress}) => {
+        generateOptions.onBackEvent = ({progress, error, followup}) => {
             emit('popup_clicked', surveyId, {action: 'back'});
-            // Si volvemos a la primera página, ocultar Back
-            if (progress === 0) {
-                updateButtons('in_progress_first');
-            } else {
-                updateButtons('in_progress_next');
-            }
+            // Con error ("No page found") no hubo navegación: la profundidad no se toca.
+            if (!error) pageDepth = Math.max(0, pageDepth - 1);
+            updateNavButtons();
+            // onBackEvent no trae `total`: se lee del form, que es su dueño.
+            updateProgress({progress, total: formInstance.total, followup});
         };
 
         // Ejecutar generación con opciones tipadas

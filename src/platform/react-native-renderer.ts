@@ -1,5 +1,5 @@
 import type { DeepdotsEventType, PopupActions, PopupStyle } from '../types';
-import type { PopupRenderer } from './renderer';
+import type { PopupRenderer, PopupRenderOptions } from './renderer';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import { buildSurveyHtml } from '../ui/surveyHtml';
 import { sdkWarn } from '../util/logger';
@@ -63,6 +63,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     miniService?: string,
     analyticsFeedbackSessionId?: string,
     renderChrome?: boolean,
+    options?: PopupRenderOptions,
   ): void {
     this.emitFn = emit;
     this.onCloseFn = onClose;
@@ -82,6 +83,9 @@ export class ReactNativePopupRenderer implements PopupRenderer {
       actions,
       // renderChrome:false (init) → HTML sin tarjeta/overlay: el host lo envuelve en su Modal.
       chrome: renderChrome,
+      title: options?.title,
+      showProgressBar: options?.showProgressBar,
+      surveyCss: options?.surveyCss,
     });
     if (this.options.onShow) {
       this.options.onShow({ surveyId, productId, html });
