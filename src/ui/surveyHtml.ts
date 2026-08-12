@@ -33,6 +33,24 @@ export interface BuildSurveyHtmlOptions {
    * botones y botón de cerrar). Pensado para React Native cuando el host gestiona el contenedor.
    */
   chrome?: boolean;
+  /**
+   * Título de la cabecera, a la izquierda del botón de cerrar. Viene de `PopupDefinition.title`.
+   * Si falta, se usa el `title` del estilo del survey cuando carga; si tampoco hay, la cabecera
+   * solo lleva la X (comportamiento anterior).
+   */
+  title?: string;
+  /**
+   * Barra de progreso ("Question X of Y" + barra) bajo la cabecera. `undefined` respeta el
+   * `showProgressBar` que configure la plataforma en el estilo del survey; `true`/`false` lo
+   * fuerzan desde el host. Solo se pinta con más de una página y fuera de la pantalla de inicio.
+   */
+  showProgressBar?: boolean;
+  /**
+   * CSS del host, inyectado como último bloque de estilos: gana en cascada sobre el del SDK
+   * y sobre el de `@magicfeedback/native` sin tener que tocar ninguno de los dos. Es la vía
+   * para reestilar el área de preguntas (enunciados, opciones, escalas) por integración.
+   */
+  surveyCss?: string;
 }
 
 interface PositionRule {
@@ -52,14 +70,27 @@ const POSITION_MAP: Record<string, PositionRule> = {
   'top-left': { justifyContent: 'flex-start', alignItems: 'flex-start', padding: '16px', background: 'transparent' },
 };
 
+/**
+ * Serializa un valor para incrustarlo dentro de un `<script>`. `JSON.stringify` no escapa `<`,
+ * así que un `</script>` dentro de un texto de la API (título, etiqueta de botón, metadata)
+ * cerraría el bloque y el resto se interpretaría como HTML. Escapa también los separadores de
+ * línea U+2028/U+2029, que son JSON válido pero rompen un literal de JavaScript.
+ */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value ?? null)
+    .replace(/</g, '\\u003C')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const env = opts.env === 'development' ? 'dev' : 'prod';
   const version = opts.version ?? '2.2.4';
   const cdn = `https://cdn.jsdelivr.net/npm/@magicfeedback/native@${version}/dist/magicfeedback-sdk.browser.js`;
-  const sid = JSON.stringify(opts.surveyId);
-  const pid = JSON.stringify(opts.productId);
-  const profileJson = JSON.stringify(opts.profile ?? []);
-  const metaJson = JSON.stringify(opts.metadata ?? []);
+  const sid = jsonForScript(opts.surveyId);
+  const pid = jsonForScript(opts.productId);
+  const profileJson = jsonForScript(opts.profile ?? []);
+  const metaJson = jsonForScript(opts.metadata ?? []);
   const fontFaceCss = opts.font ? buildFontFaceCss(opts.font.family, opts.font.url) : '';
   const fontFamilyValue = opts.font ? buildFontFamilyValue(opts.font.family) : '-apple-system,system-ui,sans-serif';
   const popupClass = opts.font?.family ? 'deepdots-popup deepdots-has-font' : 'deepdots-popup';
@@ -68,6 +99,8 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const popupBg = isDark ? '#1e1e1e' : '#fff';
   const colorScheme = isDark ? 'dark' : 'light';
   const textPrimary = isDark ? '#f0f0f0' : '#111';
+  const textMuted = isDark ? '#9ca3af' : '#6b7280';
+  const trackBg = isDark ? '#3f3f46' : '#e5e7eb';
   const pos = POSITION_MAP[opts.position ?? 'center'] ?? POSITION_MAP.center;
 
   // chrome:false → el host envuelve el survey en su propio Modal/tarjeta. El HTML se vuelve
@@ -83,11 +116,24 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const cardMaxWidth = chrome ? '600px' : 'none';
   const cardWidth = chrome ? '90%' : '100%';
   const cardMinHeight = chrome ? '200px' : '0';
+  // Con chrome el alto lo marca el contenido (hasta 90vh); sin chrome llena el contenedor del
+  // host. En ambos casos hace falta un alto acotado para que el footer pueda quedar fijo abajo.
+  const cardHeight = chrome ? 'auto' : '100%';
+  const cardMaxHeight = chrome ? '90vh' : '100%';
 
-  const backLabel = JSON.stringify(opts.actions?.back?.label ?? 'Back');
-  const startLabel = JSON.stringify(opts.actions?.start?.label ?? 'Start survey');
-  const completeLabel = JSON.stringify(opts.actions?.complete?.label ?? 'Complete survey');
-  const submitLabel = JSON.stringify(opts.actions?.accept?.label ?? 'Send');
+  // El título viaja como literal JSON y se aplica con textContent: viene de la API y no debe
+  // interpolarse en el HTML (mismo criterio anti-inyección que `font.family`).
+  const titleJson = jsonForScript(opts.title ?? '');
+  // CSS del host: va el último para ganar en cascada. Se corta en `</style>` porque el bloque
+  // se cierra ahí y todo lo que siguiera pasaría a interpretarse como HTML.
+  const customCss = (opts.surveyCss ?? '').replace(/<\/\s*style/gi, '<\\/style');
+  // `null` = decide la plataforma (style.showProgressBar); true/false = lo fuerza el host.
+  const progressPref = opts.showProgressBar === undefined ? 'null' : String(opts.showProgressBar);
+
+  const backLabel = jsonForScript(opts.actions?.back?.label ?? 'Back');
+  const startLabel = jsonForScript(opts.actions?.start?.label ?? 'Start survey');
+  const completeLabel = jsonForScript(opts.actions?.complete?.label ?? 'Complete survey');
+  const submitLabel = jsonForScript(opts.actions?.accept?.label ?? 'Send');
 
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -97,18 +143,36 @@ ${magicfeedbackCss}
 ${fontFaceCss}
 html,body{margin:0;padding:0;height:100%;font-family:${fontFamilyValue}}
 body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${pos.alignItems};background:${bodyBg};padding:${bodyPadding};box-sizing:border-box}
-.deepdots-popup{position:relative;display:flex;flex-direction:column;justify-content:flex-start;background:${cardBg};color-scheme:${colorScheme};border-radius:${cardRadius};padding:24px;box-shadow:${cardShadow};max-width:${cardMaxWidth};width:${cardWidth};min-height:${cardMinHeight};box-sizing:border-box}
-.deepdots-popup-header{display:flex;justify-content:flex-end;align-items:center;width:100%}
-#dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:${textPrimary};padding:4px}
-.deepdots-popup-container-content{display:flex;flex-direction:column;padding:0 20px 12px 20px;max-height:80vh;overflow:hidden;box-sizing:border-box}
-.deepdots-popup-main{display:flex;flex-direction:column;width:100%;max-height:80vh;overflow-y:auto;overflow-x:hidden;position:relative}
+.deepdots-popup{position:relative;display:flex;flex-direction:column;justify-content:flex-start;background:${cardBg};color-scheme:${colorScheme};border-radius:${cardRadius};padding:24px;box-shadow:${cardShadow};max-width:${cardMaxWidth};width:${cardWidth};min-height:${cardMinHeight};height:${cardHeight};max-height:${cardMaxHeight};box-sizing:border-box}
+.deepdots-popup-header{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;flex:0 0 auto}
+/* Neutraliza la regla \`.deepdots-popup h2\` del CSS del survey (uppercase, centrado y
+   margin-bottom 40px), pensada para los enunciados y no para el título de la cabecera. */
+#dd-title{margin:0;font-family:var(--deepdots-font,'Montserrat',inherit);font-size:17px;font-weight:600;line-height:1.3;color:${textPrimary};text-transform:none;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:${textPrimary};padding:4px;flex:0 0 auto;margin-left:auto}
+/* Progreso alineado con la cabecera: sin padding horizontal propio, lo marca la tarjeta. */
+.deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:12px 0 16px 0;box-sizing:border-box}
+.deepdots-progress-head{display:flex;flex-direction:row;justify-content:space-between;align-items:center;width:100%;gap:8px}
+#dd-progress-label{font-size:13px;line-height:1.2}
+/* "Question 1" en negrita y "of 3" en regular gris, como el mockup. */
+#dd-progress-current{font-weight:700;color:${textPrimary}}
+#dd-progress-total{font-weight:400;color:${textMuted}}
+#dd-progress-followup{display:none;font-size:12px;font-weight:600;color:#fff;background:rgba(59,130,246,0.44);border-radius:999px;padding:2px 10px}
+.deepdots-progress-track{width:100%;height:4px;border-radius:999px;background:${trackBg};overflow:hidden}
+#dd-progress-bar{height:100%;width:0%;background:#22C55E;border-radius:999px;transition:width 450ms ease}
+/* El popup es una columna: solo el bloque de preguntas hace scroll, para que el footer
+   con las acciones quede siempre visible en el borde inferior (antes vivía dentro del
+   área scrollable y había que bajar hasta el final para ver "Send"). */
+/* Sin sangrado extra: el contenido se alinea con el título y con la barra de progreso (antes
+   sumaba 20px a los lados sobre el padding de la tarjeta y quedaba más adentro que la cabecera). */
+.deepdots-popup-container-content{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding:0 0 4px 0;overflow:hidden;box-sizing:border-box}
+.deepdots-popup-main{display:flex;flex-direction:column;width:100%;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative}
 #dd-form-wrapper{width:100%;flex:1 1 auto}
 #mf{width:100%;box-sizing:border-box;visibility:hidden}
 .deepdots-popup-main *{max-width:100%;box-sizing:border-box}
 #dd-logo{max-height:40px;max-width:100%;object-fit:contain}
 .deepdots-error-hint{display:none;margin:12px 0 0 0;padding:10px 12px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;font-size:13px}
 .deepdots-popup-footer{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;width:100%;padding-top:16px}
-.dd-nav-btn{display:none;border:none;padding:12px 24px;border-radius:4px;cursor:pointer;font-size:14px;box-shadow:0 2px 4px rgba(0,0,0,0.1);align-items:center;justify-content:center;text-align:center}
+.dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:15px;font-weight:600;align-items:center;justify-content:center;text-align:center}
 #dd-back{background:transparent;color:#333;border:1px solid #999}
 #dd-start,#dd-complete,#dd-submit{background:#1E293B;color:#fff;border:none}
 #dd-submit:disabled,#dd-start:disabled,#dd-back:disabled,#dd-complete:disabled{opacity:0.6;cursor:not-allowed}
@@ -117,22 +181,33 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
 @keyframes ddspin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @media (max-width:640px){
   .deepdots-popup{width:calc(100% - 24px);max-width:calc(100% - 24px);border-radius:12px}
-  .deepdots-popup-footer{flex-direction:column-reverse;gap:12px}
+  /* Apilados: la acción principal (Send/Start/Complete) arriba y Back debajo. El orden del
+     DOM ya es ese, así que \`column\` (no \`column-reverse\`) es lo que lo respeta. */
+  .deepdots-popup-footer{flex-direction:column;gap:8px}
   .dd-nav-btn{width:100%}
   .magicfeedback-checkbox-container,.magicfeedback-radio-container{margin:4px 0;padding:4px 8px}
   .magicfeedback-checkbox label,.magicfeedback-radio-container label{font-size:15px}
   .deepdots-popup input[type="radio"]{margin:6px 0 6px 8px}
   .deepdots-popup input[type="checkbox"]{width:16px;height:16px}
 }
+${customCss}
 </style>
 </head><body>
 <div class="${popupClass}" id="dd-popup">
   <div class="deepdots-popup-header">
+    <h2 id="dd-title" hidden></h2>
     <button type="button" id="dd-close" aria-label="Close popup">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
+  </div>
+  <div class="deepdots-progress" id="dd-progress">
+    <div class="deepdots-progress-head">
+      <span id="dd-progress-label"><span id="dd-progress-current"></span><span id="dd-progress-total"></span></span>
+      <span id="dd-progress-followup">Follow-up</span>
+    </div>
+    <div class="deepdots-progress-track"><div id="dd-progress-bar"></div></div>
   </div>
   <div class="deepdots-popup-container-content">
     <div class="deepdots-popup-main" id="dd-main">
@@ -141,12 +216,12 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
         <div id="mf"></div>
       </div>
       <div class="deepdots-error-hint" id="dd-error" role="alert" aria-live="polite"></div>
-      <div class="deepdots-popup-footer" id="dd-footer">
-        <button type="button" class="dd-nav-btn" id="dd-submit">Send</button>
-        <button type="button" class="dd-nav-btn" id="dd-back">Back</button>
-        <button type="button" class="dd-nav-btn" id="dd-complete">Complete survey</button>
-        <button type="button" class="dd-nav-btn" id="dd-start">Start survey</button>
-      </div>
+    </div>
+    <div class="deepdots-popup-footer" id="dd-footer">
+      <button type="button" class="dd-nav-btn" id="dd-submit">Send</button>
+      <button type="button" class="dd-nav-btn" id="dd-back">Back</button>
+      <button type="button" class="dd-nav-btn" id="dd-complete">Complete survey</button>
+      <button type="button" class="dd-nav-btn" id="dd-start">Start survey</button>
     </div>
   </div>
 </div>
@@ -167,6 +242,51 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
   var startBtn=document.getElementById('dd-start');
   var completeBtn=document.getElementById('dd-complete');
   var submitBtn=document.getElementById('dd-submit');
+  var titleEl=document.getElementById('dd-title');
+  var progressEl=document.getElementById('dd-progress');
+  var progressLabel=document.getElementById('dd-progress-label');
+  var progressCurrent=document.getElementById('dd-progress-current');
+  var progressTotal=document.getElementById('dd-progress-total');
+  var progressFollowUp=document.getElementById('dd-progress-followup');
+  var progressBar=document.getElementById('dd-progress-bar');
+
+  function setTitle(t){
+    if(!t) return;
+    titleEl.textContent=t;
+    titleEl.hidden=false;
+  }
+  setTitle(${titleJson});
+
+  // Estado de la barra de progreso. \`progressPref\` null = manda la plataforma (style).
+  var progressPref=${progressPref};
+  var progressEnabled=progressPref===true;
+  var progressShowUnit=true;
+  var progressUnit='fraction';
+  var onStartPage=false;
+
+  function updateProgress(p){
+    var total=p&&typeof p.total==='number'?p.total:0;
+    var progress=p&&typeof p.progress==='number'?p.progress:0;
+    // Solo tiene sentido con más de una página, fuera de la pantalla de inicio y sin completar.
+    if(!progressEnabled||onStartPage||p&&p.completed||total<=1){ progressEl.style.display='none'; return; }
+    progressEl.style.display='flex';
+    // Espejo de LineProgressQuestion (MagicSurvey): la barra usa el valor real (las follow-up
+    // suman +0.5 y avanzan media casilla) y la etiqueta redondea hacia abajo, porque una
+    // follow-up es un paso DENTRO de la misma pregunta, no la siguiente.
+    var current=Math.min(total,Math.max(1,progress+1));
+    var pct=Math.min(100,Math.max(0,(current/total)*100));
+    progressBar.style.width=pct+'%';
+    var label=Math.min(total,Math.max(1,Math.floor(progress)+1));
+    progressLabel.style.display=progressShowUnit?'block':'none';
+    if(progressUnit==='percentage'){
+      progressCurrent.textContent=Math.round(pct)+'%';
+      progressTotal.textContent='';
+    } else {
+      progressCurrent.textContent='Question '+label;
+      progressTotal.textContent=' of '+total;
+    }
+    progressFollowUp.style.display=p&&p.followup?'inline-block':'none';
+  }
 
   backBtn.textContent=${backLabel};
   startBtn.textContent=${startLabel};
@@ -175,13 +295,30 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
 
   document.getElementById('dd-close').onclick=function(){ emitJSON('popup_close'); };
   backBtn.onclick=function(){ if(window.DeepdotsForm && window.DeepdotsForm.back){ window.DeepdotsForm.back(); } };
-  startBtn.onclick=function(){ if(window.DeepdotsForm && window.DeepdotsForm.startForm){ window.DeepdotsForm.startForm(); } };
+  startBtn.onclick=function(){
+    if(window.DeepdotsForm && window.DeepdotsForm.startForm){
+      window.DeepdotsForm.startForm();
+      onStartPage=false;
+      updateProgress({ progress:window.DeepdotsForm.progress, total:window.DeepdotsForm.total, completed:false, followup:false });
+    }
+  };
   completeBtn.onclick=function(){ emitJSON('popup_close'); };
   var surveyCompletedEmitted=false;
   submitBtn.onclick=function(){
     if(surveyCompletedEmitted) return;
     if(window.DeepdotsForm && window.DeepdotsForm.send){ window.DeepdotsForm.send(); }
   };
+
+  // Profundidad de navegación DENTRO del survey: +1 por página avanzada, -1 al volver.
+  // Sustituye a la condición \`total>1 && progress>0 && progress<total\`, que escondía el
+  // Back siempre que la siguiente pantalla era una follow-up dinámica: las follow-up no
+  // entran en el grafo (suman +0.5 al progress y no tocan el total), así que un survey de
+  // una pregunta con follow-up tiene total=1 y nunca cumplía \`total>1\`.
+  var pageDepth=0;
+
+  function updateNavButtons(){
+    updateButtons(pageDepth>0?'in_progress_next':'in_progress_first');
+  }
 
   function updateButtons(state){
     backBtn.style.display='none';
@@ -231,6 +368,13 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
           var s=args && args.formData ? args.formData.style : null;
           if(s && !stylesInjected){
             stylesInjected=true;
+            // Sin título del popup, cae al del survey configurado en la plataforma.
+            if(!titleEl.textContent){ setTitle(s.title); }
+            // La barra de progreso la decide el host (init) y, si no se pronuncia, la plataforma.
+            if(progressPref===null){ progressEnabled=s.showProgressBar===true; }
+            if(s.showProgressUnit!==undefined){ progressShowUnit=s.showProgressUnit!==false; }
+            if(s.progressUnit){ progressUnit=s.progressUnit; }
+            if(s.loadingBarColor){ progressBar.style.background=s.loadingBarColor; progressFollowUp.style.background=s.loadingBarColor; }
             if(chromeOn && s.boxBackgroundColor){ popup.style.background=s.boxBackgroundColor; }
             if(s.contentAlign){ main.style.justifyContent = s.contentAlign==='center' ? 'center' : 'flex-start'; }
             if(s.buttonPrimaryColor){
@@ -252,11 +396,13 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
               else if(s.logoPosition==='center'){ logoImg.style.margin='0 auto 20px auto'; logoImg.style.display='block'; }
               main.insertBefore(logoImg, document.getElementById('dd-form-wrapper'));
             }
-            if(s.startMessage && s.startMessage!==''){ updateButtons('start'); }
+            if(s.startMessage && s.startMessage!==''){ onStartPage=true; updateButtons('start'); }
             else { updateButtons('in_progress_first'); }
           } else {
             updateButtons('in_progress_first');
           }
+          // El total solo se conoce una vez montado el form; sin él no hay barra que pintar.
+          updateProgress({ progress:form.progress, total:form.total, completed:false, followup:false });
           emitJSON('loaded');
           setLoading(false);
         },
@@ -269,9 +415,10 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
           if(error){
             setLoading(false);
             if(error.toLowerCase().indexOf('no response')!==-1){
+              // La página no ha cambiado: el estado de navegación se queda como estaba.
               errorHint.textContent='Please answer the required question to continue.';
               errorHint.style.display='block';
-              updateButtons('in_progress_next');
+              updateNavButtons();
               return;
             }
             errorHint.textContent='An error occurred while submitting. Please try again or close the popup.';
@@ -283,16 +430,21 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
           if(p && p.completed){
             surveyCompletedEmitted=true;
             updateButtons('completed');
+            updateProgress(p);
             emitJSON('survey_completed', p);
             return;
           }
-          if(p && p.total>1 && p.progress>0 && p.progress<p.total){ updateButtons('in_progress_next'); }
-          else { updateButtons('in_progress_first'); }
+          pageDepth++;
+          updateNavButtons();
+          updateProgress(p);
           emitJSON('after_submit', p);
         },
         onBackEvent:function(p){
-          if(p && p.progress===0){ updateButtons('in_progress_first'); }
-          else { updateButtons('in_progress_next'); }
+          // Con error ("No page found") no hubo navegación: la profundidad no se toca.
+          if(!(p&&p.error)){ pageDepth=Math.max(0,pageDepth-1); }
+          updateNavButtons();
+          // onBackEvent no trae \`total\`: se lee del form, que es su dueño.
+          updateProgress({ progress:p&&p.progress, total:form.total, completed:false, followup:p&&p.followup });
           emitJSON('back', p);
         }
       }).catch(function(e){ setLoading(false); emit('error:init'); });

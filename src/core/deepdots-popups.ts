@@ -89,6 +89,10 @@ export class DeepdotsPopups {
     private env: 'production' | 'development' = 'production';
     /** Si el SDK pinta el "modal" del popup (RN). Default true; false = el host lo envuelve. */
     private renderChrome = true;
+    /** Barra de progreso. undefined = la decide la plataforma (style.showProgressBar). */
+    private showProgressBar: boolean | undefined = undefined;
+    /** CSS del host inyectado al final de los estilos del popup. */
+    private surveyCss: string | undefined = undefined;
 
     /** Identidad + sesión (Fase 1 tracking). Null hasta init(). */
     private tracking: TrackingManager | null = null;
@@ -146,6 +150,8 @@ export class DeepdotsPopups {
         this.baseUrl = env.apiBaseUrl;
         this.env = config.nodeEnv || 'production';
         this.renderChrome = config.renderChrome ?? true;
+        this.showProgressBar = config.showProgressBar;
+        this.surveyCss = config.surveyCss;
 
         this.config = {
             apiKey: config.apiKey || undefined,
@@ -682,7 +688,7 @@ export class DeepdotsPopups {
         this.log('Showing popup (definition)', def);
         this.surveyToPopupId.set(def.surveyId, def.id);
         this.lastShown.set(def.id, Date.now());
-        this.renderPopup(def.surveyId, def.productId, def.actions, def.style);
+        this.renderPopup(def.surveyId, def.productId, def.actions, def.style, def.title);
         this.emitEvent('popup_shown', def.surveyId, { popupId: def.id });
     }
 
@@ -1075,7 +1081,7 @@ export class DeepdotsPopups {
     }
 
     /** Render the popup UI */
-    private renderPopup(surveyId: string, productId: string, actions?: PopupActions, style?: PopupStyle): void {
+    private renderPopup(surveyId: string, productId: string, actions?: PopupActions, style?: PopupStyle, title?: string): void {
         const userId = this.tracking?.getUserId() ?? this.config?.userId;
         const sessionId = this.tracking?.getSessionId() ?? undefined;
         const miniService = this.analytics?.getMiniService() ?? undefined;
@@ -1095,6 +1101,7 @@ export class DeepdotsPopups {
                 miniService,
                 analyticsFeedbackSessionId,
                 this.renderChrome,
+                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss },
             );
             return;
         }
@@ -1115,6 +1122,7 @@ export class DeepdotsPopups {
                 sessionId,
                 miniService,
                 analyticsFeedbackSessionId,
+                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss },
             );
         });
     }
