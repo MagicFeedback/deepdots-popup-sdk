@@ -34,9 +34,9 @@ export interface BuildSurveyHtmlOptions {
    */
   chrome?: boolean;
   /**
-   * Título de la cabecera, a la izquierda del botón de cerrar. Viene de `PopupDefinition.title`.
-   * Si falta, se usa el `title` del estilo del survey cuando carga; si tampoco hay, la cabecera
-   * solo lleva la X (comportamiento anterior).
+   * Título de la cabecera, a la izquierda del botón de cerrar. Es el `title` de la definición
+   * del popup (`GET /sdk/{publicKey}/popups`), así que cambia de un popup a otro. Vacío es un
+   * valor legítimo: la cabecera se queda solo con la X. NO cae al título del survey.
    */
   title?: string;
   /**
@@ -120,6 +120,12 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   // host. En ambos casos hace falta un alto acotado para que el footer pueda quedar fijo abajo.
   const cardHeight = chrome ? 'auto' : '100%';
   const cardMaxHeight = chrome ? '90vh' : '100%';
+  // En móvil la tarjeta se estrecha y se separa de los bordes de la ventana... salvo con
+  // chrome:false, donde el contenedor es del host: ahí llena el ancho y NO añade los insets
+  // de safe-area (el host ya los aplica; sumarlos otra vez dejaba un hueco muerto bajo el footer).
+  const mobileCard = chrome
+    ? `.deepdots-popup{width:calc(100% - 24px);max-width:calc(100% - 24px);border-radius:12px;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 16px}`
+    : `.deepdots-popup{width:100%;max-width:100%;border-radius:0;padding:16px}`;
 
   // El título viaja como literal JSON y se aplica con textContent: viene de la API y no debe
   // interpolarse en el HTML (mismo criterio anti-inyección que `font.family`).
@@ -149,8 +155,9 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
    margin-bottom 40px), pensada para los enunciados y no para el título de la cabecera. */
 #dd-title{margin:0;font-family:var(--deepdots-font,'Montserrat',inherit);font-size:17px;font-weight:600;line-height:1.3;color:${textPrimary};text-transform:none;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:${textPrimary};padding:4px;flex:0 0 auto;margin-left:auto}
-/* Progreso alineado con la cabecera: sin padding horizontal propio, lo marca la tarjeta. */
-.deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:12px 0 16px 0;box-sizing:border-box}
+/* Progreso alineado con la cabecera: sin padding horizontal propio, lo marca la tarjeta.
+   El vertical es el mismo arriba y abajo, y del mismo valor que el padding de la tarjeta. */
+.deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:16px 0;box-sizing:border-box}
 .deepdots-progress-head{display:flex;flex-direction:row;justify-content:space-between;align-items:center;width:100%;gap:8px}
 #dd-progress-label{font-size:13px;line-height:1.2}
 /* "Question 1" en negrita y "of 3" en regular gris, como el mockup. */
@@ -164,26 +171,37 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
    área scrollable y había que bajar hasta el final para ver "Send"). */
 /* Sin sangrado extra: el contenido se alinea con el título y con la barra de progreso (antes
    sumaba 20px a los lados sobre el padding de la tarjeta y quedaba más adentro que la cabecera). */
-.deepdots-popup-container-content{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding:0 0 4px 0;overflow:hidden;box-sizing:border-box}
+/* Sin barra de progreso, este padding-top es el que separa la cabecera de la pregunta. Con
+   barra, el JS lo pone a 0 y el hueco lo aporta el padding inferior del bloque de progreso,
+   de modo que el espacio por arriba y por abajo de la barra es idéntico. */
+.deepdots-popup-container-content{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding:16px 0 0 0;overflow:hidden;box-sizing:border-box}
+/* El enunciado trae margin-top:20px del CSS de surveys, que sumaba al hueco de la barra y
+   descompensaba la simetría. Solo se anula en el primero: entre preguntas sigue separando. */
+.deepdots-popup .magicfeedback-questions .magicfeedback-div:first-child .magicfeedback-label{margin-top:0}
 .deepdots-popup-main{display:flex;flex-direction:column;width:100%;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative}
 #dd-form-wrapper{width:100%;flex:1 1 auto}
 #mf{width:100%;box-sizing:border-box;visibility:hidden}
 .deepdots-popup-main *{max-width:100%;box-sizing:border-box}
 #dd-logo{max-height:40px;max-width:100%;object-fit:contain}
 .deepdots-error-hint{display:none;margin:12px 0 0 0;padding:10px 12px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;font-size:13px}
-.deepdots-popup-footer{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;width:100%;padding-top:16px}
+/* Pantalla final: el HTML del editor de la plataforma (imagen + texto), centrado. */
+.deepdots-success{display:none;width:100%;text-align:center;padding:24px 0;color:${textPrimary}}
+.deepdots-success img{max-width:100%;height:auto;margin:0 auto 16px auto;display:block}
+.deepdots-success p{margin:0;font-size:16px;font-weight:600;line-height:1.4}
+.deepdots-popup-footer{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:4px;margin-top:auto;width:100%;padding-top:12px}
 .dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:15px;font-weight:600;align-items:center;justify-content:center;text-align:center}
-#dd-back{background:transparent;color:#333;border:1px solid #999}
+/* Secundario como botón de texto: sin borde ni fondo, para que el primario sea la única CTA. */
+#dd-back{background:transparent;color:${textMuted};border:none}
 #dd-start,#dd-complete,#dd-submit{background:#1E293B;color:#fff;border:none}
 #dd-submit:disabled,#dd-start:disabled,#dd-back:disabled,#dd-complete:disabled{opacity:0.6;cursor:not-allowed}
 .mf-spinner{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
 .mf-spinner-circle{width:28px;height:28px;border:3px solid #e0e6ed;border-top-color:#1E293B;border-radius:50%;animation:ddspin 0.9s linear infinite}
 @keyframes ddspin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @media (max-width:640px){
-  .deepdots-popup{width:calc(100% - 24px);max-width:calc(100% - 24px);border-radius:12px}
+  ${mobileCard}
   /* Apilados: la acción principal (Send/Start/Complete) arriba y Back debajo. El orden del
      DOM ya es ese, así que \`column\` (no \`column-reverse\`) es lo que lo respeta. */
-  .deepdots-popup-footer{flex-direction:column;gap:8px}
+  .deepdots-popup-footer{flex-direction:column;gap:4px}
   .dd-nav-btn{width:100%}
   .magicfeedback-checkbox-container,.magicfeedback-radio-container{margin:4px 0;padding:4px 8px}
   .magicfeedback-checkbox label,.magicfeedback-radio-container label{font-size:15px}
@@ -209,7 +227,7 @@ ${customCss}
     </div>
     <div class="deepdots-progress-track"><div id="dd-progress-bar"></div></div>
   </div>
-  <div class="deepdots-popup-container-content">
+  <div class="deepdots-popup-container-content" id="dd-content">
     <div class="deepdots-popup-main" id="dd-main">
       <div id="dd-form-wrapper">
         <div class="mf-spinner" id="dd-spinner" role="status" aria-label="Loading survey"><div class="mf-spinner-circle"></div></div>
@@ -234,6 +252,7 @@ ${customCss}
 
   var popup=document.getElementById('dd-popup');
   var main=document.getElementById('dd-main');
+  var content=document.getElementById('dd-content');
   var footer=document.getElementById('dd-footer');
   var spinner=document.getElementById('dd-spinner');
   var formHost=document.getElementById('mf');
@@ -268,8 +287,15 @@ ${customCss}
     var total=p&&typeof p.total==='number'?p.total:0;
     var progress=p&&typeof p.progress==='number'?p.progress:0;
     // Solo tiene sentido con más de una página, fuera de la pantalla de inicio y sin completar.
-    if(!progressEnabled||onStartPage||p&&p.completed||total<=1){ progressEl.style.display='none'; return; }
+    if(!progressEnabled||onStartPage||p&&p.completed||total<=1){
+      progressEl.style.display='none';
+      // Sin barra, el hueco cabecera→pregunta lo pone el contenido.
+      content.style.paddingTop='16px';
+      return;
+    }
     progressEl.style.display='flex';
+    // Con barra, el hueco inferior ya lo pone el bloque de progreso: no duplicarlo.
+    content.style.paddingTop='0';
     // Espejo de LineProgressQuestion (MagicSurvey): la barra usa el valor real (las follow-up
     // suman +0.5 y avanzan media casilla) y la etiqueta redondea hacia abajo, porque una
     // follow-up es un paso DENTRO de la misma pregunta, no la siguiente.
@@ -308,6 +334,25 @@ ${customCss}
     if(surveyCompletedEmitted) return;
     if(window.DeepdotsForm && window.DeepdotsForm.send){ window.DeepdotsForm.send(); }
   };
+
+  // Mensaje final configurado en la plataforma (\`style.successMessage\`). Se guarda al cargar
+  // y se pinta al completar. Va por innerHTML porque es HTML del editor de la plataforma
+  // (imagen + texto), igual que ya hace \`renderStartMessage\` con el mensaje de inicio.
+  var successMessageHtml='';
+  function showSuccessScreen(){
+    progressEl.style.display='none';
+    var wrapper=document.getElementById('dd-form-wrapper');
+    if(wrapper){ wrapper.style.display='none'; }
+    var done=document.getElementById('dd-success');
+    if(!done){
+      done=document.createElement('div');
+      done.id='dd-success';
+      done.className='deepdots-success';
+      main.insertBefore(done, errorHint);
+    }
+    done.innerHTML=successMessageHtml || '<p>Thank you for your feedback!</p>';
+    done.style.display='block';
+  }
 
   // Profundidad de navegación DENTRO del survey: +1 por página avanzada, -1 al volver.
   // Sustituye a la condición \`total>1 && progress>0 && progress<total\`, que escondía el
@@ -364,12 +409,15 @@ ${customCss}
       form.generate('mf', {
         addButton:false,
         getMetaData:true,
+        // La pantalla final la pinta el popup: renderSuccess de @magicfeedback/native usa
+        // textContent, así que el mensaje de la plataforma (HTML con imagen) no se vería, y su
+        // fallback es un literal genérico que ignora style.successMessage.
+        addSuccessScreen:false,
         onLoadedEvent:function(args){
           var s=args && args.formData ? args.formData.style : null;
           if(s && !stylesInjected){
             stylesInjected=true;
-            // Sin título del popup, cae al del survey configurado en la plataforma.
-            if(!titleEl.textContent){ setTitle(s.title); }
+            if(s.successMessage){ successMessageHtml=s.successMessage; }
             // La barra de progreso la decide el host (init) y, si no se pronuncia, la plataforma.
             if(progressPref===null){ progressEnabled=s.showProgressBar===true; }
             if(s.showProgressUnit!==undefined){ progressShowUnit=s.showProgressUnit!==false; }
@@ -383,7 +431,8 @@ ${customCss}
               completeBtn.style.background=s.buttonPrimaryColor; completeBtn.style.border='none'; completeBtn.style.color='#fff';
             }
             if(s.buttonSecondaryColor){
-              backBtn.style.background='#fff'; backBtn.style.color=s.buttonSecondaryColor; backBtn.style.border='1px solid '+s.buttonSecondaryColor;
+              // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
+              backBtn.style.background='transparent'; backBtn.style.color=s.buttonSecondaryColor; backBtn.style.border='none';
             }
             if(s.logo && !document.getElementById('dd-logo')){
               var logoImg=document.createElement('img');
@@ -429,6 +478,7 @@ ${customCss}
           setLoading(false);
           if(p && p.completed){
             surveyCompletedEmitted=true;
+            showSuccessScreen();
             updateButtons('completed');
             updateProgress(p);
             emitJSON('survey_completed', p);

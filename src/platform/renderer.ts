@@ -8,7 +8,10 @@ import { isReactNativeEnv, createReactNativeRenderer } from './react-native-rend
  * alargando la lista posicional de `show`, que ya arrastra doce parámetros.
  */
 export interface PopupRenderOptions {
-  /** Título de la cabecera (de `PopupDefinition.title`). Sin él se usa el del survey. */
+  /**
+   * Título de la cabecera: el `title` de la definición del popup, tal cual llega de la API.
+   * Varía por popup y vacío es un valor válido (la cabecera se queda solo con la X).
+   */
   title?: string;
   /** Barra de progreso: `undefined` deja decidir a la plataforma, `true`/`false` la fuerzan. */
   showProgressBar?: boolean;

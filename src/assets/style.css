@@ -246,10 +246,17 @@ div.magicfeedback-radio {
     background-color: #cadff8;
 }
 
+/* Tamaño explícito y sin padding: un radio nativo con `padding: 20px` y solo `width` (sin
+   `height`) se dibujaba enorme en WebKit, que sí aplica el padding al control. Se veía en
+   iOS (WebView de React Native y Safari) y no en Chrome. `flex: 0 0 auto` evita que el
+   contenedor flex de la opción lo estire. */
 .deepdots-popup input[type="radio"] {
-    padding: 20px;
+    padding: 0;
     margin: 10px 0 10px 15px;
-    width: 40px;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    flex: 0 0 auto;
     background-color: #fff;
     box-shadow: none;
 }

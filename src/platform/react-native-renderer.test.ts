@@ -50,7 +50,12 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
 
     renderer.handleMessage(JSON.stringify({ name: 'survey_completed' }));
     expect(completed).toHaveBeenCalledWith(expect.objectContaining({ type: 'survey_completed', surveyId: 'survey-rn' }));
-    expect(hidden).toBe(1); // al completar, se desmonta el WebView
+    // Completar NO desmonta el WebView: acaba de pintarse la pantalla final del survey y
+    // cerrar aquí la hacía invisible. El cierre lo pide el usuario con el botón de completar.
+    expect(hidden).toBe(0);
+
+    renderer.handleMessage(JSON.stringify({ name: 'popup_close' }));
+    expect(hidden).toBe(1);
   });
 
   it('cierra el popup ante un mensaje popup_close', () => {
