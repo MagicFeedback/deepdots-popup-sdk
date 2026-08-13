@@ -128,8 +128,10 @@ export class ReactNativePopupRenderer implements PopupRenderer {
         }
         break;
       case 'survey_completed':
+        // Solo reporta el estado COMPLETED. NO cierra: el WebView acaba de pintar la pantalla
+        // final del survey y cerrar aquí la hacía invisible. El cierre llega después con
+        // `popup_close`, cuando el usuario pulsa el botón de completar.
         this.emitFn('survey_completed', surveyId);
-        this.onCloseFn?.(); // el core enruta a hidePopup() → renderer.hide() → onHide
         break;
       case 'popup_close':
         this.onCloseFn?.();

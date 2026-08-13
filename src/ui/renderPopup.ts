@@ -22,6 +22,10 @@ function ensureSpinnerStyles(_popup: HTMLElement) {
     const style = document.createElement('style');
     style.id = 'deepdots-spinner-styles';
     style.textContent = `
+    /* El enunciado trae margin-top:20px del CSS de surveys, que sumaba al hueco de la barra
+       de progreso y descompensaba la simetría. Solo se anula en el primero: entre preguntas
+       de la misma página sigue separando. */
+    .deepdots-popup .magicfeedback-questions .magicfeedback-div:first-child .magicfeedback-label { margin-top: 0; }
     @keyframes ddspin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .mf-spinner { display:flex; justify-content:center; align-items:center; padding:8px 0; }
     .mf-spinner-circle { width:28px; height:28px; border:3px solid #e0e6ed; border-top-color:#1E293B; border-radius:50%; animation: ddspin 0.9s linear infinite; }
@@ -51,7 +55,7 @@ function ensureResponsiveStyles(_popup: HTMLElement) {
       .deepdots-popup-header button svg { width:26px; height:26px; }
       /* Apilados en el orden del DOM: la acción principal (Send/Start/Complete) arriba y
          Back debajo. */
-      .deepdots-popup-footer { flex-direction: column !important; gap: 8px !important; }
+      .deepdots-popup-footer { flex-direction: column !important; gap: 4px !important; }
       .deepdots-popup-footer button { width: 100%; }
     }
     @media (max-width: 400px) {
@@ -258,8 +262,9 @@ export async function renderPopup(
 
     const progressEl = document.createElement('div');
     progressEl.className = 'deepdots-progress';
-    // Sin padding horizontal propio: se alinea con el título y con el contenido.
-    progressEl.style.cssText = 'display:none; flex-direction:column; gap:8px; width:100%; flex:0 0 auto; padding:12px 0 16px 0; box-sizing:border-box;';
+    // Sin padding horizontal propio: se alinea con el título y con el contenido. El vertical es
+    // el mismo arriba y abajo, y del mismo valor que el padding de la tarjeta.
+    progressEl.style.cssText = 'display:none; flex-direction:column; gap:8px; width:100%; flex:0 0 auto; padding:16px 0; box-sizing:border-box;';
     const progressHead = document.createElement('div');
     progressHead.style.cssText = 'display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; gap:8px;';
     const progressLabel = document.createElement('span');
@@ -289,9 +294,13 @@ export async function renderPopup(
         const progress = typeof p.progress === 'number' ? p.progress : 0;
         if (!progressEnabled || onStartPage || p.completed || total <= 1) {
             progressEl.style.display = 'none';
+            // Sin barra, el hueco cabecera→pregunta lo pone el contenido.
+            containerContent.style.paddingTop = '16px';
             return;
         }
         progressEl.style.display = 'flex';
+        // Con barra, el hueco inferior ya lo pone el bloque de progreso: no duplicarlo.
+        containerContent.style.paddingTop = '0';
         // La barra usa el valor real (las follow-up suman +0.5 y avanzan media casilla); la
         // etiqueta redondea hacia abajo, porque una follow-up es un paso DENTRO de la misma
         // pregunta y no la siguiente.
@@ -326,7 +335,7 @@ export async function renderPopup(
     // Sin sangrado extra: el contenido se alinea con el título y con la barra de progreso
     // (antes sumaba 20px a los lados sobre el padding de la tarjeta). `overflow:hidden` deja
     // el scroll en `main`, no en el contenedor.
-    containerContent.style.cssText = 'display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:0 0 4px 0; overflow:hidden;'
+    containerContent.style.cssText = 'display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:16px 0 0 0; overflow:hidden;'
 
     // Sección principal (main) - Contenedor formulario + spinner
     const main = document.createElement('div');
@@ -374,22 +383,23 @@ export async function renderPopup(
     const footer = document.createElement('div');
     footer.className = 'deepdots-popup-footer';
     footer.setAttribute('data-actions-wrapper', 'true');
-    footer.style.cssText = 'display:flex; flex-direction: row-reverse ;justify-content:space-between; align-items:center; gap:8px; margin-top:auto; width:100%; padding-top:16px;';
+    footer.style.cssText = 'display:flex; flex-direction: row-reverse ;justify-content:space-between; align-items:center; gap:4px; margin-top:auto; width:100%; padding-top:12px;';
 
     // Botones
     const backButton = document.createElement('button');
     backButton.textContent = actions?.back ? actions.back.label : 'Back';
+    // Secundario como botón de texto: sin borde, fondo ni sombra, para que el primario sea
+    // la única CTA con peso visual.
     backButton.style.cssText = `
       background: transparent;
-      color: #333;
-      border: 1px solid #999;
+      color: ${theme.textMuted};
+      border: none;
       min-height: 44px;
       padding: 12px 24px;
       border-radius: 6px;
       cursor: pointer;
       font-size: 15px;
       font-weight: 600;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       transition: filter .15s ease;
       display: inline-flex;
       align-items: center;
@@ -570,6 +580,29 @@ export async function renderPopup(
         updateButtons(pageDepth > 0 ? 'in_progress_next' : 'in_progress_first');
     }
 
+    /**
+     * Pantalla final con el `successMessage` configurado en la plataforma. La pinta el popup y
+     * no `@magicfeedback/native`, cuyo `renderSuccess` usa `textContent` (el mensaje es HTML del
+     * editor: imagen + texto) y cuyo fallback es un literal que ignora el estilo del survey.
+     * Va por innerHTML igual que `renderStartMessage` con el mensaje de inicio.
+     */
+    let successMessageHtml = '';
+    function showSuccessScreen() {
+        progressEl.style.display = 'none';
+        formWrapper.style.display = 'none';
+        let done = main.querySelector('.deepdots-success') as HTMLElement | null;
+        if (!done) {
+            done = document.createElement('div');
+            done.className = 'deepdots-success';
+            done.style.cssText = `width:100%; text-align:center; padding:24px 0; color:${theme.textPrimary};`;
+            main.insertBefore(done, errorHint);
+        }
+        done.innerHTML = successMessageHtml || '<p>Thank you for your feedback!</p>';
+        done.querySelectorAll('img').forEach((img) => {
+            img.style.cssText = 'max-width:100%; height:auto; margin:0 auto 16px auto; display:block;';
+        });
+    }
+
     // Ensamblar popup
     popup.appendChild(header);
     popup.appendChild(progressEl);
@@ -633,6 +666,7 @@ export async function renderPopup(
         interface TypedGenerateOptions {
             addButton: boolean;
             getMetaData: boolean;
+            addSuccessScreen: boolean;
             onLoadedEvent?: (args: {
                 formData: FormData,
                 progress?: number, total?: number
@@ -645,6 +679,10 @@ export async function renderPopup(
         const generateOptions: TypedGenerateOptions = {
             addButton: false,
             getMetaData: true,
+            // La pantalla final la pinta el popup: `renderSuccess` de @magicfeedback/native usa
+            // textContent, así que el mensaje de la plataforma (HTML con imagen) no se vería, y
+            // su fallback es un literal genérico que ignora `style.successMessage`.
+            addSuccessScreen: false,
         };
         generateOptions.onLoadedEvent = ({formData}) => {
             // Calcular altura disponible y aplicarla al main (restando header + footer + paddings)
@@ -665,8 +703,7 @@ export async function renderPopup(
             const s = formData?.style;
             if (s && !stylesInjected) {
                 stylesInjected = true;
-                // Sin título del popup, cae al del survey configurado en la plataforma.
-                if (!titleEl.textContent) setTitle(s.title);
+                if (s.successMessage) successMessageHtml = s.successMessage;
                 // La barra de progreso la decide el host (init) y, si no se pronuncia, la plataforma.
                 if (options?.showProgressBar === undefined) progressEnabled = s.showProgressBar === true;
                 if (s.showProgressUnit !== undefined) progressShowUnit = s.showProgressUnit !== false;
@@ -700,9 +737,10 @@ export async function renderPopup(
                 }
                 // Botón secundario (back) — outlined: fondo blanco, letra y borde del color secundario
                 if (s.buttonSecondaryColor) {
-                    backButton.style.background = '#fff';
+                    // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
+                    backButton.style.background = 'transparent';
                     backButton.style.color = s.buttonSecondaryColor;
-                    backButton.style.border = `1px solid ${s.buttonSecondaryColor}`;
+                    backButton.style.border = 'none';
                 }
                 if (s.logo) {
                     if (!document.getElementById('deepdots-popup-logo')) {
@@ -800,6 +838,7 @@ export async function renderPopup(
             if (completed) {
                 emit('survey_completed', surveyId, {action: 'completed'});
                 surveyCompletedEmitted = true;
+                showSuccessScreen();
                 updateButtons('completed');
                 updateProgress({progress, total, completed: true});
                 return;

@@ -94,7 +94,7 @@ describe('buildSurveyHtml chrome (paridad con renderPopup.ts)', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     // El DOM es [submit, back, complete, start]: `column` deja Send arriba; `column-reverse`
     // (lo que había) lo mandaba abajo y subía el Back.
-    expect(html).toContain('.deepdots-popup-footer{flex-direction:column;gap:8px}');
+    expect(html).toContain('.deepdots-popup-footer{flex-direction:column;gap:4px}');
     expect(html).not.toContain('flex-direction:column-reverse');
     const submitIdx = html.indexOf('id="dd-submit"');
     const backIdx = html.indexOf('id="dd-back"');
@@ -171,9 +171,12 @@ describe('buildSurveyHtml título de cabecera', () => {
     expect(html).toContain('\\u003C/script>');
   });
 
-  it('cae al title del estilo del survey cuando el popup no trae ninguno', () => {
+  it('NO cae al title del survey: el del popup es el único origen', () => {
+    // `title` es un campo de la definición del popup (GET /sdk/{publicKey}/popups) y varía de
+    // un popup a otro; vacío es un valor legítimo y debe quedarse vacío, no heredar el del survey.
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain('if(!titleEl.textContent){ setTitle(s.title); }');
+    expect(html).not.toContain('setTitle(s.title)');
+    expect(html).toContain('setTitle("")');
   });
 
   it('no hereda el uppercase del h2 del survey', () => {
@@ -214,7 +217,8 @@ describe('buildSurveyHtml barra de progreso', () => {
 
   it('se oculta en la pantalla de inicio, al completar y con una sola página', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain("if(!progressEnabled||onStartPage||p&&p.completed||total<=1){ progressEl.style.display='none'; return; }");
+    expect(html).toContain('if(!progressEnabled||onStartPage||p&&p.completed||total<=1){');
+    expect(html).toContain("progressEl.style.display='none'");
   });
 
   it('la etiqueta redondea hacia abajo (una follow-up no es la pregunta siguiente)', () => {
@@ -237,8 +241,8 @@ describe('buildSurveyHtml métricas del diseño', () => {
   it('cabecera, progreso y contenido comparten el sangrado de la tarjeta', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     // Antes el contenido sumaba 20px a los lados y quedaba más adentro que el título.
-    expect(html).toContain('.deepdots-popup-container-content{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding:0 0 4px 0');
-    expect(html).toContain('.deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:12px 0 16px 0');
+    expect(html).toContain('.deepdots-popup-container-content{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding:16px 0 0 0;');
+    expect(html).toContain('.deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:16px 0');
   });
 
   it('la barra es fina y redondeada, con la pista en gris claro', () => {
@@ -260,13 +264,71 @@ describe('buildSurveyHtml métricas del diseño', () => {
   it('los botones tienen altura y radio de acción táctil', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     expect(html).toContain('.dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:15px;font-weight:600');
-    expect(html).toContain('.deepdots-popup-footer{flex-direction:column;gap:8px}');
+    expect(html).toContain('.deepdots-popup-footer{flex-direction:column;gap:4px}');
+  });
+
+  it('el hueco por arriba y por abajo de la barra de progreso es el mismo', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    // 16px arriba y 16px abajo, el mismo valor que el padding de la tarjeta.
+    expect(html).toContain('.deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:16px 0');
+    // El margin-top del enunciado sumaba 20px por debajo y rompía la simetría.
+    expect(html).toContain('.deepdots-popup .magicfeedback-questions .magicfeedback-div:first-child .magicfeedback-label{margin-top:0}');
+    // Con barra el contenido no añade nada; sin barra es él quien separa de la cabecera.
+    expect(html).toContain("content.style.paddingTop='0'");
+    expect(html).toContain("content.style.paddingTop='16px'");
+  });
+
+  it('el secundario es un botón de texto: sin borde ni fondo', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain('#dd-back{background:transparent;color:#6b7280;border:none}');
+    // y el color de la API tampoco le devuelve el marco
+    expect(html).toContain("backBtn.style.background='transparent'; backBtn.style.color=s.buttonSecondaryColor; backBtn.style.border='none'");
+  });
+
+  it('chrome:false no duplica los insets de safe-area del contenedor del host', () => {
+    // El host ya aplica el safe area; sumarlo otra vez dejaba un hueco muerto bajo el footer.
+    const hostOwned = buildSurveyHtml({ surveyId: 's1', productId: 'p1', chrome: false });
+    expect(hostOwned).toContain('.deepdots-popup{width:100%;max-width:100%;border-radius:0;padding:16px}');
+    expect(hostOwned).not.toContain('env(safe-area-inset-bottom)');
+
+    // Con chrome el popup sí es el que se separa de los bordes de la ventana.
+    const own = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(own).toContain('env(safe-area-inset-bottom)');
+    expect(own).toContain('width:calc(100% - 24px)');
   });
 
   it('en tema dark el texto secundario y la pista se adaptan', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', theme: 'dark' });
     expect(html).toContain('#dd-progress-total{font-weight:400;color:#9ca3af}');
     expect(html).toContain('background:#3f3f46');
+  });
+});
+
+describe('buildSurveyHtml pantalla final', () => {
+  it('desactiva la pantalla final de @magicfeedback/native y pinta la propia', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    // renderSuccess del SDK de surveys usa textContent y su fallback ignora el estilo del
+    // survey, así que el mensaje de la plataforma (HTML con imagen) nunca se vería.
+    expect(html).toContain('addSuccessScreen:false');
+    expect(html).toContain('function showSuccessScreen()');
+    // El contenedor se crea al completar, no viene en el marcado inicial.
+    expect(html).toContain("done.id='dd-success'");
+    expect(html).toContain('.deepdots-success{display:none');
+  });
+
+  it('usa el successMessage de la plataforma como HTML, con fallback', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain('if(s.successMessage){ successMessageHtml=s.successMessage; }');
+    expect(html).toContain("done.innerHTML=successMessageHtml || '<p>Thank you for your feedback!</p>'");
+    // la imagen del mensaje se ajusta al ancho disponible
+    expect(html).toContain('.deepdots-success img{max-width:100%;height:auto');
+  });
+
+  it('al completar oculta el formulario y la barra, y muestra la pantalla final', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    const completedBranch = html.slice(html.indexOf('if(p && p.completed){'));
+    expect(completedBranch.slice(0, 220)).toContain('showSuccessScreen()');
+    expect(html).toContain("if(wrapper){ wrapper.style.display='none'; }");
   });
 });
 
