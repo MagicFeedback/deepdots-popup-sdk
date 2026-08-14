@@ -162,6 +162,7 @@ export async function renderPopup(
 
     // Crear popup base
     const popup = document.createElement('div');
+    popup.id = 'dd-popup';
     popup.className = 'deepdots-popup';
     popup.style.cssText = `
       position: relative;
@@ -199,6 +200,7 @@ export async function renderPopup(
 
     // Título: `textContent`, nunca innerHTML — el valor viene de la API.
     const titleEl = document.createElement('h2');
+    titleEl.id = 'dd-title';
     titleEl.className = 'deepdots-popup-title';
     // text-transform/text-align/margin neutralizan la regla `.deepdots-popup h2` del CSS del
     // survey (uppercase, centrado, margin-bottom 40px), pensada para los enunciados.
@@ -214,6 +216,7 @@ export async function renderPopup(
 
     // Botón de cierre (X)
     const closeBtn = document.createElement('button');
+    closeBtn.id = 'dd-close';
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', 'Close popup');
     closeBtn.innerHTML = `
@@ -261,29 +264,37 @@ export async function renderPopup(
     let progressUnit: 'percentage' | 'fraction' = 'fraction';
 
     const progressEl = document.createElement('div');
+    progressEl.id = 'dd-progress';
     progressEl.className = 'deepdots-progress';
     // Sin padding horizontal propio: se alinea con el título y con el contenido. El vertical es
     // el mismo arriba y abajo, y del mismo valor que el padding de la tarjeta.
     progressEl.style.cssText = 'display:none; flex-direction:column; gap:8px; width:100%; flex:0 0 auto; padding:16px 0; box-sizing:border-box;';
     const progressHead = document.createElement('div');
+    progressHead.className = 'deepdots-progress-head';
     progressHead.style.cssText = 'display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; gap:8px;';
     const progressLabel = document.createElement('span');
+    progressLabel.id = 'dd-progress-label';
     progressLabel.style.cssText = 'font-size:13px; line-height:1.2;';
     // "Question 1" en negrita y "of 3" en regular gris, como el mockup.
     const progressCurrent = document.createElement('span');
+    progressCurrent.id = 'dd-progress-current';
     progressCurrent.style.cssText = `font-weight:700; color:${theme.textPrimary};`;
     const progressTotal = document.createElement('span');
+    progressTotal.id = 'dd-progress-total';
     progressTotal.style.cssText = `font-weight:400; color:${theme.textMuted};`;
     progressLabel.appendChild(progressCurrent);
     progressLabel.appendChild(progressTotal);
     const progressFollowUp = document.createElement('span');
+    progressFollowUp.id = 'dd-progress-followup';
     progressFollowUp.textContent = 'Follow-up';
     progressFollowUp.style.cssText = 'display:none; font-size:12px; font-weight:600; color:#fff; background:rgba(59,130,246,0.44); border-radius:999px; padding:2px 10px;';
     progressHead.appendChild(progressLabel);
     progressHead.appendChild(progressFollowUp);
     const progressTrack = document.createElement('div');
+    progressTrack.className = 'deepdots-progress-track';
     progressTrack.style.cssText = `width:100%; height:4px; border-radius:999px; background:${theme.progressTrack}; overflow:hidden;`;
     const progressBar = document.createElement('div');
+    progressBar.id = 'dd-progress-bar';
     progressBar.style.cssText = 'height:100%; width:0%; background:#22C55E; border-radius:999px; transition:width 450ms ease;';
     progressTrack.appendChild(progressBar);
     progressEl.appendChild(progressHead);
@@ -326,6 +337,7 @@ export async function renderPopup(
     ensureCustomCss(options?.surveyCss);
 
     const containerContent = document.createElement('div');
+    containerContent.id = 'dd-content';
     // Estaba escrito 'conetent'; el HTML del WebView siempre usó la forma correcta. Con
     // `surveyCss` esta clase pasa a ser superficie pública, así que las dos rutas deben coincidir.
     containerContent.className = 'deepdots-popup-container-content';
@@ -339,14 +351,17 @@ export async function renderPopup(
 
     // Sección principal (main) - Contenedor formulario + spinner
     const main = document.createElement('div');
+    main.id = 'dd-main';
     main.className = 'deepdots-popup-main';
     main.style.cssText = 'display:flex; flex-direction:column; width:100%; flex:1 1 auto; min-height:0; overflow-y:auto;';
 
     const formWrapper = document.createElement('div');
+    formWrapper.id = 'dd-form-wrapper';
     formWrapper.style.cssText = 'width:100%; flex: 1 1 auto;';
 
     // Contenedor de aviso de error de validación
     const errorHint = document.createElement('div');
+    errorHint.id = 'dd-error';
     errorHint.className = 'deepdots-error-hint';
     errorHint.style.cssText = `
       display: none;
@@ -381,12 +396,15 @@ export async function renderPopup(
 
     // Sección footer (acciones) - botones en extremos
     const footer = document.createElement('div');
+    footer.id = 'dd-footer';
     footer.className = 'deepdots-popup-footer';
     footer.setAttribute('data-actions-wrapper', 'true');
     footer.style.cssText = 'display:flex; flex-direction: row-reverse ;justify-content:space-between; align-items:center; gap:4px; margin-top:auto; width:100%; padding-top:12px;';
 
     // Botones
     const backButton = document.createElement('button');
+    backButton.id = 'dd-back';
+    backButton.className = 'dd-nav-btn';
     backButton.textContent = actions?.back ? actions.back.label : 'Back';
     // Secundario como botón de texto: sin borde, fondo ni sombra, para que el primario sea
     // la única CTA con peso visual.
@@ -421,6 +439,8 @@ export async function renderPopup(
     // Boton start survyes, solo aprece cuando la encuesta empieza con mensaje de inicio
     // Width de 100% para que ocupe todo el espacio disponible
     const startButton = document.createElement('button');
+    startButton.id = 'dd-start';
+    startButton.className = 'dd-nav-btn';
     startButton.textContent = actions?.start ? actions.start.label : 'Start survey';
     startButton.style.cssText = `
       background: #1E293B;
@@ -450,6 +470,8 @@ export async function renderPopup(
     // Botón cerrar popup, solo aparece al terminar la encuesta
     // Width de 100% para que ocupe todo el espacio disponible
     const closeButton = document.createElement('button');
+    closeButton.id = 'dd-complete';
+    closeButton.className = 'dd-nav-btn';
     closeButton.textContent = actions?.complete ? actions.complete.label : 'Complete survey';
     closeButton.style.cssText = `
       background: #1E293B;
@@ -481,6 +503,8 @@ export async function renderPopup(
 
     // Botón send, si es primera pagina ocupara el espacio completo pero si no estara al lado derecho
     const submitButton = document.createElement('button');
+    submitButton.id = 'dd-submit';
+    submitButton.className = 'dd-nav-btn';
     submitButton.textContent = actions?.accept ? actions.accept.label : 'Send';
     submitButton.style.cssText = `
       background: #1E293B;

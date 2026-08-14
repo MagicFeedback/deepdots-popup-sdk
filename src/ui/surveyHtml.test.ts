@@ -147,7 +147,7 @@ describe('buildSurveyHtml chrome flag (host gestiona el contenedor)', () => {
 describe('buildSurveyHtml título de cabecera', () => {
   it('sin título: la cabecera solo lleva la X (oculta el hueco del título)', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain('<h2 id="dd-title" hidden></h2>');
+    expect(html).toContain('<h2 id="dd-title" class="deepdots-popup-title" hidden></h2>');
     expect(html).toContain('setTitle("")');
   });
 
@@ -155,7 +155,7 @@ describe('buildSurveyHtml título de cabecera', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', title: 'App Survey' });
     expect(html).toContain('setTitle("App Survey")');
     // el marcado sigue vacío: el valor de la API no toca el HTML
-    expect(html).toContain('<h2 id="dd-title" hidden></h2>');
+    expect(html).toContain('<h2 id="dd-title" class="deepdots-popup-title" hidden></h2>');
   });
 
   it('un título con HTML no se interpola (queda como literal JS escapado)', () => {
