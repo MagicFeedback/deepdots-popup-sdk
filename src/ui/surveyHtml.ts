@@ -213,7 +213,7 @@ ${customCss}
 </head><body>
 <div class="${popupClass}" id="dd-popup">
   <div class="deepdots-popup-header">
-    <h2 id="dd-title" hidden></h2>
+    <h2 id="dd-title" class="deepdots-popup-title" hidden></h2>
     <button type="button" id="dd-close" aria-label="Close popup">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
