@@ -2,6 +2,7 @@ import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import type { PopupRenderOptions } from '../platform/renderer';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
+import { insertPopupLogo } from './logo';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
@@ -766,49 +767,8 @@ export async function renderPopup(
                     backButton.style.color = s.buttonSecondaryColor;
                     backButton.style.border = 'none';
                 }
-                if (s.logo) {
-                    if (!document.getElementById('deepdots-popup-logo')) {
-                        // Insertar logo si existe
-                        const logoImg = document.createElement('img');
-                        logoImg.id = 'deepdots-popup-logo';
-                        logoImg.src = s.logo;
-                        logoImg.alt = 'Logo';
-                        logoImg.style.cssText = 'max-height:40px; max-width:100%; object-fit:contain;';
-                        if (s.logoSize) {
-                            switch (s.logoSize) {
-                                case 'small':
-                                    logoImg.style.maxHeight = '30px';
-                                    break;
-                                case 'medium':
-                                    logoImg.style.maxHeight = '50px';
-                                    break;
-                                case 'large':
-                                    logoImg.style.maxHeight = '70px';
-                                    break;
-                            }
-                        }
-                        if (s.logoPosition) {
-                            switch (s.logoPosition) {
-                                case 'left':
-                                    logoImg.style.margin = '0 16px 42px 0';
-                                    logoImg.style.display = 'block';
-                                    logoImg.style.marginLeft = '0';
-                                    break;
-                                case 'right':
-                                    logoImg.style.margin = '0 0 42px 16px';
-                                    logoImg.style.display = 'block';
-                                    logoImg.style.marginLeft = 'auto';
-                                    break;
-                                case 'center':
-                                    logoImg.style.margin = '0 auto 42px auto';
-                                    logoImg.style.display = 'block';
-                                    break;
-                            }
-                        }
-                        // Insertar antes del main si no existe ya
-                        containerContent.insertBefore(logoImg, main);
-                    }
-                }
+                // El logo va encima de la barra de progreso, como hermano del header.
+                insertPopupLogo(popup, progressEl, s, 'deepdots-popup-logo');
 
                 if (s.startMessage && s.startMessage !== '') {
                     // Si hay mensaje de inicio, mostrar botón Start inicialmente
