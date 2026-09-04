@@ -85,7 +85,8 @@ function jsonForScript(value: unknown): string {
 
 export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const env = opts.env === 'development' ? 'dev' : 'prod';
-  const version = opts.version ?? '2.2.4';
+  // Misma versión que la dep npm del bundle web, para que las dos rutas pinten igual.
+  const version = opts.version ?? '2.2.8';
   const cdn = `https://cdn.jsdelivr.net/npm/@magicfeedback/native@${version}/dist/magicfeedback-sdk.browser.js`;
   const sid = jsonForScript(opts.surveyId);
   const pid = jsonForScript(opts.productId);

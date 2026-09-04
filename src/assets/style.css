@@ -1,167 +1,397 @@
-.magicfeedback-container {
-    width: 100%;
+/**
+ * NO EDITAR A MANO — generado por scripts/vendor-survey-css.mjs
+ *
+ * Copia de @magicfeedback/native@2.2.8 → dist/styles/magicfeedback-default.css
+ * (la hoja canónica del paquete, la que apunta su campo "style"), con estos cambios locales:
+ *
+ *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
+ *     página del host, y la tipografía la decide el popup.
+ *  2. .magicfeedback-container hereda la fuente del popup (var(--deepdots-font, inherit)).
+ *  3. Los selectores desnudos (h2, p, input, textarea, select, ::placeholder, .error) van
+ *     acotados a .deepdots-popup: este CSS se inyecta en el <head> del host y sin acotar
+ *     repintaría su web.
+ *  4. El grupo .magicfeedback-radio se cualifica como div.magicfeedback-radio (la clase acaba
+ *     también en el <input> del boolean).
+ *  5. Al final, un bloque de reglas propias del popup (fuente en los controles y padding del
+ *     radio nativo).
+ *
+ * Las variables --mf-* se dejan en :root a propósito: el modal del priority-list se portea a
+ * <body>, fuera de .deepdots-popup, y ahí las necesita.
+ *
+ * Para subir de versión: npm i @magicfeedback/native@<v> && node scripts/vendor-survey-css.mjs
+ */
+
+/**
+ * @magicfeedback/native - Default Styles
+ * Clean, minimal, and elegant survey rendering
+ */
+
+/* @import de Google Fonts (Nunito) eliminado al vendorizar: la fuente la pone el popup. */
+
+/* ========================================
+   CSS VARIABLES - Design SYSTEM
+   ======================================== */
+:root {
+    /* Colors - Minimal Pastel */
+    /* --mf-primary is the one source of truth for brand/accent color —
+       every token below derives from it via color-mix() (or references
+       it directly) so changing this single value, here or via a
+       per-integration override, keeps hover/light/border states in
+       sync automatically instead of going stale independently. Scoped
+       to genuinely interactive/accent surfaces (buttons, selected
+       chips, focus rings) — general body text stays on its own neutral
+       scale below, not tied to the brand color. */
+    --mf-primary: #5d7bad;
+    --mf-primary-hover: color-mix(in srgb, var(--mf-primary) 85%, black);
+    --mf-primary-light: color-mix(in srgb, var(--mf-primary) 15%, white);
+    /* a translucent tint — mixed with transparent (opacity), not white,
+       so it reads as a soft shadow of the brand color rather than a
+       pastel of it. */
+    --mf-primary-border: color-mix(in srgb, var(--mf-primary) 35%, transparent);
+
+    --mf-text-primary: #1E293B;
+    --mf-text-secondary: #475569;
+    --mf-text-muted: #94A3B8;
+
+    --mf-bg-primary: #F8FAFC;
+    --mf-bg-secondary: #FFFFFF;
+    --mf-bg-hover: #EEF2F6;
+
+    --mf-border: #E2E8F0;
+    --mf-border-focus: var(--mf-primary);
+
+    --mf-success: #16A34A;
+    --mf-error: #EF4444;
+    --mf-warning: #F59E0B;
+
+    --mf-surface: #FFFFFF;
+    --mf-surface-alt: #F1F5F9;
+    --mf-accent: #38BDF8;
+
+    /* Spacing */
+    --mf-space-xs: 0.25rem;
+    --mf-space-sm: 0.5rem;
+    --mf-space-md: 0.75rem;
+    --mf-space-lg: 1rem;
+    --mf-space-xl: 1.5rem;
+
+    /* Border Radius */
+    --mf-radius-sm: 0.5rem;
+    --mf-radius-md: 0.75rem;
+    --mf-radius-lg: 1.25rem;
+    --mf-radius-full: 9999px;
+
+    /* Shadows */
+    --mf-shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.06);
+    --mf-shadow-md: 0 8px 20px rgba(15, 23, 42, 0.08);
+    --mf-shadow-lg: 0 16px 30px rgba(15, 23, 42, 0.12);
+    --mf-shadow-focus: 0 0 0 3px rgba(30, 41, 59, 0.15);
+    --mf-shadow-card: 0 18px 40px rgba(15, 23, 42, 0.08);
+
+    /* Typography */
+    --mf-font-sans: "Nunito", "Quicksand", "Avenir Next", "Trebuchet MS", sans-serif;
+    --mf-font-size-sm: 0.875rem;
+    --mf-font-size-base: 1rem;
+    --mf-font-size-lg: 1.125rem;
+    --mf-font-size-xl: 1.25rem;
+    --mf-line-height: 1.6;
+
+    /* Font Weights */
+    --mf-font-weight-normal: 400;
+    --mf-font-weight-medium: 500;
+    --mf-font-weight-semibold: 600;
+    --mf-font-weight-bold: 700;
+    --mf-font-weight-extrabold: 800;
+
+    /* Transitions */
+    --mf-transition: all 0.2s ease;
+    --mf-transition-fast: all 0.15s ease;
 }
 
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+@keyframes mf-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
+@keyframes mf-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(-16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes mf-scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes mf-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* ========================================
+   BASE CONTAINER
+   ======================================== */
+.magicfeedback-container {
+    /* Local: hereda la fuente del popup; --deepdots-font viene de PopupStyle.font. */
+    font-family: var(--deepdots-font, inherit);
+    color: var(--mf-text-primary);
+    line-height: var(--mf-line-height);
+    animation: mf-fade-in 0.4s ease-out;
+    border-radius: var(--mf-radius-lg);
+}
+
+/* ========================================
+   MESSAGES
+   ======================================== */
 .magicfeedback-success-message,
 .magicfeedback-info-message,
-.magicfeedback-start-message,
-.magicfeedback-container{
-    animation-duration: 0.5s;
-    animation-name: animate-fade;
-    animation-delay: 0.25s;
-    animation-fill-mode: backwards;
-
-    font-style: normal;
-    text-align: justify;
-    font-weight: 400;
-    font-size: 1.2rem;
-    color: #475569;
-    line-height: 1.5;
+.magicfeedback-start-message {
+    padding: var(--mf-space-lg);
+    margin: var(--mf-space-lg) 0;
+    animation: mf-scale-in 0.3s ease-out;
 }
 
-@keyframes animate-fade {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
+/* .magicfeedback-info-message/-start-message are set via innerHTML (see
+   renderInfoPage.ts / questions.service.ts's renderStartMessage) — whatever
+   rich text a survey author writes lands here as real HTML, not just the
+   <p>/<img> pair this used to style. Covering the rest of what a rich-text
+   editor commonly outputs (headings, lists, links, emphasis, quotes, code,
+   rules) keeps that content on the same type scale and palette as the rest
+   of the widget instead of falling back to unstyled browser defaults. */
+.magicfeedback-success-message > :first-child,
+.magicfeedback-info-message > :first-child,
+.magicfeedback-start-message > :first-child {
+    margin-top: 0;
 }
 
+.magicfeedback-success-message > :last-child,
+.magicfeedback-info-message > :last-child,
+.magicfeedback-start-message > :last-child {
+    margin-bottom: 0;
+}
+
+.magicfeedback-success-message p,
+.magicfeedback-info-message p,
+.magicfeedback-start-message p {
+    font-size: var(--mf-font-size-base);
+    color: var(--mf-text-secondary);
+    margin: 0 0 var(--mf-space-md);
+    line-height: var(--mf-line-height);
+}
+
+.magicfeedback-info-message h1,
+.magicfeedback-info-message h2,
+.magicfeedback-info-message h3,
+.magicfeedback-info-message h4,
+.magicfeedback-info-message h5,
+.magicfeedback-info-message h6,
+.magicfeedback-start-message h1,
+.magicfeedback-start-message h2,
+.magicfeedback-start-message h3,
+.magicfeedback-start-message h4,
+.magicfeedback-start-message h5,
+.magicfeedback-start-message h6 {
+    color: var(--mf-text-primary);
+    font-weight: var(--mf-font-weight-bold);
+    line-height: 1.3;
+    margin: var(--mf-space-lg) 0 var(--mf-space-sm);
+    text-align: left;
+}
+
+.magicfeedback-info-message h1, .magicfeedback-start-message h1 { font-size: var(--mf-font-size-xl); }
+.magicfeedback-info-message h2, .magicfeedback-start-message h2 { font-size: var(--mf-font-size-lg); }
+.magicfeedback-info-message h3,
+.magicfeedback-info-message h4,
+.magicfeedback-info-message h5,
+.magicfeedback-info-message h6,
+.magicfeedback-start-message h3,
+.magicfeedback-start-message h4,
+.magicfeedback-start-message h5,
+.magicfeedback-start-message h6 { font-size: var(--mf-font-size-base); }
+
+.magicfeedback-info-message strong,
+.magicfeedback-info-message b,
+.magicfeedback-start-message strong,
+.magicfeedback-start-message b {
+    font-weight: var(--mf-font-weight-bold);
+    color: var(--mf-text-primary);
+}
+
+.magicfeedback-info-message a,
+.magicfeedback-start-message a {
+    color: var(--mf-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.magicfeedback-info-message a:hover,
+.magicfeedback-start-message a:hover {
+    color: var(--mf-primary-hover);
+}
+
+.magicfeedback-info-message ul,
+.magicfeedback-info-message ol,
+.magicfeedback-start-message ul,
+.magicfeedback-start-message ol {
+    margin: 0 0 var(--mf-space-md);
+    padding-left: var(--mf-space-xl);
+    color: var(--mf-text-secondary);
+    line-height: var(--mf-line-height);
+}
+
+.magicfeedback-info-message li + li,
+.magicfeedback-start-message li + li {
+    margin-top: var(--mf-space-xs);
+}
+
+.magicfeedback-info-message blockquote,
+.magicfeedback-start-message blockquote {
+    margin: 0 0 var(--mf-space-md);
+    padding: var(--mf-space-sm) var(--mf-space-md);
+    border-left: 3px solid var(--mf-primary-border);
+    color: var(--mf-text-secondary);
+    font-style: italic;
+}
+
+.magicfeedback-info-message code,
+.magicfeedback-start-message code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    background: var(--mf-bg-hover);
+    padding: 0.15em 0.4em;
+    border-radius: var(--mf-radius-sm);
+}
+
+.magicfeedback-info-message pre,
+.magicfeedback-start-message pre {
+    margin: 0 0 var(--mf-space-md);
+    padding: var(--mf-space-md);
+    background: var(--mf-bg-hover);
+    border-radius: var(--mf-radius-md);
+    overflow-x: auto;
+}
+
+.magicfeedback-info-message pre code,
+.magicfeedback-start-message pre code {
+    background: none;
+    padding: 0;
+}
+
+.magicfeedback-info-message hr,
+.magicfeedback-start-message hr {
+    border: none;
+    border-top: 1px solid var(--mf-border);
+    margin: var(--mf-space-lg) 0;
+}
+
+.magicfeedback-success-message img,
+.magicfeedback-info-message img,
+.magicfeedback-start-message img {
+    max-width: 100%;
+    height: auto;
+    margin: var(--mf-space-lg) auto;
+    display: block;
+    border-radius: var(--mf-radius-md);
+}
+
+.magicfeedback-image {
+    max-height: 400px;
+    height: auto;
+    max-width: 100%;
+    margin: var(--mf-space-lg) auto;
+    display: block;
+    border-radius: var(--mf-radius-md);
+}
+
+/* ========================================
+   FORM STRUCTURE
+   ======================================== */
 .magicfeedback-form {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    width: 100%;
+    gap: var(--mf-space-lg);
+    padding: clamp(16px, 2.5vw, 28px);
 }
+
 .magicfeedback-questions {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
+    gap: var(--mf-space-xl);
     width: 100%;
 }
 
 .magicfeedback-div {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
-    margin-bottom: 10px;
-    width: 100%;
+    gap: var(--mf-space-sm);
+    animation: mf-slide-in 0.3s ease-out;
+    background: var(--mf-bg-secondary);
+    border-radius: var(--mf-radius-md);
 }
 
+/* ========================================
+   LABELS & TYPOGRAPHY
+   ======================================== */
 .magicfeedback-label {
-    margin-bottom: 25px;
-    margin-top: 20px;
-    font-weight: 400;
-    font-family: inherit;
-    font-size: 1.2rem;
-    color: #212529;
-    text-align: start;
-    word-wrap: break-word;
-    white-space: normal;
-
+    font-size: var(--mf-font-size-lg);
+    font-weight: var(--mf-font-weight-bold);
+    color: var(--mf-text-primary);
+    line-height: var(--mf-line-height);
+    text-align: left;
+    letter-spacing: -0.01em;
 }
 
-.magicfeedback-checkbox {
-    display: flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
-.magicfeedback-checkbox-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    margin-bottom: 5px;
-    margin-top: 5px;
-}
-
-/* Cualificado con `div`: @magicfeedback/native reutiliza la clase "magicfeedback-radio"
-   también en el <input> de cada opción (rating), y sin el tag este selector lo capturaba
-   también, rompiendo su tamaño (el input pasaba a display:flex; width:100%). */
-div.magicfeedback-radio {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    width: 100%;
-    margin-right: 5px;
-    padding: 5px;
-    box-sizing: border-box;
-}
-
-.magicfeedback-checkbox-container,
-.magicfeedback-radio-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    margin: 5px;
-    padding: 5px 0;
-    background-color: #fff;
-    border-radius: 5px;
-    box-shadow: 0 0 3px #ccc;
-}
-
-.deepdots-popup input::-webkit-outer-spin-button,
-.deepdots-popup input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    -moz-appearance: textfield;
-}
-
-.magicfeedback-checkbox input[type="checkbox"] {
-    margin-right: 5px;
-    margin-left: 5px;
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-}
-
-
-.magicfeedback-checkbox label,
-.magicfeedback-radio-container label {
-    margin-left: 5px;
-    font-weight: 400;
-    font-family: inherit;
-    font-size: 16px;
-    color: #212529;
-    text-align: start;
-    width: 100%;
-}
-
-.deepdots-popup p {
-    margin-bottom: 0px;
-    font-size: 12px;
+.magicfeedback-sublabel {
+    font-size: var(--mf-font-size-base);
+    font-weight: var(--mf-font-weight-normal);
+    color: var(--mf-text-secondary);
+    margin-bottom: var(--mf-space-sm);
 }
 
 .deepdots-popup h2 {
-    line-height: 1.66;
-    margin: 0;
-    padding: 0;
-    font-weight: 900;
-    color: #222;
-    font-family: var(--deepdots-font, 'Montserrat');
-    font-size: 18px;
-    text-transform: uppercase;
+    font-size: var(--mf-font-size-xl);
+    font-weight: 600;
+    color: var(--mf-text-primary);
+    margin: 0 0 var(--mf-space-xl) 0;
     text-align: center;
-    margin-bottom: 40px;
+    letter-spacing: -0.01em;
 }
 
-/* Los controles de formulario no heredan font-family por defecto: cuando hay
-   fuente custom (clase deepdots-has-font), los forzamos a usar la del contenedor. */
-.deepdots-popup.deepdots-has-font button,
-.deepdots-popup.deepdots-has-font input,
-.deepdots-popup.deepdots-has-font textarea,
-.deepdots-popup.deepdots-has-font select {
-    font-family: var(--deepdots-font, inherit);
+.deepdots-popup p {
+    margin: 0;
+    font-size: var(--mf-font-size-sm);
+    color: var(--mf-text-secondary);
 }
 
-.deepdots-popup h6 {
-    margin-bottom: 1rem;
-}
-
+/* ========================================
+   FORM INPUTS
+   ======================================== */
 .deepdots-popup input[type="date"],
 .deepdots-popup input[type="text"],
 .deepdots-popup input[type="number"],
@@ -169,706 +399,1370 @@ div.magicfeedback-radio {
 .deepdots-popup input[type="password"],
 .deepdots-popup textarea,
 .deepdots-popup select {
-    box-sizing: border-box;
-    padding: 10px;
-    margin: 10px 0;
-    width: 100%;
-    border: 2px solid #ccc; /* Default border color - you can customize this */
-    border-radius: 5px;
-    font-size: 18px;
-    outline: none;
-    transition: border-color 0.3s ease;
-    min-height: 50px;
+    padding: 0.75rem 0.9rem;
+    font-size: var(--mf-font-size-base);
     font-family: inherit;
+    color: var(--mf-text-primary);
+    background-color: var(--mf-surface);
+    border: 2px solid var(--mf-border);
+    border-radius: var(--mf-radius-md);
+    outline: none;
+    transition: var(--mf-transition);
     -webkit-appearance: none;
+    appearance: none;
+    box-shadow: var(--mf-shadow-sm);
 }
 
+.deepdots-popup textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.deepdots-popup input::placeholder,
+.deepdots-popup textarea::placeholder {
+    color: var(--mf-text-muted);
+}
+
+/* Remove number input spinners */
+.deepdots-popup input::-webkit-outer-spin-button,
+.deepdots-popup input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.deepdots-popup input[type="number"] {
+    /* -moz-appearance: textfield; removed for lint compatibility */
+}
+
+/* Custom Select Arrow */
 .deepdots-popup select {
-    background-image: linear-gradient(45deg, transparent 50%, gray 50%),
-    linear-gradient(135deg, gray 50%, transparent 50%),
-    linear-gradient(to right, #ccc, #ccc);
-    background-position: calc(100% - 20px) calc(1em + 2px),
-    calc(100% - 15px) calc(1em + 2px),
-    calc(100% - 2.5em) 0.5em;
-    background-size: 5px 5px,
-    5px 5px,
-    1px 1.5em;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
+    background-position: right var(--mf-space-md) center;
+    padding-right: var(--mf-space-xl);
 }
 
-.magicfeedback-boolean-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    margin: 10px 0;
-    width: 100%;
+/* Error State */
+.deepdots-popup input.error,
+.deepdots-popup select.error,
+.deepdots-popup textarea.error {
+    border-color: var(--mf-error);
 }
 
-.magicfeedback-boolean-container label {
-    margin-left: 10px;
-    font-weight: 400;
-    font-size: 16px;
-    width: 100%;
-    padding-top: 5px;
+.magicfeedback-error {
+    margin-top: var(--mf-space-xs);
+    font-size: var(--mf-font-size-sm);
+    color: var(--mf-error);
 }
 
-.magicfeedback-boolean-option {
-    margin-right: 10px;
-    margin-left: 10px;
-    width: 100%;
-    height: 38px;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    border: 1px solid #ced4da !important;
-}
-
-.magicfeedback-boolean-option label {
-    font-weight: 400;
-    font-size: 16px;
-    color: #475569;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: inherit;
-}
-
-.magicfeedback-boolean-option input[type=radio] + label:hover {
-    color: #007bff;
-}
-
-.magicfeedback-boolean-option input[type=radio]:checked + label {
-    color: #007bff;
-    background-color: #cadff8;
-}
-
-/* Tamaño explícito y sin padding: un radio nativo con `padding: 20px` y solo `width` (sin
-   `height`) se dibujaba enorme en WebKit, que sí aplica el padding al control. Se veía en
-   iOS (WebView de React Native y Safari) y no en Chrome. `flex: 0 0 auto` evita que el
-   contenedor flex de la opción lo estire. */
-.deepdots-popup input[type="radio"] {
-    padding: 0;
-    margin: 10px 0 10px 15px;
-    width: 20px;
-    height: 20px;
-    min-width: 20px;
-    flex: 0 0 auto;
-    background-color: #fff;
-    box-shadow: none;
-}
-
-/* Style for focused input/select */
-.deepdots-popup input:focus, .deepdots-popup select:focus {
-    border-color: #4CAF50; /* Highlight color when focused - you can customize this */
-}
-
-/* Style for invalid input (example: validation error) */
-.deepdots-popup input.error, .deepdots-popup select.error {
-    border-color: #ff3333; /* Red color for error state - you can customize this */
-}
-
-.magicfeedback-action-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 10px;
-    width: 100%;
-}
-
-.magicfeedback-action-container .magicfeedback-submit {
-    cursor: pointer;
-    padding: 10px;
-    margin: 10px 0;
-    width: 100px;
-    border-radius: 8px;
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.3s ease;
-    background-color: #1E293B;
-    color: white;
-}
-
-.magicfeedback-action-container .magicfeedback-back {
-    cursor: pointer;
-    padding: 10px;
-    margin: 10px 0;
-    width: 100px;
-    border: 0;
-    border-radius: 8px;
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.3s ease;
-    background-color: transparent;
-    color: #212529;
-}
-
-
-
-/* Rating styles */
-.magicfeedback-rating {
-    width: 100%;
-}
-
-.magicfeedback-rating-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-around;
-    flex-wrap: wrap;
-    align-items: center;
-
-    margin: 15px 5px;
-    padding: 0;
-
-    list-style: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-}
-
-.magicfeedback-rating-placeholder-value,
-.magicfeedback-rating-placeholder{
-    text-align: center;
-    align-content: center;
-    justify-content: center;
-    text-wrap: wrap;
-}
-
-.magicfeedback-rating-option {
-    margin: 0 0.5rem;
-    padding: 0;
-}
-
-@media (max-width: 1024px) {
-    .magicfeedback-rating-option {
-        margin: 10px 0;
-        padding: 0;
-        width: 20%;
-        display: flex;
-        justify-content: center;
-    }
-
-    .magicfeedback-rating-placeholder-value {
-        font-size: 0.75rem;
-        margin-bottom: 1px;
-    }
-    .magicfeedback-rating-placeholder{
-        justify-content: center;
-    }
-
-    .magicfeedback-rating-container {
-        flex-wrap: wrap;
-        justify-content: flex-start;
-    }
-}
-
-
-.magicfeedback-rating-option-label-container {
+/* ========================================
+   CHECKBOX & RADIO OPTIONS
+   ======================================== */
+.magicfeedback-checkbox,
+div.magicfeedback-radio {
     display: flex;
     flex-direction: column;
-}
-
-
-.magicfeedback-rating-option-label-container label {
-    display: inline-block;
-    text-align: center;
-    margin-bottom: 0;
-    font-weight: 600;
-    font-size: 18px;
-    color: #475569;
-}
-
-.magicfeedback-rating-option-label-container input[type=radio] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-/* IMAGE STYLES */
-.magicfeedback-rating-option-label-container input[type=radio] + img {
-    cursor: pointer;
-    height: 48px;
-    width: 48px;
-}
-
-/* LABEL STYLES */
-.magicfeedback-rating-option-label-container input[type=radio] + label {
-    cursor: pointer;
-}
-
-/* CHECKED STYLES */
-.magicfeedback-rating-option-label-container input[type=radio]:checked + img {
-    box-shadow: #007bff 0px 1px 4px, #007BFFA0 0px 0px 0px 2px;
-    border-radius: 50%;
-}
-
-.magicfeedback-rating-number {
+    gap: var(--mf-space-sm);
     width: 100%;
 }
-.magicfeedback-rating-container,
-.magicfeedback-rating-number-container {
+
+.magicfeedback-checkbox-container,
+.magicfeedback-radio-container {
     display: flex;
-    flex-direction: row;
-    justify-content: space-between;
     align-items: center;
-
-    margin: 15px 0;
-    padding: 0;
-
-    list-style: none;
-    font-size: 1.5rem;
+    gap: var(--mf-space-sm);
+    padding: var(--mf-space-md);
+    border: 1.5px solid var(--mf-border);
+    border-radius: var(--mf-radius-md);
     cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+    transition: var(--mf-transition-fast);
 }
 
-/* Cuando hay placeholders (Very bad / Very good), el placeholder ocupa
-   el 100% de la primera línea y los boxes bajan a la siguiente */
-.magicfeedback-rating-number-container--with-placeholder {
-    flex-wrap: wrap;
-    align-items: flex-start;
+.magicfeedback-checkbox-container:hover,
+.magicfeedback-radio-container:hover {
+    background-color: var(--mf-bg-hover);
+    border-color: var(--mf-primary);
 }
 
-.magicfeedback-rating-number-container--with-placeholder .magicfeedback-rating-placeholder {
-    width: 100%;
-    margin-bottom: 8px;
+.magicfeedback-checkbox-container:has(input:checked),
+.magicfeedback-radio-container:has(input:checked) {
+    background-color: var(--mf-primary-light);
+    border-color: var(--mf-primary);
 }
 
-.magicfeedback-rating-number-container--with-placeholder .magicfeedback-rating-number-option {
-    width: auto;
+.magicfeedback-checkbox input[type="checkbox"],
+.magicfeedback-radio-container input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--mf-primary);
+}
+
+.magicfeedback-checkbox label,
+.magicfeedback-radio-container label {
+    font-size: var(--mf-font-size-base);
+    text-align: left;
+    color: var(--mf-text-primary);
+    cursor: pointer;
+    margin: 0;
     flex: 1;
 }
 
-.magicfeedback-rating-number-option {
+/* ========================================
+   BOOLEAN OPTIONS
+   ======================================== */
+.magicfeedback-boolean-container {
     display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    margin: 5px;
-    padding: 0;
-    list-style: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+    gap: var(--mf-space-md);
     width: 100%;
 }
 
-.magicfeedback-rating-number-option-row{
-    max-width: 100% !important;
+.magicfeedback-boolean-option {
+    flex: 1;
+    position: relative;
 }
 
-.magicfeedback-rating-number-top-placeholder,
-.magicfeedback-rating-number-bottom-placeholder{
-    text-align: center !important;
-    align-content: center;
-    justify-content: center;
-    text-wrap: wrap;
-
-    font-size: 15px;
-    color: #475569;
-
-    width: 100%;
-    margin: auto;
-}
-
-@media (min-width: 650px) {
-    .magicfeedback-rating-number-option-row +.magicfeedback-rating-number-container-ltr:first-child,
-    .magicfeedback-rating-number-option-row + +.magicfeedback-rating-number-container-rtl:last-child {
-        margin-left: 0;
-        width: calc(100% - 10px);
-    }
-
-    .magicfeedback-rating-number-option-row +.magicfeedback-rating-number-container-rtl:first-child,
-    .magicfeedback-rating-number-option-row + +.magicfeedback-rating-number-container-ltr:last-child {
-        margin-right: 0;
-        width: calc(100% - 10px);
-    }
-}
-
-
-.magicfeedback-rating-number-option-label-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-}
-
-.magicfeedback-rating-number-option-label-container label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin: 0 10px;
-    font-weight: 600;
-    font-size: 14px;
-    color: #475569;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-    min-height: 50px;
-    text-align: center;
-    padding: 0;
-    border-radius: 4px;
-    border: 1px solid #ced4da;
-    background-color: rgba(246, 246, 246, 0.3);
-    transition: background-color 0.15s ease-in-out;
-}
-
-.magicfeedback-rating-number-option-label-container input[type=radio] {
+.magicfeedback-boolean-option input[type="radio"] {
     position: absolute;
     opacity: 0;
     width: 0;
     height: 0;
 }
 
-.magicfeedback-rating-number-option-label-container input[type=radio] + label {
+.magicfeedback-boolean-option label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mf-space-md);
+    font-size: var(--mf-font-size-base);
+    font-weight: 500;
+    color: var(--mf-text-secondary);
+    border: 1.5px solid var(--mf-border);
+    border-radius: var(--mf-radius-md);
     cursor: pointer;
+    transition: var(--mf-transition-fast);
+    margin: 0;
+    width: -webkit-fill-available;
+    height: inherit;
 }
 
-.magicfeedback-rating-number-option-label-container input[type=radio] + label:hover,
-.magicfeedback-rating-number-option-label-container input[type=radio]:checked + label {
-    color: #007bff;
-    border: 1px solid #007bff;
-    background-color: rgba(86, 168, 253, 0.29);
+.magicfeedback-boolean-option label:hover {
+    background-color: var(--mf-bg-hover);
+    border-color: var(--mf-primary);
 }
 
-.magicfeedback-rating-number-container-column{
-    align-items: flex-start !important;
+.magicfeedback-boolean-option input[type="radio"]:checked + label {
+    color: var(--mf-primary);
+    background-color: var(--mf-primary-light);
+    border-color: var(--mf-primary);
+    font-weight: 600;
 }
 
-@media (max-width: 650px) {
-    .magicfeedback-rating-number-container-ltr {
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-
-    .magicfeedback-rating-number-container-rtl {
-        justify-content: center;
-        flex-wrap: wrap-reverse;
-    }
-
-    .magicfeedback-rating-number-option {
-        max-width: 100%;
-        height: 55px;
-        margin: 5px 0;
-    }
-}
-
+/* ========================================
+   RATING SYSTEMS
+   ======================================== */
+.magicfeedback-rating,
+.magicfeedback-rating-number,
 .magicfeedback-rating-star {
     width: 100%;
 }
 
+.magicfeedback-rating-container,
+.magicfeedback-rating-number-container,
 .magicfeedback-rating-star-container {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: center !important;
-    align-items: center !important;
+    display: flex;
     flex-wrap: wrap;
-    margin: 15px 5px;
-    padding: 0;
+    gap: var(--mf-space-sm);
+    justify-content: center;
+    align-items: center;
+    padding: var(--mf-space-md) 0;
     list-style: none;
-    font-size: 1.5rem;
+    margin: 0;
+}
+
+/* Caption line below the row — min on one side, max on the other (swapped
+   for order: "rtl") — same simple, non-responsive pattern as the
+   rating-number row caption. Used by rating-star and rating-emoji. */
+.magicfeedback-rating-placeholder {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--mf-space-md);
+    width: 100%;
+    margin-top: var(--mf-space-sm);
+    font-size: var(--mf-font-size-sm);
+    font-weight: var(--mf-font-weight-semibold);
+    color: var(--mf-text-secondary);
+}
+
+.magicfeedback-rating-placeholder-value {
+    overflow-wrap: anywhere;
+}
+
+.magicfeedback-rating-placeholder-value:last-child {
+    text-align: right;
+}
+
+/* Rating with Images */
+.magicfeedback-rating-option-label-container input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.magicfeedback-rating-option-label-container img {
+    width: 56px;
+    height: 56px;
     cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+    transition: var(--mf-transition-fast);
+    border-radius: var(--mf-radius-full);
+    border: 2px solid transparent;
+}
+
+.magicfeedback-rating-option-label-container img:hover {
+    transform: scale(1.1);
+    border-color: var(--mf-primary);
+}
+
+.magicfeedback-rating-option-label-container input[type="radio"]:checked + img {
+    border-color: var(--mf-primary);
+    box-shadow: 0 0 0 3px var(--mf-primary-light);
+}
+
+.magicfeedback-rating-option-label-container label {
+    display: block;
+    text-align: center;
+    font-size: var(--mf-font-size-sm);
+    color: var(--mf-text-secondary);
+    margin-top: var(--mf-space-xs);
+    cursor: pointer;
+}
+
+/* Rating Numbers — each option is its own outlined chip in the survey's
+   primary color, with a gap between them. Row and column use the same
+   chip; column additionally has room to show each option's own text
+   plainly next to its number. */
+
+/* Every size here is width:100%/flex:1 combined with the chip's own
+   padding and border. Without border-box, the browser's default
+   content-box adds that padding/border on TOP of the declared size, so
+   the chip quietly overflows past its flex slot — reading as "not quite
+   full width" or, worse, pushing into the next chip. */
+.magicfeedback-rating-number-container,
+.magicfeedback-rating-number-option,
+.magicfeedback-rating-number-option-label-container,
+.magicfeedback-rating-number-value {
+    box-sizing: border-box;
+}
+
+/* The shared rating-container rule (above, reused by star rating) sets
+   align-items:center for its row-of-chips layout — in a stacked column
+   that still nudges a 100%-wide chip inward instead of a true 0 offset.
+   Force stretch so every chip fills the exact same width, flush on
+   both sides. */
+.magicfeedback-rating-number-container-column,
+.magicfeedback-rating-number-container-column-reverse {
+    align-items: stretch;
+}
+
+/* Caption line below the row — the single place min/max labels live
+   for row mode, shared by mobile and desktop. */
+.magicfeedback-rating-number-scale-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--mf-space-md);
+    margin-top: var(--mf-space-sm);
+    font-size: var(--mf-font-size-sm);
+    font-weight: var(--mf-font-weight-semibold);
+    color: var(--mf-text-secondary);
+}
+
+.magicfeedback-rating-number-scale-label {
+    overflow-wrap: anywhere;
+}
+
+.magicfeedback-rating-number-scale-label:last-child {
+    text-align: right;
+}
+
+/* Column, no per-option text: each row is its own separated chip, so
+   the min/max labels bookend the stack from outside it — one line
+   above the first chip, one below the last. Margin goes on whichever
+   side actually faces the list — the "before" label (always the first
+   child) gets space below it, the "after" one (always right after the
+   container, extra option row or not) gets space above it — so both
+   sit the same distance from the chips regardless of which one it is. */
+.magicfeedback-rating-number-scale-label-block {
+    font-size: var(--mf-font-size-sm);
+    font-weight: var(--mf-font-weight-semibold);
+    color: var(--mf-text-secondary);
+    text-align: center;
+}
+
+.magicfeedback-rating-number-scale-label-block:first-child {
+    margin-bottom: var(--mf-space-sm);
+}
+
+.magicfeedback-rating-number-container + .magicfeedback-rating-number-scale-label-block {
+    margin-top: var(--mf-space-sm);
+}
+
+.magicfeedback-rating-number-option {
+    display: flex;
+}
+
+.magicfeedback-rating-number-option-label-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    cursor: pointer;
+}
+
+.magicfeedback-rating-number-option-label-container input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.magicfeedback-rating-number-value {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    transition: var(--mf-transition-fast);
+    color: var(--mf-text-secondary);
+    font-weight: var(--mf-font-weight-semibold);
+}
+
+/* Row: individual outlined chips in the survey's own primary color —
+   var(--mf-primary) so whatever brand color a given survey sets carries
+   through automatically, no color hardcoded here. */
+.magicfeedback-rating-number-container-row,
+.magicfeedback-rating-number-container-row-reverse {
+    flex-wrap: nowrap;
+    gap: var(--mf-space-sm);
+}
+
+.magicfeedback-rating-number-option-row,
+.magicfeedback-rating-number-option-row-reverse {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.magicfeedback-rating-number-option-row .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-value {
+    min-height: 56px;
+    padding: var(--mf-space-sm);
+    border: 2px solid var(--mf-primary-border);
+    border-radius: var(--mf-radius-md);
+    background: var(--mf-bg-secondary);
+    color: var(--mf-primary);
+    font-size: var(--mf-font-size-lg);
+    font-weight: var(--mf-font-weight-bold);
+}
+
+/* More than 6 options (e.g. a 0-10 NPS scale): still one row, never
+   wraps — but scaled down on purpose, so it reads as a compact chip
+   rather than the same 56px button stretched thin. */
+.magicfeedback-rating-number-container-row--dense .magicfeedback-rating-number-option-row .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-container-row--dense .magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-value {
+    min-height: 36px;
+    padding: var(--mf-space-xs);
+    border-radius: var(--mf-radius-sm);
+    font-size: 0.8rem;
+}
+
+.magicfeedback-rating-number-option-row .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
+    background: var(--mf-primary-light);
+}
+
+.magicfeedback-rating-number-option-row .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
+    color: #fff;
+    background-color: var(--mf-primary);
+    box-shadow: var(--mf-shadow-md);
+}
+
+/* Extra option: always its own row below the scale, and styled like every
+   other chip now — "doesn't apply" is still not a point on the 1..N
+   continuum, but it no longer needs a different border style to say so. */
+.magicfeedback-rating-number-extra-row {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--mf-space-sm);
+}
+
+.magicfeedback-rating-number-option--extra {
+    flex: 0 1 auto;
+}
+
+.magicfeedback-rating-number-option--extra .magicfeedback-rating-number-option-label-container {
+    width: auto;
+}
+
+.magicfeedback-rating-number-option--extra .magicfeedback-rating-number-value {
+    min-height: 36px;
+    padding: 0 var(--mf-space-md);
+    border: 2px solid var(--mf-primary-border);
+    border-radius: var(--mf-radius-md);
+    background: var(--mf-bg-secondary);
+    color: var(--mf-primary);
+    font-size: var(--mf-font-size-sm);
+}
+
+.magicfeedback-rating-number-option--extra .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
+    background: var(--mf-primary-light);
+}
+
+.magicfeedback-rating-number-option--extra .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
+    color: #fff;
+    background-color: var(--mf-primary);
+    box-shadow: var(--mf-shadow-md);
+}
+
+/* Column: the same separated chips as row, just stacked — each option is
+   its own outlined chip with a gap between them, not one shared box. */
+.magicfeedback-rating-number-container-column,
+.magicfeedback-rating-number-container-column-reverse {
+    gap: var(--mf-space-sm);
+}
+
+.magicfeedback-rating-number-option-column,
+.magicfeedback-rating-number-option-column-reverse {
+    width: 100%;
+}
+
+.magicfeedback-rating-number-option-column .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-value {
+    justify-content: flex-start;
+    gap: var(--mf-space-sm);
+    min-height: 48px;
+    padding: var(--mf-space-sm) var(--mf-space-md);
+    border: 2px solid var(--mf-primary-border);
+    border-radius: var(--mf-radius-md);
+    background: var(--mf-bg-secondary);
+    color: var(--mf-primary);
+}
+
+.magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
+    background: var(--mf-primary-light);
+}
+
+.magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
+    color: #fff;
+    background-color: var(--mf-primary);
+    box-shadow: var(--mf-shadow-md);
+}
+
+.magicfeedback-rating-number-value-num {
+    font-weight: var(--mf-font-weight-bold);
+}
+
+/* Column with per-option text: a min-width so "1".."9" and "10" line up,
+   with the label text starting at the same x. Skipped entirely when the
+   column has no per-option text at all (--bare below) — with nothing to
+   align against, the same left-shift bug from row mode would resurface. */
+.magicfeedback-rating-number-container-column:not(.magicfeedback-rating-number-container-column--bare) .magicfeedback-rating-number-value-num,
+.magicfeedback-rating-number-container-column-reverse:not(.magicfeedback-rating-number-container-column--bare) .magicfeedback-rating-number-value-num {
+    flex: none;
+    min-width: 1.4em;
+}
+
+/* Column, no per-option text at all (only min/max, or nothing): a bare
+   numbered list has nothing to left-align against, so center each
+   number instead of stranding it on the left with blank space beside it. */
+.magicfeedback-rating-number-container-column--bare .magicfeedback-rating-number-value {
+    justify-content: center;
+}
+
+.magicfeedback-rating-number-value-label {
+    font-weight: var(--mf-font-weight-medium);
+}
+
+.magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
+.magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
+    color: #fff;
+    background-color: var(--mf-primary);
+}
+
+/* Star Rating */
+.magicfeedback-rating-star-container {
+    justify-content: center;
 }
 
 .magicfeedback-rating-star-option:not(:checked) > .rating__star {
-    float: right;
-    width: 1em;
-    overflow: hidden;
-    white-space: nowrap;
+    font-size: 40px;
+    color: var(--mf-border);
     cursor: pointer;
-    font-size: 30px;
-    color: #ccc;
-    margin: 0 10px;
+    margin: 0 var(--mf-space-xs);
+    transition: var(--mf-transition-fast);
 }
 
 .magicfeedback-rating-star-option:not(:checked) > .rating__star:hover,
 .magicfeedback-rating-star-option:not(:checked) > .rating__star:hover ~ span {
-    color: #deb217 !important;
+    color: #fbbf24;
+    transform: scale(1.1);
 }
 
 .magicfeedback-rating-star-selected {
-    color: #ffc700 !important;
+    color: #fbbf24 !important;
 }
 
-
-/* Style for multiple choice image */
-.magicfeedback-image-option-label-container:hover {
-    cursor: pointer;
-    border: 0 !important;
-}
-
-.magicfeedback-image-option-label-container input[type=radio]:checked + img,
-.magicfeedback-image-option-label-container input[type=checkbox]:checked + img {
-    border: 1px solid #007bff !important;
-    box-shadow: 0 0 3px #007bff !important;
-}
-
-.magicfeedback-image-option-label-container input[type=radio] + img,
-.magicfeedback-image-option-label-container input[type=checkbox] + img {
-    border: 1px solid transparent !important;
-}
-
-.magicfeedback-image-option-label-container{
-    margin: 10px !important;
-    height: calc(100% - 20px) !important;
-    width: calc(100% - 20px) !important;
-}
-
+/* ========================================
+   MULTIPLE CHOICE WITH IMAGES
+   ======================================== */
 .magicfeedback-multiple-choice-image-option {
     display: flex;
-    height: auto !important;
-    box-shadow: 0 0 3px #ccc;
+    border-radius: var(--mf-radius-md);
+    overflow: hidden;
+    transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-multiple-choice-image-label {
-    font-size: 1rem;
+.magicfeedback-image-option-label-container {
+    cursor: pointer;
+    border-radius: var(--mf-radius-md);
+    overflow: hidden;
+    transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-consent-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    margin: 10px 0;
+.magicfeedback-image-option-label-container input[type="radio"],
+.magicfeedback-image-option-label-container input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.magicfeedback-image-option-label-container img {
     width: 100%;
-}
-
-.magicfeedback-consent-container label {
-    margin-left: 10px;
-}
-
-.magicfeedback-start-message-container {
-    /* ... add your start message container styles here ... */
-}
-
-.magicfeedback-success-message,
-.magicfeedback-info-message,
-.magicfeedback-start-message {
-    margin: 35px 5px;
-}
-
-.magicfeedback-success-message p,
-.magicfeedback-info-message p,
-.magicfeedback-start-message p {
-    font-style: normal;
-    text-align: start;
-    font-weight: 400;
-    font-size: 16px;
-    color: #475569;
-    line-height: 1.5;
-}
-
-.magicfeedback-success-message img,
-.magicfeedback-info-message img,
-.magicfeedback-start-message img {
-    width: 400px;
-    max-width: 80%;
     height: auto;
-    margin: 10px auto;
+    display: block;
+    border: 2px solid var(--mf-border);
+    border-radius: var(--mf-radius-md);
+    transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-counter,
-.magicfeedback-point-system-total {
-    margin: 10px 0 0 0 !important;
-    display: flex !important;
-    justify-content: right !important;
-    align-items: center !important;
-    width: 100%;
+.magicfeedback-image-option-label-container:hover img {
+    border-color: var(--mf-primary);
+    box-shadow: var(--mf-shadow-md);
 }
 
-.magicfeedback-skip-container {
-    background-color: transparent !important;
-    border: 0 !important;
-    color: #999999FF !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    cursor: pointer !important;
-    font-size: 0.5em !important;
-    font-weight: 400 !important;
-    box-shadow: 0 0 0 !important;
-
-    &:hover {
-        color: #0066ff;
-    }
+.magicfeedback-image-option-label-container input:checked + img {
+    border-color: var(--mf-primary);
+    box-shadow: 0 0 0 3px var(--mf-primary-light);
 }
 
-.magicfeedback-skip-container input[type=checkbox] {
-    border-color: #999999FF !important;
-    border: 0 !important;
-    cursor: pointer !important;
-
-}
-
-.magicfeedback-multi-question-matrix,
-.magicfeedback-point-system,
-.magicfeedback-priority-list {
-    width: 100% !important;
-}
-
-.magicfeedback-multi-question-matrix-container,
-.magicfeedback-point-system-container,
-.magicfeedback-priority-list-container {
-    width: 100% !important;
-    overflow-x: auto;
-}
-
-.magicfeedback-point-system-list,
-.magicfeedback-priority-list-list,
-.magicfeedback-multi-question-matrix-table {
-    width: 100% !important;
-    padding: 0 !important;
-    overflow-x: auto;
-}
-
-.magicfeedback-multi-question-matrix {
-    position: relative !important;
-}
-
+/* ========================================
+   MATRIX QUESTIONS
+   ======================================== */
 .magicfeedback-multi-question-matrix-container {
-    overflow: auto !important;
-    padding-bottom: 10px;
+    width: 100%;
+    overflow-x: auto;
+    border-radius: var(--mf-radius-md);
 }
 
-.magicfeedback-multi-question-matrix-label{
-    text-align: left !important;
+.magicfeedback-multi-question-matrix-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 var(--mf-space-xs);
 }
+
+.magicfeedback-multi-question-matrix-table th {
+    padding: var(--mf-space-md);
+    text-align: center;
+    font-size: var(--mf-font-size-sm);
+    font-weight: 500;
+    color: var(--mf-text-secondary);
+}
+
+.magicfeedback-multi-question-matrix-row-tr {
+    background-color: var(--mf-bg-primary);
+    border-radius: var(--mf-radius-md);
+    transition: var(--mf-transition-fast);
+}
+
+.magicfeedback-multi-question-matrix-row-tr:nth-child(even) {
+    background-color: var(--mf-bg-secondary);
+}
+
+.magicfeedback-multi-question-matrix-row-tr:hover {
+    background-color: var(--mf-bg-hover);
+    box-shadow: var(--mf-shadow-sm);
+}
+
+.magicfeedback-multi-question-matrix-table td {
+    padding: var(--mf-space-md);
+    text-align: center;
+}
+
+.magicfeedback-multi-question-matrix-label {
+    text-align: left;
+    font-size: var(--mf-font-size-base);
+    color: var(--mf-text-primary);
+}
+
+.magicfeedback-multi-question-matrix-table input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--mf-primary);
+}
+
+/* ========================================
+   PRIORITY LIST
+   ======================================== */
 .magicfeedback-priority-list-item {
     display: flex;
-    flex-direction: row;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px 0 10px 10px;
-
-    border: 1px solid #ced4da;
-    border-radius: 5px;
-    margin: 10px 0 !important;
+    justify-content: space-between;
+    padding: var(--mf-space-md);
+    margin: var(--mf-space-sm) 0;
+    background-color: var(--mf-bg-primary);
+    border: 1.5px solid var(--mf-border);
+    border-radius: var(--mf-radius-md);
+    transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-point-system-item {
-    height: 45px;
-    margin: 5px 0 !important;
+.magicfeedback-priority-list-item:hover {
+    box-shadow: var(--mf-shadow-sm);
+    border-color: var(--mf-primary);
 }
 
-.magicfeedback-point-system-item label,
 .magicfeedback-priority-list-item-label {
-    font-family: inherit;
-    font-size: 18px !important;
-    color: #212529;
-    text-align: start;
-    word-wrap: break-word;
-    white-space: normal;
-    padding: 0 10px 0 0;
+    flex: 1;
+    font-size: var(--mf-font-size-base);
+    text-align: left;
+    color: var(--mf-text-primary);
+    margin: 0;
+}
+
+.magicfeedback-priority-list-arrow-up,
+.magicfeedback-priority-list-arrow-down {
+    padding: var(--mf-space-xs);
+    font-size: var(--mf-font-size-lg);
+    color: var(--mf-text-secondary);
+    cursor: pointer;
+    transition: var(--mf-transition-fast);
+    user-select: none;
+}
+
+.magicfeedback-priority-list-arrow-up:hover,
+.magicfeedback-priority-list-arrow-down:hover {
+    color: var(--mf-primary);
+    transform: scale(1.2);
+}
+
+/* ========================================
+   POINT SYSTEM
+   ======================================== */
+.magicfeedback-point-system-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--mf-space-md);
+    margin: var(--mf-space-sm) 0;
+    background-color: var(--mf-bg-primary);
+    border: 1.5px solid var(--mf-border);
+    border-radius: var(--mf-radius-md);
+    min-height: 45px;
+}
+
+.magicfeedback-point-system-item label {
+    flex: 1;
+    font-size: var(--mf-font-size-base);
+    color: var(--mf-text-primary);
+    margin: 0;
 }
 
 .magicfeedback-point-system-input-container {
-    padding: 0 10px 0 0;
-    border-radius: 5px;
-    font-size: 14px;
-    border: 1px solid #ced4da;
-    height: 42px;
-    margin: auto 0;
+    display: flex;
+    align-items: center;
+    gap: var(--mf-space-sm);
 }
 
-.magicfeedback-multi-question-matrix-table thead {
-    margin-bottom: 20px;
-}
-
-.magicfeedback-multi-question-matrix-table th{
+.magicfeedback-point-system-item input {
+    width: 80px;
+    min-width: 80px;
+    padding: var(--mf-space-sm);
     text-align: center;
-    font-weight: 400 !important;
-    font-size: 1rem !important;
-    padding: 0  10px !important;
+    font-size: var(--mf-font-size-base);
+    border: 1.5px solid var(--mf-border);
+    border-radius: var(--mf-radius-md);
+    margin: 0;
 }
 
-.magicfeedback-multi-question-matrix-table th,
-.magicfeedback-multi-question-matrix-table td label,
-.magicfeedback-priority-list-arrow-up,
-.magicfeedback-priority-list-arrow-down {
-    font-style: normal !important;
-    font-weight: 400 !important;
-    font-size: 1rem !important;
-    color: #475569 !important;
-    cursor: pointer !important;
-    margin: 0 !important;
-    line-height: inherit;
+.magicfeedback-point-system-total {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--mf-space-md);
+    font-size: var(--mf-font-size-base);
+    font-weight: 600;
+    color: var(--mf-text-primary);
 }
 
-.magicfeedback-multi-question-matrix-table tr {
+/* ========================================
+   CONSENT
+   ======================================== */
+.magicfeedback-consent-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--mf-space-sm);
+    padding: var(--mf-space-md);
+    background-color: var(--mf-bg-secondary);
+    border-radius: var(--mf-radius-md);
+    margin: var(--mf-space-md) 0;
+}
+
+.magicfeedback-consent-container input[type="checkbox"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--mf-primary);
+}
+
+.magicfeedback-consent-container label {
+    flex: 1;
+    font-size: var(--mf-font-size-sm);
+    text-align: left;
+    color: var(--mf-text-secondary);
+    line-height: var(--mf-line-height);
+    cursor: pointer;
+    margin-bottom: 0;
+}
+
+/* ========================================
+   ACTION BUTTONS
+   ======================================== */
+.magicfeedback-action-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mf-space-md);
+    margin-top: var(--mf-space-xl);
+    padding-top: var(--mf-space-lg);
+    border-top: 1px solid var(--mf-border);
+}
+
+.magicfeedback-submit {
+    padding: 0.8rem 1.6rem;
+    font-size: var(--mf-font-size-base);
+    font-weight: 800;
+    color: #FFFFFF;
+    background-color: var(--mf-primary);
+    border: 2px solid var(--mf-primary);
+    border-radius: var(--mf-radius-full);
+    cursor: pointer;
+    transition: var(--mf-transition-fast);
+    box-shadow: var(--mf-shadow-md);
+}
+
+.magicfeedback-submit:hover {
+    background-color: var(--mf-primary-hover);
+    box-shadow: var(--mf-shadow-lg);
+    transform: translateY(-2px);
+}
+
+.magicfeedback-submit:active {
+    transform: translateY(0);
+    box-shadow: var(--mf-shadow-sm);
+}
+
+.magicfeedback-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.magicfeedback-back {
+    padding: 0.65rem 1rem;
+    font-size: var(--mf-font-size-base);
+    font-weight: 700;
+    color: var(--mf-primary);
+    background-color: var(--mf-bg-secondary);
+    border: 2px solid var(--mf-border);
+    border-radius: var(--mf-radius-full);
+    cursor: pointer;
+    transition: var(--mf-transition-fast);
+}
+
+.magicfeedback-back:hover {
+    border-color: var(--mf-primary);
+    background-color: var(--mf-bg-hover);
+}
+
+/* ========================================
+   SKIP & COUNTER
+   ======================================== */
+.magicfeedback-skip-container {
+    display: flex;
+    align-items: center;
+    gap: var(--mf-space-xs);
+    padding: 0;
+    margin: 0;
+    font-size: var(--mf-font-size-sm);
+    color: var(--mf-text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: var(--mf-transition-fast);
+}
+
+.magicfeedback-skip-container:hover {
+    color: var(--mf-primary);
+}
+
+.magicfeedback-skip-container input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--mf-primary);
+}
+
+.magicfeedback-counter {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--mf-space-md);
+    font-size: var(--mf-font-size-sm);
+    color: var(--mf-text-muted);
+}
+
+/* ========================================
+   MODAL STYLES
+   ======================================== */
+/* Modal backdrop */
+.magicfeedback-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.4);
+    display: none; /* toggled to flex when open */
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+/* Modal container */
+.magicfeedback-modal {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    max-width: 520px;
+    width: 90%;
+    max-height: 80vh;
+    /* Flex column so the options list scrolls while the actions footer
+       (counter + confirm button) stays pinned and always visible. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 16px;
+    position: relative;
+    /* Portalled to document.body (see renderPriorityList.ts) to escape the
+       host page's overflow/z-index — so it never inherits
+       .magicfeedback-container's neutral text color and instead inherits
+       whatever color the host page's own <body> happens to set. Needs its
+       own explicit baseline rather than relying on that inheritance. */
+    color: var(--mf-text-primary);
+}
+
+/* Modal actions */
+.magicfeedback-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    flex-shrink: 0;
+}
+
+.magicfeedback-modal-counter {
+    margin-right: auto;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: var(--mf-text-secondary);
+}
+
+/* Modal list */
+.magicfeedback-modal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* Scrollable area; footer stays fixed below it. */
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.magicfeedback-modal-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+/* Priority list header */
+.magicfeedback-priority-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.magicfeedback-priority-list-reorder {
+    margin-top: 8px;
+}
+
+.magicfeedback-priority-list-list {
+    padding: 0;
+    list-style: none;
+}
+
+.magicfeedback-priority-list-item {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     margin: 5px 0;
 }
 
-.magicfeedback-multi-question-matrix-row-tr{
-    border-radius: 5px;
-    margin: 10px 0 !important;
+.magicfeedback-priority-list-item-label {
+    font-size: 15px;
 }
 
-.magicfeedback-multi-question-matrix-row-tr:nth-child(odd) {
-    background-color: #f1f6f6; /* Light gray background for odd rows */
+.magicfeedback-priority-list-arrows {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.magicfeedback-multi-question-matrix-row-tr:nth-child(even) {
-    background-color: #ffffff; /* White background for even rows */
-}
-
-.magicfeedback-multi-question-matrix-row-label {
-    text-align: left !important;
-}
-
-.magicfeedback-point-system-item span {
-    color: #475569 !important;
-}
-
-.magicfeedback-point-system-item input {
-    padding: 0;
-    margin: 0 !important;
-    width: auto !important;
-    min-width: 100px !important;
-    height: auto !important;
-    min-height: 42px;
-    cursor: pointer;
+/* Buttons */
+.magicfeedback-button {
+    appearance: none;
+    border: 2px solid var(--mf-border);
+    border-radius: var(--mf-radius-full);
+    background: var(--mf-bg-secondary);
+    color: var(--mf-text-primary);
+    padding: 0.6rem 1rem;
     font-size: 14px;
-    text-align: center !important;
-}
-
-.magicfeedback-multi-question-matrix-table input {
-    margin: auto !important;
-    padding: 20px !important;
-    width: 100% !important;
-    height: 15px;
-    border: 1px solid #ced4da;
+    font-weight: 700;
     cursor: pointer;
+    box-shadow: var(--mf-shadow-sm);
 }
 
-.magicfeedback-image{
-    max-height: 400px !important;
-    height: auto !important;
-    max-width: 100% !important;
-    margin: 10px auto !important;
+.magicfeedback-button:hover {
+    background: var(--mf-bg-hover);
+    border-color: var(--mf-primary);
 }
 
-.magicfeedback-error{
-    margin-top: 5px;
+.magicfeedback-button:active {
+    transform: translateY(1px);
+}
+
+.magicfeedback-button-primary {
+    border-color: var(--mf-primary);
+    background: var(--mf-primary);
+    color: #fff;
+    box-shadow: var(--mf-shadow-md);
+}
+
+.magicfeedback-button-primary:hover {
+    background: var(--mf-primary-hover);
+}
+
+.magicfeedback-button-primary:active {
+    background: var(--mf-primary-hover);
+}
+
+/* Warning flash */
+.magicfeedback-warning {
+    color: #C70039;
+}
+
+/* Start message button */
+.magicfeedback-start-message-button {
+    appearance: none;
+    border: 2px solid var(--mf-primary);
+    border-radius: var(--mf-radius-full);
+    background: var(--mf-primary);
+    color: #fff;
+    padding: 0.8rem 1.4rem;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: var(--mf-shadow-md);
+}
+
+.magicfeedback-start-message-button:hover {
+    background: var(--mf-primary-hover);
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+@media (max-width: 768px) {
+    :root {
+        --mf-space-lg: 1.25rem;
+        --mf-space-xl: 1.5rem;
+    }
+
+    .magicfeedback-container {
+        padding: 12px;
+        border-radius: var(--mf-radius-md);
+    }
+
+    .magicfeedback-form {
+        padding: 14px;
+        border-radius: var(--mf-radius-md);
+    }
+
+    .magicfeedback-div {
+        padding: 12px;
+        gap: var(--mf-space-lg)
+    }
+
+    .magicfeedback-label {
+        font-size: var(--mf-font-size-base);
+    }
+
+    .deepdots-popup input[type="date"],
+    .deepdots-popup input[type="text"],
+    .deepdots-popup input[type="number"],
+    .deepdots-popup input[type="email"],
+    .deepdots-popup input[type="password"],
+    .deepdots-popup textarea,
+    .deepdots-popup select {
+        padding: 0.85rem 0.95rem;
+        font-size: 1rem;
+        min-height: 46px;
+    }
+
+    /*
+    .magicfeedback-radio-container,
+    .magicfeedback-checkbox-container,
+    .magicfeedback-boolean-container,
+    .magicfeedback-consent-container {
+        width: 100%;
+    }
+    */
+
+    .magicfeedback-radio-container,
+    .magicfeedback-checkbox-container {
+        padding: 10px 12px;
+        border-radius: var(--mf-radius-md);
+        border: 1px solid var(--mf-border);
+        gap: 10px;
+    }
+
+    .magicfeedback-rating-container,
+    .magicfeedback-rating-number-container,
+    .magicfeedback-rating-star-container {
+        gap: 10px;
+    }
+
+    .magicfeedback-boolean-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .magicfeedback-rating-number-container-row,
+    .magicfeedback-rating-number-container-row-reverse {
+        gap: 6px;
+    }
+
+    .magicfeedback-rating-number-option-row .magicfeedback-rating-number-value,
+    .magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-value {
+        min-height: 44px;
+        padding: var(--mf-space-xs);
+        font-size: 0.9rem;
+    }
+
+    .magicfeedback-action-container {
+        flex-direction: column-reverse;
+    }
+
+    .magicfeedback-submit,
+    .magicfeedback-back {
+        width: 100%;
+        text-align: center;
+        min-height: 48px;
+    }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+.magicfeedback-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.magicfeedback-modal-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #666;
+}
+
+.magicfeedback-modal-close:hover,
+.magicfeedback-modal-close:focus {
+    color: #000;
+    outline: none;
+}
+
+/* ========================================
+   FILE / IMAGE UPLOAD
+   ======================================== */
+.magicfeedback-upload {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mf-space-md);
+    width: 100%;
+    margin: 10px 0;
+}
+
+/* The native input is an invisible, focusable overlay covering the dropzone. */
+.magicfeedback-upload-native {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.magicfeedback-upload-dropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mf-space-sm);
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 150px;
+    padding: var(--mf-space-xl);
+    text-align: center;
+    border: 2px dashed var(--mf-border);
+    border-radius: var(--mf-radius-md);
+    background-color: var(--mf-surface-alt);
+    cursor: pointer;
+    transition: var(--mf-transition);
+}
+
+.magicfeedback-upload-dropzone:hover {
+    border-color: var(--mf-primary);
+    background-color: var(--mf-bg-hover);
+}
+
+.magicfeedback-upload-dropzone:focus-within {
+    border-color: var(--mf-primary);
+    box-shadow: var(--mf-shadow-focus);
+}
+
+.magicfeedback-upload-dropzone.is-dragover {
+    border-color: var(--mf-primary);
+    border-style: solid;
+    background-color: var(--mf-primary-light);
+    box-shadow: var(--mf-shadow-focus);
+}
+
+.magicfeedback-upload-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    color: var(--mf-primary);
+    background-color: var(--mf-surface);
+    border-radius: var(--mf-radius-full);
+    box-shadow: var(--mf-shadow-sm);
+    pointer-events: none;
+}
+
+.magicfeedback-upload-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.magicfeedback-upload-cta {
+    font-family: inherit;
+    font-weight: var(--mf-font-weight-semibold);
+    font-size: var(--mf-font-size-base);
+    color: var(--mf-text-primary);
+    pointer-events: none;
+}
+
+.magicfeedback-upload-hint {
+    font-family: inherit;
+    font-size: var(--mf-font-size-sm);
+    color: var(--mf-text-muted);
+    pointer-events: none;
+}
+
+.magicfeedback-upload-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mf-space-sm);
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.magicfeedback-upload-list:empty {
+    display: none;
+}
+
+.magicfeedback-upload-file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--mf-space-md);
+    padding: var(--mf-space-sm) var(--mf-space-md);
+    background-color: var(--mf-surface);
+    border: 1px solid var(--mf-border);
+    border-radius: var(--mf-radius-sm);
+    box-shadow: var(--mf-shadow-sm);
+    animation: mf-scale-in 0.2s ease-out;
+}
+
+.magicfeedback-upload-thumb {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    color: var(--mf-text-secondary);
+    background-color: var(--mf-surface-alt);
+    border-radius: var(--mf-radius-sm);
+}
+
+.magicfeedback-upload-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.magicfeedback-upload-thumb svg {
+    width: 20px;
+    height: 20px;
+}
+
+.magicfeedback-upload-file-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: start;
+}
+
+.magicfeedback-upload-file-name {
+    font-family: inherit;
+    font-size: var(--mf-font-size-sm);
+    font-weight: var(--mf-font-weight-semibold);
+    color: var(--mf-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.magicfeedback-upload-file-size {
+    font-family: inherit;
+    font-size: 0.75rem;
+    color: var(--mf-text-muted);
+}
+
+.magicfeedback-upload-remove {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    color: var(--mf-text-muted);
+    background-color: transparent;
+    border: none;
+    border-radius: var(--mf-radius-full);
+    cursor: pointer;
+    transition: var(--mf-transition-fast);
+}
+
+.magicfeedback-upload-remove:hover,
+.magicfeedback-upload-remove:focus-visible {
+    color: var(--mf-error);
+    background-color: var(--mf-primary-light);
+    outline: none;
+}
+
+.magicfeedback-upload-remove svg {
+    width: 16px;
+    height: 16px;
+}
+
+.magicfeedback-upload-error {
+    display: none;
+    font-family: inherit;
+    font-size: var(--mf-font-size-sm);
+    color: var(--mf-error);
+}
+
+.magicfeedback-upload-error.is-visible {
+    display: block;
+}
+
+/* ========================================
+   LOCAL — reglas del popup, no vienen del paquete
+   ======================================== */
+
+/* Los controles de formulario no heredan font-family: cuando el popup trae fuente propia
+   (clase deepdots-has-font), se les fuerza la del contenedor. */
+.deepdots-popup.deepdots-has-font button,
+.deepdots-popup.deepdots-has-font input,
+.deepdots-popup.deepdots-has-font textarea,
+.deepdots-popup.deepdots-has-font select {
+    font-family: var(--deepdots-font, inherit);
+}
+
+/* WebKit sí aplica el padding al radio nativo: con padding el control se dibuja enorme (se vio
+   en iOS, WebView de RN y Safari, no en Chrome). El paquete ya no lo pone, pero la regla es
+   barata y evita que vuelva. */
+.deepdots-popup input[type="radio"] {
+    padding: 0;
 }
