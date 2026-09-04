@@ -424,3 +424,21 @@ describe('buildSurveyHtml font', () => {
     expect(html).toContain('"Inter", -apple-system, system-ui, sans-serif');
   });
 });
+
+describe('buildSurveyHtml logo', () => {
+  it('lo cuelga del popup, antes de la barra de progreso (no dentro del scroll)', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    // Espejo de insertPopupLogo (src/ui/logo.ts) en la ruta web.
+    expect(html).toContain('popup.insertBefore(logoImg, progressEl);');
+    // Antes vivía dentro de #dd-main y se iba con el scroll del formulario.
+    expect(html).not.toContain('main.insertBefore(logoImg');
+  });
+
+  it('el logo es un bloque con hueco solo por arriba', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain('#dd-logo{max-height:40px;max-width:100%;object-fit:contain;display:block;margin:12px 0 0 0}');
+    expect(html).toContain("logoImg.style.margin='12px 16px 0 0'");
+    expect(html).toContain("logoImg.style.margin='12px 0 0 16px'");
+    expect(html).toContain("logoImg.style.margin='12px auto 0 auto'");
+  });
+});

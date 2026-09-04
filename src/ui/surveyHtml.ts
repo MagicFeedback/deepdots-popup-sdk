@@ -182,7 +182,7 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
 #dd-form-wrapper{width:100%;flex:1 1 auto}
 #mf{width:100%;box-sizing:border-box;visibility:hidden}
 .deepdots-popup-main *{max-width:100%;box-sizing:border-box}
-#dd-logo{max-height:40px;max-width:100%;object-fit:contain}
+#dd-logo{max-height:40px;max-width:100%;object-fit:contain;display:block;margin:12px 0 0 0}
 .deepdots-error-hint{display:none;margin:12px 0 0 0;padding:10px 12px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;font-size:13px}
 /* Pantalla final: el HTML del editor de la plataforma (imagen + texto), centrado. */
 .deepdots-success{display:none;width:100%;text-align:center;padding:24px 0;color:${textPrimary}}
@@ -440,10 +440,12 @@ ${customCss}
               if(s.logoSize==='small'){ logoImg.style.maxHeight='30px'; }
               else if(s.logoSize==='medium'){ logoImg.style.maxHeight='50px'; }
               else if(s.logoSize==='large'){ logoImg.style.maxHeight='70px'; }
-              if(s.logoPosition==='left'){ logoImg.style.margin='0 16px 20px 0'; logoImg.style.display='block'; logoImg.style.marginLeft='0'; }
-              else if(s.logoPosition==='right'){ logoImg.style.margin='0 0 20px 16px'; logoImg.style.display='block'; logoImg.style.marginLeft='auto'; }
-              else if(s.logoPosition==='center'){ logoImg.style.margin='0 auto 20px auto'; logoImg.style.display='block'; }
-              main.insertBefore(logoImg, document.getElementById('dd-form-wrapper'));
+              if(s.logoPosition==='left'){ logoImg.style.margin='12px 16px 0 0'; logoImg.style.marginLeft='0'; }
+              else if(s.logoPosition==='right'){ logoImg.style.margin='12px 0 0 16px'; logoImg.style.marginLeft='auto'; }
+              else if(s.logoPosition==='center'){ logoImg.style.margin='12px auto 0 auto'; }
+              // Encima de la barra de progreso, como hermano del header (espejo de ui/logo.ts en
+              // web). Fuera de #dd-main, así el logo no se va con el scroll del formulario.
+              popup.insertBefore(logoImg, progressEl);
             }
             if(s.startMessage && s.startMessage!==''){ onStartPage=true; updateButtons('start'); }
             else { updateButtons('in_progress_first'); }
