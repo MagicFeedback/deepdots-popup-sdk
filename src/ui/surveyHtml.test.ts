@@ -405,6 +405,12 @@ describe('buildSurveyHtml stylesheet (legacy)', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', version: '2.2.4' });
     expect(html).toContain('https://cdn.jsdelivr.net/npm/@magicfeedback/native@2.2.4/dist/magicfeedback-sdk.browser.js');
   });
+
+  it('sin version: la del bundle web, para no divergir entre plataformas', () => {
+    // Tiene que coincidir con la dep "@magicfeedback/native" de package.json.
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain('https://cdn.jsdelivr.net/npm/@magicfeedback/native@2.2.8/dist/magicfeedback-sdk.browser.js');
+  });
 });
 
 describe('buildSurveyHtml font', () => {
