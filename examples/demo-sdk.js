@@ -12,7 +12,7 @@ export async function initDemoSdk({modeLabelEl, eventLogEl} = {}) {
     const sdk = new DeepdotsPopups();
     sdk.init({
         debug: true,
-        apiKey: 'PhHDz8iAsOjfRqo46gaVB06Q9avm39XY',
+        apiKey: 'EOywGj6yluqJRyQoY9jCSwJtSdffvKJR',
         /*
         userId: new Date().toLocaleDateString('es-ES', {year: 'numeric', month: '2-digit', day: '2-digit'}).split('/').reverse().join(''),
         analytics: {
