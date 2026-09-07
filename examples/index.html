@@ -4,7 +4,8 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Deepdots Popup SDK - Fake Website</title>
-    <link rel="stylesheet" href="./assets/style.css"/>
+    <!-- El SDK inyecta su propio CSS del survey; ./style.css tiene reglas globales
+         (h2, p) sin scope que contaminarían esta página. -->
     <style>
         /* Modern, elegant refresh */
         :root {
@@ -22,6 +23,12 @@
 
         html {
             scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%; /* iOS no infla el texto en horizontal */
+            scroll-padding-top: 76px; /* los anclajes no quedan bajo la navbar sticky */
+        }
+
+        img {
+            max-width: 100%;
         }
 
         body {
@@ -48,6 +55,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            flex: 0 0 auto; /* el logo no se comprime cuando el nav pide espacio */
             font-weight: 700;
             color: var(--primary);
         }
@@ -55,7 +63,12 @@
         .navbar img.logo {
             height: 36px;
             width: auto;
-            object-fit: cover;
+            object-fit: contain; /* 'cover' recortaba el logo al comprimirse */
+        }
+
+        .navbar nav {
+            display: flex;
+            align-items: center;
         }
 
         .navbar nav a {
@@ -148,6 +161,7 @@
 
         /* Ajuste específico para no deformar el logo de Danske Spil */
         .card img.danske-spil-logo {
+            box-sizing: border-box; /* el padding no desborda el ancho de la tarjeta */
             height: auto; /* no fuerza altura fija */
             max-height: 170px; /* límite para mantener proporción dentro de la tarjeta */
             object-fit: contain; /* evita recortes o deformaciones */
@@ -194,8 +208,22 @@
         .post img {
             width: 120px;
             height: 90px;
+            flex: 0 0 auto;
             object-fit: cover;
             border-radius: 10px;
+        }
+
+        .post > div {
+            min-width: 0; /* evita que el texto desborde el flex item */
+        }
+
+        .post h3 {
+            margin: 0 0 4px;
+            font-size: 17px;
+        }
+
+        .post p {
+            margin: 0 0 4px;
         }
 
         .post .meta {
@@ -348,10 +376,6 @@
                 padding: 32px 20px;
             }
 
-            .hero img {
-                margin-top: 16px;
-            }
-
             .section {
                 padding: 20px;
                 margin: 20px auto;
@@ -368,16 +392,44 @@
         }
 
         @media (max-width: 640px) {
+            /* Navbar en una sola fila: el nav se convierte en una tira scrollable
+               en lugar de envolver a 3 líneas y comerse 100px de alto sticky. */
             .navbar {
-                padding: 12px 16px;
+                padding: 8px 12px;
+                gap: 8px;
+            }
+
+            .navbar img.logo {
+                height: 28px;
+            }
+
+            .navbar nav {
+                flex: 1 1 auto;
+                min-width: 0;
+                overflow-x: auto;
+                overscroll-behavior-x: contain;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                /* degradado a la derecha para indicar que hay más enlaces */
+                mask-image: linear-gradient(to left, transparent 0, #000 20px);
+                -webkit-mask-image: linear-gradient(to left, transparent 0, #000 20px);
+            }
+
+            .navbar nav::-webkit-scrollbar {
+                display: none;
             }
 
             .navbar nav a {
-                margin: 0 8px;
+                margin: 0;
+                padding: 10px 7px;
+                font-size: 14px;
+                white-space: nowrap;
             }
 
             .hero {
-                padding: 24px 16px;
+                padding: 16px 16px 4px;
+                margin: 4px auto 0;
+                gap: 20px;
             }
 
             .hero h1 {
@@ -385,7 +437,21 @@
             }
 
             .hero p {
-                font-size: 14px;
+                font-size: 15px;
+            }
+
+            .hero .actions {
+                margin-top: 14px;
+            }
+
+            .section {
+                padding: 16px;
+                margin: 12px auto;
+            }
+
+            .section > h2 {
+                font-size: 22px;
+                margin-bottom: 12px;
             }
 
             .cards {
@@ -394,7 +460,7 @@
             }
 
             .card img {
-                height: 140px;
+                height: 180px;
             }
 
             .card img.danske-spil-logo {
@@ -403,6 +469,28 @@
 
             .blog-list {
                 grid-template-columns: 1fr;
+            }
+
+            /* Imagen fija de 120px dejaba la columna de texto en 161px */
+            .post {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .post img {
+                width: 100%;
+                height: 170px;
+            }
+
+            /* Área táctil mínima de 44px */
+            button {
+                min-height: 44px;
+                padding: 12px 16px;
+            }
+
+            .footer {
+                padding: 24px 16px;
+                font-size: 14px;
             }
         }
 
@@ -416,7 +504,12 @@
             }
 
             .navbar img.logo {
-                height: 30px;
+                height: 24px;
+            }
+
+            .navbar nav a {
+                padding: 10px 6px;
+                font-size: 13px;
             }
         }
     </style>
@@ -609,13 +702,13 @@
 
     // Event on click
     // ───── Contact ─────
-    document.getElementById('btn-contact').onclick = async () => {
+    document.getElementById('contact').onclick = async () => {
         const sent = await sdk.setContactAttributes({
             plan: 'premium',
             language: document.documentElement.lang || 'en',
             age: Math.floor(Math.random() * 83) + 18,
         });
-        log(`setContactAttributes → ${sent ? 'Sent (POST)' : 'Whiteout changes, no POST'}`);
+        console.info(`setContactAttributes → ${sent ? 'Sent (POST)' : 'Without changes, no POST'}`);
     };
 
 </script>
