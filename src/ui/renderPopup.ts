@@ -144,7 +144,6 @@ export async function renderPopup(
         // oscuros con texto blanco sobre el fondo claro del popup.
         colorScheme:      isDark ? 'dark' : 'light',
         textPrimary:      isDark ? '#f0f0f0' : '#111',
-        closeBtnHoverBg:  isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)',
         closeBtnHoverColor: isDark ? '#fff' : '#000000',
         textMuted:        isDark ? '#9ca3af' : '#6b7280',
         progressTrack:    isDark ? '#3f3f46' : '#e5e7eb',
@@ -221,8 +220,8 @@ export async function renderPopup(
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', 'Close popup');
     closeBtn.innerHTML = `
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 5L19 19M5 19L19 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="butt"/>
       </svg>
     `;
     closeBtn.style.cssText = `
@@ -237,17 +236,15 @@ export async function renderPopup(
       cursor:pointer;
       color:${theme.textPrimary};
       padding:4px;
-      transition: color .15s ease, transform .15s ease, background .15s ease;
+      transition: color .15s ease, transform .15s ease;
       box-shadow: none !important;
     `;
     closeBtn.onmouseenter = () => {
         closeBtn.style.color = theme.closeBtnHoverColor;
-        closeBtn.style.background = theme.closeBtnHoverBg;
         closeBtn.style.transform = 'scale(1.06)';
     };
     closeBtn.onmouseleave = () => {
         closeBtn.style.color = theme.textPrimary;
-        closeBtn.style.background = 'transparent';
         closeBtn.style.transform = 'scale(1)';
     };
     closeBtn.onclick = () => {

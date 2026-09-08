@@ -67,6 +67,36 @@ describe('paridad de selectores del chrome (web ↔ WebView de RN)', () => {
     expect(ausentes).toEqual([]);
   });
 
+  /**
+   * El icono de cerrar es el mismo trazo en las dos rutas y NO pinta fondo en ningún estado:
+   * el diseño pedido es la X desnuda (antes era más gruesa, con puntas redondeadas, y el hover
+   * pintaba una caja gris). Si una de las dos rutas se toca sin la otra, esto lo caza.
+   */
+  const CLOSE_PATH = 'M5 5L19 19M5 19L19 5';
+
+  it('la X de cerrar es idéntica en las dos rutas: trazo fino, punta recta y sin fondo', async () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain(`<path d="${CLOSE_PATH}" stroke="currentColor" stroke-width="1.5" stroke-linecap="butt"/>`);
+    expect(html).toContain('#dd-close{background:transparent;');
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await renderPopup(
+      container, 's1', 'p1', undefined, () => {}, () => {},
+      'production', undefined, undefined, undefined, undefined, undefined, {},
+    );
+    const closeBtn = container.querySelector('#dd-close') as HTMLButtonElement;
+    const path = closeBtn.querySelector('path') as SVGPathElement;
+    expect(path.getAttribute('d')).toBe(CLOSE_PATH);
+    expect(path.getAttribute('stroke-width')).toBe('1.5');
+    expect(path.getAttribute('stroke-linecap')).toBe('butt');
+    expect(closeBtn.style.background).toBe('transparent');
+
+    // El hover solo cambia color y escala; la caja gris de antes ya no vuelve.
+    closeBtn.dispatchEvent(new Event('mouseenter'));
+    expect(closeBtn.style.background).toBe('transparent');
+  });
+
   it('los botones de navegación llevan la clase compartida en las dos rutas', async () => {
     // `.dd-nav-btn` permite estilar los cuatro de una vez sin enumerar ids.
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
