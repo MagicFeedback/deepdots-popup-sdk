@@ -22,7 +22,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean && cp -R src/assets dist/assets && tsup --config tsup.rn.config.ts",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean && rm -rf dist/assets && mkdir -p dist/assets/assets && cp -R src/assets/. dist/assets/assets/ && tsup --config tsup.rn.config.ts",
+    "check:layout": "node scripts/check-package-layout.mjs",
     "build:watch": "tsup src/index.ts --format cjs,esm --dts --watch",
     "docs:dev": "npm --prefix docs run dev",
     "docs:build": "npm --prefix docs run build",
@@ -31,7 +32,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:report": "playwright show-report",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && npm run check:layout",
     "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public"
   },
   "keywords": [
