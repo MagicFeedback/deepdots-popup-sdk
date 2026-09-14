@@ -3,6 +3,7 @@ import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import type { PopupActions, PopupFont } from '../types';
 import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS } from './reveal';
+import { PRIMARY_COLOR_JS } from './surveyPalette';
 import magicfeedbackCss from '../assets/style.css';
 
 /**
@@ -271,7 +272,7 @@ body.dd-ready #dd-popup{visibility:visible}
 .deepdots-success img{max-width:100%;height:auto;margin:0 auto 16px auto;display:block}
 .deepdots-success p{margin:0;font-size:16px;font-weight:600;line-height:1.4}
 .deepdots-popup-footer{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:4px;margin-top:auto;width:100%;padding-top:12px}
-.dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:15px;font-weight:600;align-items:center;justify-content:center;text-align:center}
+.dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:999px;cursor:pointer;font-size:15px;font-weight:600;align-items:center;justify-content:center;text-align:center}
 /* Secundario como botón de texto: sin borde ni fondo, para que el primario sea la única CTA. */
 #dd-back{background:transparent;color:${textMuted};border:none}
 #dd-start,#dd-complete,#dd-submit{background:#1E293B;color:#fff;border:none}
@@ -496,6 +497,7 @@ ${customCss}
     }
   }
 
+${PRIMARY_COLOR_JS}
 ${REVEAL_JS}
   // El popup se enseña cuando el survey está pintado; \`ready\` deja al host abrir su propio
   // Modal en ese momento en vez de montar un WebView en blanco.
@@ -554,6 +556,10 @@ ${REVEAL_JS}
             if(s.loadingBarColor){ progressBar.style.background=s.loadingBarColor; progressFollowUp.style.background=s.loadingBarColor; }
             if(chromeOn && s.boxBackgroundColor){ popup.style.background=s.boxBackgroundColor; }
             if(s.contentAlign){ main.style.justifyContent = s.contentAlign==='center' ? 'center' : 'flex-start'; }
+            // El survey pinta sus controles con --mf-primary, que sale de primaryColor; si la
+            // integración solo configura el del botón, el popup mezclaría el color de la marca
+            // con el gris azulado por defecto del paquete.
+            ddApplySurveyPrimaryColor(popup, s);
             if(s.buttonPrimaryColor){
               submitBtn.style.background=s.buttonPrimaryColor; submitBtn.style.border='none'; submitBtn.style.color='#fff';
               startBtn.style.background=s.buttonPrimaryColor; startBtn.style.border='none'; startBtn.style.color='#fff';

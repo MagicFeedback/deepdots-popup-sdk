@@ -266,7 +266,8 @@ describe('buildSurveyHtml métricas del diseño', () => {
 
   it('los botones tienen altura y radio de acción táctil', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain('.dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:15px;font-weight:600');
+    // Píldora, como el Button de Material3 que pinta el chrome nativo de KMP.
+    expect(html).toContain('.dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:999px;cursor:pointer;font-size:15px;font-weight:600');
     expect(html).toContain('.deepdots-popup-footer{flex-direction:column;gap:4px}');
   });
 
