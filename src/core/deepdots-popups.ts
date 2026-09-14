@@ -30,6 +30,7 @@ import { resolveLanguage } from '../analytics/language';
 import { EngagementTracker } from '../analytics/engagement-tracker';
 import { ContactManager, type ContactAttributes } from '../contact/contact-manager';
 import { CrashReporter, crashRecordToParams, type ReportErrorOptions, type ReactNativeErrorUtils } from '../analytics/crash-reporter';
+import { clearPopupState, readPopupState, writePopupState } from './popup-state-store';
 import { setLogger } from '../util/logger';
 import { buildMessageParams, MessageGuard, type MessageStage, type TrackMessageOptions } from '../analytics/messaging';
 
@@ -79,6 +80,10 @@ export class DeepdotsPopups {
     private popupsLoaded = false;
     private pendingAutoLaunch = false;
 
+    // Estado que alimenta las reglas de redisplay. Copia de trabajo en memoria; la fuente
+    // duradera es el storage (`popup-state-store`), rehidratada en `init()` — sin eso, una
+    // recarga reiniciaba el cooldown y el popup volvía a salir. `answeredSurveys` se deriva
+    // de las entradas COMPLETED de `surveyProgress` (los dos los escribe `markSurveyAnswered`).
     private answeredSurveys: Set<string> = new Set();
     private surveyProgress: Map<string, PopupProgressState> = new Map();
     private lastShown: Map<string, number> = new Map(); // popupId -> timestamp mostrado
@@ -163,6 +168,7 @@ export class DeepdotsPopups {
         // (respuesta de POST /sdk/popups) y se cachea — el SDK no genera ni expira sesiones.
         const storage = config.storage ?? createDefaultStorage();
         this.storage = storage;
+        this.loadPopupState(storage);
         this.tracking = new TrackingManager({
             storage,
             clientUserId: this.config.userId,
@@ -485,6 +491,11 @@ export class DeepdotsPopups {
         // Atributos, métricas y protecciones de messaging pertenecían al usuario anterior.
         this.analytics?.resetUserScope();
         this.messageGuard.reset();
+        // El historial de redisplay era del usuario anterior: el nuevo empieza de cero.
+        this.lastShown.clear();
+        this.surveyProgress.clear();
+        this.answeredSurveys.clear();
+        clearPopupState(storage);
 
         this.log('tracking · user_change · user_id:', this.tracking.getUserId());
         this.openSession();
@@ -688,6 +699,7 @@ export class DeepdotsPopups {
         this.log('Showing popup (definition)', def);
         this.surveyToPopupId.set(def.surveyId, def.id);
         this.lastShown.set(def.id, Date.now());
+        this.persistPopupState();
         this.renderPopup(def.surveyId, def.productId, def.actions, def.style, def.title);
         this.emitEvent('popup_shown', def.surveyId, { popupId: def.id });
     }
@@ -1238,6 +1250,31 @@ export class DeepdotsPopups {
             return;
         }
         this.surveyProgress.set(surveyId, { status, timestamp: Date.now() });
+        this.persistPopupState();
+    }
+
+    /**
+     * Rehidrata el estado de redisplay desde el storage. `answeredSurveys` se reconstruye
+     * desde las entradas COMPLETED: es exactamente lo que persiste `markSurveyAnswered`.
+     */
+    private loadPopupState(storage: KeyValueStorage): void {
+        const state = readPopupState(storage);
+        Object.entries(state.lastShown).forEach(([popupId, timestamp]) => {
+            this.lastShown.set(popupId, timestamp);
+        });
+        Object.entries(state.progress).forEach(([surveyId, entry]) => {
+            this.surveyProgress.set(surveyId, { status: entry.status, timestamp: entry.timestamp });
+            if (entry.status === 'COMPLETED') this.answeredSurveys.add(surveyId);
+        });
+    }
+
+    /** Vuelca el estado de redisplay al storage. Sin storage (o bloqueado) degrada a memoria. */
+    private persistPopupState(): void {
+        if (!this.storage) return;
+        writePopupState(this.storage, {
+            lastShown: Object.fromEntries(this.lastShown),
+            progress: Object.fromEntries(this.surveyProgress),
+        });
     }
 
     private isPopupDefinition(value: unknown): value is NormalizedPopupDefinition {
