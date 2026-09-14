@@ -2,7 +2,16 @@ import type { DeepdotsEventType, PopupActions, PopupStyle } from '../types';
 import type { PopupRenderer, PopupRenderOptions } from './renderer';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import { buildSurveyHtml } from '../ui/surveyHtml';
+import { REVEAL_TIMEOUT_MS } from '../ui/reveal';
 import { sdkWarn } from '../util/logger';
+
+/**
+ * Margen que el aviso nativo de "listo" deja por detrás del techo que ya lleva el HTML. El
+ * WebView se revela solo a `REVEAL_TIMEOUT_MS`; este respaldo solo debe entrar cuando el WebView
+ * no llega ni a ejecutar el HTML (motor que no arranca, documento que no carga), que es el único
+ * caso en el que el host se quedaría esperando para siempre.
+ */
+export const NATIVE_READY_GRACE_MS = 500;
 
 type EmitFn = (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void;
 
@@ -19,6 +28,14 @@ export interface ReactNativeRendererOptions {
   onShow?: (payload: ReactNativeSurveyPayload) => void;
   /** Se llama al cerrar el popup: desmonta el WebView. */
   onHide?: () => void;
+  /**
+   * Se llama cuando el survey ya está pintado dentro del WebView, o pasado el techo de espera.
+   *
+   * Sirve para no enseñar un WebView en blanco: monta el WebView en cuanto llegue `onShow` (fuera
+   * de pantalla o transparente) y ábrelo al recibir `onReady`. El HTML se revela solo de todas
+   * formas, así que el host que no lo use sigue funcionando igual.
+   */
+  onReady?: (payload: { surveyId: string }) => void;
 }
 
 /**
@@ -26,23 +43,39 @@ export interface ReactNativeRendererOptions {
  * HTML del survey al host (que lo monta en `react-native-webview`) y traduce los
  * mensajes del WebView a eventos de popup del SDK (→ `POST /sdk/popups`, Messaging #18–22).
  *
- * Uso:
+ * Uso: monta el WebView con `onShow` y enséñalo con `onReady`, para que el usuario no vea el
+ * WebView arrancando en blanco (motor + bundle del CDN + fetch del survey).
  * ```tsx
  * const renderer = new ReactNativePopupRenderer({
- *   onShow: (p) => setSurvey({ ...p, visible: true }),
- *   onHide: () => setSurvey((s) => ({ ...s, visible: false })),
+ *   onShow: (p) => setSurvey({ ...p, ready: false }),
+ *   onReady: () => setSurvey((s) => (s ? { ...s, ready: true } : s)),
+ *   onHide: () => setSurvey(null),
  * });
  * sdk.setRenderer(renderer);
  * // …
- * <WebView source={{ html: survey.html }}
- *          onMessage={(e) => renderer.handleMessage(e.nativeEvent.data)} />
+ * // ⚠️ Con `<Modal visible={survey.ready}>` esto NO funciona: React Native no monta los hijos
+ * // de un Modal cerrado, así que el WebView no empezaría a cargar y `ready` no llegaría nunca.
+ * // El WebView tiene que estar montado y solo invisible.
+ * {survey ? (
+ *   <View style={[StyleSheet.absoluteFill, { opacity: survey.ready ? 1 : 0 }]}
+ *         pointerEvents={survey.ready ? 'auto' : 'none'}>
+ *     <WebView source={{ html: survey.html }}
+ *              onMessage={(e) => renderer.handleMessage(e.nativeEvent.data)} />
+ *   </View>
+ * ) : null}
  * ```
+ *
+ * Quien prefiera no complicarse puede ignorar `onReady` y abrir su Modal en `onShow`: el HTML se
+ * revela solo igualmente, así que el usuario verá el contenedor del host unos cientos de ms antes
+ * que la tarjeta, pero nunca el spinner.
  */
 export class ReactNativePopupRenderer implements PopupRenderer {
   private emitFn: EmitFn | null = null;
   private onCloseFn: (() => void) | null = null;
   private currentSurveyId: string | null = null;
   private partialEmitted = false;
+  private readyEmitted = false;
+  private readyTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private options: ReactNativeRendererOptions = {}) {}
 
@@ -69,6 +102,8 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     this.onCloseFn = onClose;
     this.currentSurveyId = surveyId;
     this.partialEmitted = false;
+    this.readyEmitted = false;
+    this.armReadyFallback(surveyId);
 
     const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null, analyticsFeedbackSessionId ?? null);
     const html = buildSurveyHtml({
@@ -98,8 +133,34 @@ export class ReactNativePopupRenderer implements PopupRenderer {
   }
 
   hide(): void {
+    this.clearReadyFallback();
     this.options.onHide?.();
     this.currentSurveyId = null;
+  }
+
+  /** Respaldo del aviso de listo por si el WebView no llega a ejecutar el HTML. */
+  private armReadyFallback(surveyId: string): void {
+    this.clearReadyFallback();
+    if (!this.options.onReady) return;
+    this.readyTimer = setTimeout(() => {
+      this.readyTimer = null;
+      this.emitReady(surveyId);
+    }, REVEAL_TIMEOUT_MS + NATIVE_READY_GRACE_MS);
+  }
+
+  private clearReadyFallback(): void {
+    if (this.readyTimer !== null) {
+      clearTimeout(this.readyTimer);
+      this.readyTimer = null;
+    }
+  }
+
+  /** Idempotente: el WebView puede avisar a la vez que vence el respaldo. */
+  private emitReady(surveyId: string): void {
+    if (this.readyEmitted) return;
+    this.readyEmitted = true;
+    this.clearReadyFallback();
+    this.options.onReady?.({ surveyId });
   }
 
   /**
@@ -119,6 +180,11 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     }
 
     switch (name) {
+      case 'ready':
+        // El survey ya está pintado dentro del WebView. NO es interacción del usuario: no debe
+        // marcar el popup como PARTIAL.
+        this.emitReady(surveyId);
+        break;
       case 'loaded':
       case 'before_submit':
       case 'after_submit':

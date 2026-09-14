@@ -2,7 +2,43 @@ import type { IdentityAnswer } from '../tracking/tracking-manager';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import type { PopupActions, PopupFont } from '../types';
 import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
+import { REVEAL_TIMEOUT_MS } from './reveal';
 import magicfeedbackCss from '../assets/style.css';
+
+/**
+ * Apertura diferida, versión que corre DENTRO del WebView: espejo ES5 de `revealWhenPainted`
+ * (`reveal.ts`). El popup se monta invisible y se enseña cuando el survey está pintado y sus
+ * imágenes han llegado, en vez de enseñar el spinner girando; `timeoutMs` es el techo para lo
+ * que no llegue nunca. En RN esto pesa más que en web, porque a la espera del survey se le suma
+ * el arranque del WebView y la descarga del bundle del CDN.
+ *
+ * Va como texto (y no como import) porque el WebView no comparte módulos con el bundle del SDK.
+ * `surveyHtml.reveal.test.ts` lo evalúa para probar el comportamiento, no solo el string.
+ */
+export const REVEAL_JS = `
+function ddCreateReveal(popup, onReveal, timeoutMs){
+  var revealed=false, timer=null;
+  function reveal(){
+    if(revealed){ return; }
+    revealed=true;
+    if(timer){ clearTimeout(timer); timer=null; }
+    onReveal();
+  }
+  function revealWhenPainted(){
+    if(revealed){ return; }
+    var imgs=popup.querySelectorAll('img'), pending=[];
+    for(var i=0;i<imgs.length;i++){ if(!imgs[i].complete){ pending.push(imgs[i]); } }
+    if(!pending.length){ reveal(); return; }
+    var left=pending.length;
+    function onSettled(){ left--; if(left<=0){ reveal(); } }
+    for(var j=0;j<pending.length;j++){
+      pending[j].addEventListener('load', onSettled);
+      pending[j].addEventListener('error', onSettled);
+    }
+  }
+  timer=setTimeout(reveal, timeoutMs);
+  return { reveal: reveal, whenPainted: revealWhenPainted };
+}`;
 
 /**
  * Construye un HTML autocontenido que renderiza el popup (chrome + survey de
@@ -181,7 +217,13 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
 ${magicfeedbackCss}
 ${fontFaceCss}
 html,body{margin:0;padding:0;height:100%;font-family:${fontFamilyValue}}
-body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${pos.alignItems};background:${bodyBg};padding:${bodyPadding};box-sizing:border-box}
+/* Apertura diferida: ni la tarjeta ni el velo se pintan hasta que el survey está listo
+   (\`dd-ready\`). Si el fondo entrara antes, en RN se vería el velo oscuro varios cientos de ms
+   antes que el contenido, que es la misma mala sensación que el spinner. */
+body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${pos.alignItems};background:transparent;padding:${bodyPadding};box-sizing:border-box}
+body.dd-ready{background:${bodyBg}}
+#dd-popup{visibility:hidden}
+body.dd-ready #dd-popup{visibility:visible}
 .deepdots-popup{position:relative;display:flex;flex-direction:column;justify-content:flex-start;background:${cardBg};color-scheme:${colorScheme};border-radius:${cardRadius};padding:24px;box-shadow:${cardShadow};max-width:${cardMaxWidth};width:${cardWidth};min-height:${cardMinHeight};height:${cardHeight};max-height:${cardMaxHeight};box-sizing:border-box}
 .deepdots-popup-header{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;flex:0 0 auto}
 /* Neutraliza la regla \`.deepdots-popup h2\` del CSS del survey (uppercase, centrado y
@@ -215,6 +257,13 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
 #dd-form-wrapper{width:100%;flex:1 1 auto}
 #mf{width:100%;box-sizing:border-box;visibility:hidden}
 .deepdots-popup-main *{max-width:100%;box-sizing:border-box}
+/* El margen lateral lo pone la tarjeta: el CSS del survey lo añade otra vez en el contenedor, en
+   el formulario y en el bloque de cada pregunta, y eso deja el enunciado y las opciones más
+   adentro que el logo, el título y la barra de progreso. Solo el lateral; el vertical separa las
+   preguntas. Mismas reglas que en el popup DOM (renderPopup.ts). */
+.deepdots-popup .magicfeedback-container,
+.deepdots-popup .magicfeedback-form,
+.deepdots-popup .magicfeedback-div{padding-left:0;padding-right:0}
 #dd-logo{max-height:40px;max-width:100%;object-fit:contain;display:block;margin:12px 0 0 0}
 .deepdots-error-hint{display:none;margin:12px 0 0 0;padding:10px 12px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;font-size:13px}
 /* Pantalla final: el HTML del editor de la plataforma (imagen + texto), centrado. */
@@ -447,9 +496,22 @@ ${customCss}
     }
   }
 
+${REVEAL_JS}
+  // El popup se enseña cuando el survey está pintado; \`ready\` deja al host abrir su propio
+  // Modal en ese momento en vez de montar un WebView en blanco.
+  var ddReveal=ddCreateReveal(popup, function(){
+    document.body.classList.add('dd-ready');
+    emitJSON('ready');
+  }, ${REVEAL_TIMEOUT_MS});
+
   function setLoading(isLoading){
     spinner.style.display=isLoading?'flex':'none';
-    if(!isLoading){ formHost.style.visibility='visible'; }
+    if(!isLoading){
+      formHost.style.visibility='visible';
+      // Fin de la carga, sea por survey cargado o por error. Entre páginas es no-op: la
+      // revelación solo actúa la primera vez.
+      ddReveal.whenPainted();
+    }
     footer.style.display=isLoading?'none':'flex';
     backBtn.disabled=isLoading; startBtn.disabled=isLoading; completeBtn.disabled=isLoading; submitBtn.disabled=isLoading;
     if(isLoading){ updateButtons(null); }
