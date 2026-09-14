@@ -42,6 +42,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # El runner parte de un clon limpio: es justo el caso en el que la ruta del CSS
+      # se movia sola. Aqui es donde se detecta, no en el movil de un cliente.
+      - name: Check package layout
+        run: npm run check:layout
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
