@@ -40,12 +40,12 @@ cp "$ROOT_DIR/examples/index.html" \
    "$SITE_DIR/examples/"
 cp -R "$ROOT_DIR/examples/clients" "$SITE_DIR/examples/clients"
 
-# product.html links the survey stylesheet as ./assets/style.css. The build
-# leaves it nested (dist/assets/assets/style.css), so resolve it instead of
-# hardcoding the depth.
-SURVEY_CSS="$(find "$ROOT_DIR/dist/assets" -name style.css -print -quit)"
-if [ -z "$SURVEY_CSS" ]; then
-  echo "no encuentro el style.css del survey en dist/assets" >&2
+# product.html links the survey stylesheet as ./assets/style.css. El build lo
+# publica en dist/assets/assets/style.css (ruta fija: es la que consumen por CDN
+# el SDK nativo y cualquier integracion que cargue la hoja a mano).
+SURVEY_CSS="$ROOT_DIR/dist/assets/assets/style.css"
+if [ ! -f "$SURVEY_CSS" ]; then
+  echo "no encuentro $SURVEY_CSS — ¿cambio la ruta de assets en el build?" >&2
   exit 1
 fi
 cp "$SURVEY_CSS" "$SITE_DIR/examples/assets/style.css"
