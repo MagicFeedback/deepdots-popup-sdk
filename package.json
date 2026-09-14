@@ -75,7 +75,7 @@
     }
   },
   "devDependencies": {
-    "@magicfeedback/native": "^2.2.8",
+    "@magicfeedback/native": "^2.2.22",
     "@playwright/test": "^1.60.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.3.31",

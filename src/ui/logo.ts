@@ -45,14 +45,19 @@ export function insertPopupLogo(
     if (style.logoSize && MAX_HEIGHT[style.logoSize]) {
         img.style.maxHeight = MAX_HEIGHT[style.logoSize];
     }
+    // Márgenes lógicos (inline-start/end) en vez de left/right: con un survey RTL (árabe) el
+    // popup se pinta con dir="rtl" y el logo tiene que acompañar al resto del chrome. En LTR
+    // el resultado es idéntico al de antes.
     switch (style.logoPosition) {
         case 'left':
-            img.style.margin = '12px 16px 0 0';
-            img.style.marginLeft = '0';
+            img.style.margin = '12px 0 0 0';
+            img.style.setProperty('margin-inline-start', '0');
+            img.style.setProperty('margin-inline-end', '16px');
             break;
         case 'right':
-            img.style.margin = '12px 0 0 16px';
-            img.style.marginLeft = 'auto';
+            img.style.margin = '12px 0 0 0';
+            img.style.setProperty('margin-inline-start', 'auto');
+            img.style.setProperty('margin-inline-end', '0');
             break;
         case 'center':
             img.style.margin = '12px auto 0 auto';

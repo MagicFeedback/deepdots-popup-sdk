@@ -1,6 +1,7 @@
 import type { IdentityAnswer } from '../tracking/tracking-manager';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import type { PopupActions, PopupFont } from '../types';
+import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import magicfeedbackCss from '../assets/style.css';
 
 /**
@@ -51,6 +52,12 @@ export interface BuildSurveyHtmlOptions {
    * para reestilar el área de preguntas (enunciados, opciones, escalas) por integración.
    */
   surveyCss?: string;
+  /**
+   * Idioma con el que arranca el chrome (botones, progreso, aria-labels, errores). Es el
+   * idioma resuelto en `init()`. Dentro del WebView lo pisa el idioma del survey
+   * (`formData.lang[0]`), y ambos los pisa `actions.*.label` de la API.
+   */
+  language?: string;
 }
 
 interface PositionRule {
@@ -83,10 +90,16 @@ function jsonForScript(value: unknown): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
+/** Devuelve el label de la API solo si trae contenido; en blanco cuenta como "no configurado". */
+function trimmedOrNull(value: string | undefined): string | null {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  return trimmed ? value as string : null;
+}
+
 export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const env = opts.env === 'development' ? 'dev' : 'prod';
   // Misma versión que la dep npm del bundle web, para que las dos rutas pinten igual.
-  const version = opts.version ?? '2.2.8';
+  const version = opts.version ?? '2.2.22';
   const cdn = `https://cdn.jsdelivr.net/npm/@magicfeedback/native@${version}/dist/magicfeedback-sdk.browser.js`;
   const sid = jsonForScript(opts.surveyId);
   const pid = jsonForScript(opts.productId);
@@ -137,10 +150,29 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   // `null` = decide la plataforma (style.showProgressBar); true/false = lo fuerza el host.
   const progressPref = opts.showProgressBar === undefined ? 'null' : String(opts.showProgressBar);
 
-  const backLabel = jsonForScript(opts.actions?.back?.label ?? 'Back');
-  const startLabel = jsonForScript(opts.actions?.start?.label ?? 'Start survey');
-  const completeLabel = jsonForScript(opts.actions?.complete?.label ?? 'Complete survey');
-  const submitLabel = jsonForScript(opts.actions?.accept?.label ?? 'Send');
+  // Textos del chrome. Arrancan con el idioma del init; dentro del WebView se re-resuelven con
+  // el idioma del survey (`formData.lang[0]`), que es el que la plataforma configura en la
+  // integración y con el que `@magicfeedback/native` localiza preguntas y placeholders.
+  const initLabels = getLabels(opts.language);
+  const initActionLabels = resolveActionLabels(opts.actions, opts.language);
+  const backLabel = jsonForScript(initActionLabels.back);
+  const startLabel = jsonForScript(initActionLabels.start);
+  const completeLabel = jsonForScript(initActionLabels.complete);
+  const submitLabel = jsonForScript(initActionLabels.accept);
+  // La tabla entera viaja con el HTML: el idioma del survey no se conoce hasta que carga.
+  const labelsTableJson = jsonForScript(LABELS);
+  // Los labels de la API van aparte para que sigan ganando después de re-resolver.
+  const actionOverridesJson = jsonForScript({
+    accept: trimmedOrNull(opts.actions?.accept?.label),
+    start: trimmedOrNull(opts.actions?.start?.label),
+    complete: trimmedOrNull(opts.actions?.complete?.label),
+    back: trimmedOrNull(opts.actions?.back?.label),
+  });
+  const initLangJson = jsonForScript(opts.language ?? '');
+  // Dirección del chrome. El survey se voltea solo desde 2.2.22 (`dir="rtl"` en su contenedor);
+  // el header/footer/progreso son nuestros y tienen que acompañarlo. Siempre explícito.
+  const initDirection = directionFor(opts.language);
+  const rtlLocalesJson = jsonForScript(RTL_LOCALES);
 
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -154,8 +186,8 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
 .deepdots-popup-header{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;flex:0 0 auto}
 /* Neutraliza la regla \`.deepdots-popup h2\` del CSS del survey (uppercase, centrado y
    margin-bottom 40px), pensada para los enunciados y no para el título de la cabecera. */
-#dd-title{margin:0;font-family:var(--deepdots-font,'Montserrat',inherit);font-size:17px;font-weight:600;line-height:1.3;color:${textPrimary};text-transform:none;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:${textPrimary};padding:4px;flex:0 0 auto;margin-left:auto}
+#dd-title{margin:0;font-family:var(--deepdots-font,'Montserrat',inherit);font-size:17px;font-weight:600;line-height:1.3;color:${textPrimary};text-transform:none;text-align:start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:${textPrimary};padding:4px;flex:0 0 auto;margin-inline-start:auto}
 /* Progreso alineado con la cabecera: sin padding horizontal propio, lo marca la tarjeta.
    El vertical es el mismo arriba y abajo, y del mismo valor que el padding de la tarjeta. */
 .deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:16px 0;box-sizing:border-box}
@@ -212,10 +244,10 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
 ${customCss}
 </style>
 </head><body>
-<div class="${popupClass}" id="dd-popup">
+<div class="${popupClass}" id="dd-popup" dir="${initDirection}">
   <div class="deepdots-popup-header">
     <h2 id="dd-title" class="deepdots-popup-title" hidden></h2>
-    <button type="button" id="dd-close" aria-label="Close popup">
+    <button type="button" id="dd-close" aria-label="${initLabels.closeAria}">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5 5L19 19M5 19L19 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="butt"/>
       </svg>
@@ -224,23 +256,23 @@ ${customCss}
   <div class="deepdots-progress" id="dd-progress">
     <div class="deepdots-progress-head">
       <span id="dd-progress-label"><span id="dd-progress-current"></span><span id="dd-progress-total"></span></span>
-      <span id="dd-progress-followup">Follow-up</span>
+      <span id="dd-progress-followup">${initLabels.followUp}</span>
     </div>
     <div class="deepdots-progress-track"><div id="dd-progress-bar"></div></div>
   </div>
   <div class="deepdots-popup-container-content" id="dd-content">
     <div class="deepdots-popup-main" id="dd-main">
       <div id="dd-form-wrapper">
-        <div class="mf-spinner" id="dd-spinner" role="status" aria-label="Loading survey"><div class="mf-spinner-circle"></div></div>
+        <div class="mf-spinner" id="dd-spinner" role="status" aria-label="${initLabels.loadingAria}"><div class="mf-spinner-circle"></div></div>
         <div id="mf"></div>
       </div>
       <div class="deepdots-error-hint" id="dd-error" role="alert" aria-live="polite"></div>
     </div>
     <div class="deepdots-popup-footer" id="dd-footer">
-      <button type="button" class="dd-nav-btn" id="dd-submit">Send</button>
-      <button type="button" class="dd-nav-btn" id="dd-back">Back</button>
-      <button type="button" class="dd-nav-btn" id="dd-complete">Complete survey</button>
-      <button type="button" class="dd-nav-btn" id="dd-start">Start survey</button>
+      <button type="button" class="dd-nav-btn" id="dd-submit"></button>
+      <button type="button" class="dd-nav-btn" id="dd-back"></button>
+      <button type="button" class="dd-nav-btn" id="dd-complete"></button>
+      <button type="button" class="dd-nav-btn" id="dd-start"></button>
     </div>
   </div>
 </div>
@@ -269,6 +301,32 @@ ${customCss}
   var progressTotal=document.getElementById('dd-progress-total');
   var progressFollowUp=document.getElementById('dd-progress-followup');
   var progressBar=document.getElementById('dd-progress-bar');
+  var closeEl=document.getElementById('dd-close');
+
+  // --- i18n del chrome -------------------------------------------------------------------
+  // La tabla completa viaja embebida porque el idioma del survey (\`formData.lang[0]\`) solo se
+  // conoce ya dentro del WebView. \`ddResolveLocale\` es el espejo del \`resolveLocale\` de TS
+  // (paridad cubierta por test).
+  var DD_LABELS=${labelsTableJson};
+  var DD_ACTION_OVERRIDES=${actionOverridesJson};
+  ${RESOLVE_LOCALE_JS}
+  var DD_LABELS_ACTIVE=DD_LABELS[ddResolveLocale(${initLangJson})];
+  var DD_RTL=${rtlLocalesJson};
+  function ddIsRtl(lang){ return DD_RTL.indexOf(ddResolveLocale(lang))!==-1; }
+  function ddApplyLabels(lang){
+    var next=DD_LABELS[ddResolveLocale(lang)];
+    if(!next) return;
+    DD_LABELS_ACTIVE=next;
+    // El survey ya se ha volteado a sí mismo: el chrome tiene que acompañarlo.
+    popup.setAttribute('dir', ddIsRtl(lang) ? 'rtl' : 'ltr');
+    backBtn.textContent=DD_ACTION_OVERRIDES.back||next.back;
+    startBtn.textContent=DD_ACTION_OVERRIDES.start||next.start;
+    completeBtn.textContent=DD_ACTION_OVERRIDES.complete||next.complete;
+    submitBtn.textContent=DD_ACTION_OVERRIDES.accept||next.accept;
+    if(closeEl){ closeEl.setAttribute('aria-label',next.closeAria); }
+    if(spinner){ spinner.setAttribute('aria-label',next.loadingAria); }
+    progressFollowUp.textContent=next.followUp;
+  }
 
   function setTitle(t){
     if(!t) return;
@@ -309,8 +367,8 @@ ${customCss}
       progressCurrent.textContent=Math.round(pct)+'%';
       progressTotal.textContent='';
     } else {
-      progressCurrent.textContent='Question '+label;
-      progressTotal.textContent=' of '+total;
+      progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label;
+      progressTotal.textContent=' '+DD_LABELS_ACTIVE.of+' '+total;
     }
     progressFollowUp.style.display=p&&p.followup?'inline-block':'none';
   }
@@ -320,7 +378,7 @@ ${customCss}
   completeBtn.textContent=${completeLabel};
   submitBtn.textContent=${submitLabel};
 
-  document.getElementById('dd-close').onclick=function(){ emitJSON('popup_close'); };
+  closeEl.onclick=function(){ emitJSON('popup_close'); };
   backBtn.onclick=function(){ if(window.DeepdotsForm && window.DeepdotsForm.back){ window.DeepdotsForm.back(); } };
   startBtn.onclick=function(){
     if(window.DeepdotsForm && window.DeepdotsForm.startForm){
@@ -415,6 +473,14 @@ ${customCss}
         // fallback es un literal genérico que ignora style.successMessage.
         addSuccessScreen:false,
         onLoadedEvent:function(args){
+          // Idioma del survey: manda sobre el del init para que el chrome no se quede en
+          // inglés delante de un survey traducido.
+          var langs=args && args.formData ? args.formData.lang : null;
+          if(langs && langs.length){
+            for(var li=0;li<langs.length;li++){
+              if(typeof langs[li]==='string' && langs[li].trim()){ ddApplyLabels(langs[li]); break; }
+            }
+          }
           var s=args && args.formData ? args.formData.style : null;
           if(s && !stylesInjected){
             stylesInjected=true;
@@ -441,8 +507,10 @@ ${customCss}
               if(s.logoSize==='small'){ logoImg.style.maxHeight='30px'; }
               else if(s.logoSize==='medium'){ logoImg.style.maxHeight='50px'; }
               else if(s.logoSize==='large'){ logoImg.style.maxHeight='70px'; }
-              if(s.logoPosition==='left'){ logoImg.style.margin='12px 16px 0 0'; logoImg.style.marginLeft='0'; }
-              else if(s.logoPosition==='right'){ logoImg.style.margin='12px 0 0 16px'; logoImg.style.marginLeft='auto'; }
+              // Márgenes lógicos: con un survey RTL el popup va con dir="rtl" y el logo
+              // tiene que acompañar al chrome. En LTR el resultado es el mismo de antes.
+              if(s.logoPosition==='left'){ logoImg.style.margin='12px 0 0 0'; logoImg.style.setProperty('margin-inline-start','0'); logoImg.style.setProperty('margin-inline-end','16px'); }
+              else if(s.logoPosition==='right'){ logoImg.style.margin='12px 0 0 0'; logoImg.style.setProperty('margin-inline-start','auto'); logoImg.style.setProperty('margin-inline-end','0'); }
               else if(s.logoPosition==='center'){ logoImg.style.margin='12px auto 0 auto'; }
               // Encima de la barra de progreso, como hermano del header (espejo de ui/logo.ts en
               // web). Fuera de #dd-main, así el logo no se va con el scroll del formulario.
@@ -468,12 +536,12 @@ ${customCss}
             setLoading(false);
             if(error.toLowerCase().indexOf('no response')!==-1){
               // La página no ha cambiado: el estado de navegación se queda como estaba.
-              errorHint.textContent='Please answer the required question to continue.';
+              errorHint.textContent=DD_LABELS_ACTIVE.errorRequired;
               errorHint.style.display='block';
               updateNavButtons();
               return;
             }
-            errorHint.textContent='An error occurred while submitting. Please try again or close the popup.';
+            errorHint.textContent=DD_LABELS_ACTIVE.errorSubmit;
             errorHint.style.display='block';
             return;
           }

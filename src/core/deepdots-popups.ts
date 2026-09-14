@@ -1101,7 +1101,7 @@ export class DeepdotsPopups {
                 miniService,
                 analyticsFeedbackSessionId,
                 this.renderChrome,
-                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss },
+                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language },
             );
             return;
         }
@@ -1122,7 +1122,7 @@ export class DeepdotsPopups {
                 sessionId,
                 miniService,
                 analyticsFeedbackSessionId,
-                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss },
+                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language },
             );
         });
     }

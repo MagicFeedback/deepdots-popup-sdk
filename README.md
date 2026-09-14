@@ -137,7 +137,40 @@ Config fields:
   segmentation (`segments.lang`) and for the analytics context. If omitted it is
   auto-detected from `navigator.language`, falling back to the `Intl` locale (which is
   what makes it work in React Native, where `navigator.language` does not exist). If no
-  source resolves a language, popups with `segments.lang` cannot be filtered and are shown.
+  source resolves a language, popups with `segments.lang` cannot be filtered and are shown. It
+  is also the starting language for the popup's own texts (see below).
+
+### Popup texts and language
+
+The survey content (questions, placeholders, Yes/No labels) is localized by
+`@magicfeedback/native` using the language configured for the integration. The texts the SDK
+itself renders around it — the footer buttons, the progress counter, the follow-up badge, the
+aria-labels and the error hints — are resolved in this order:
+
+1. `actions.*.label` from the popup definition, whenever the platform configures it.
+2. The survey's own language (`formData.lang[0]`), applied as soon as the survey loads. A
+   Danish survey therefore gets a Danish footer with no extra configuration.
+3. The `language` passed to `init()` (or auto-detected), used until the survey loads.
+4. English.
+
+Built-in languages — the 11 a survey can be authored in, plus `zh-CN`:
+
+| | | |
+|---|---|---|
+| `en` English | `da` Danish | `fi` Finnish |
+| `no` Norwegian (incl. `nb`/`nn`) | `es` Spanish | `sv` Swedish |
+| `ar` Arabic | `bn` Bengali | `de` German |
+| `pt` Portuguese | `fr` French | `zh-CN` Chinese (incl. plain `zh`) |
+
+Region and case are ignored, so `da`, `da-DK` and `da_DK` all resolve to Danish, and `pt-BR`
+and `pt-PT` share one set; any other language falls back to English. `SUPPORTED_LANGUAGES` and
+`getLabels()` are exported if you need to inspect them.
+
+Right-to-left: for Arabic the SDK stamps `dir="rtl"` on the popup container, so the header,
+footer and progress bar mirror along with the survey content (which `@magicfeedback/native`
+flips on its own since 2.2.22). The direction follows the same resolution chain as the texts,
+and is always set explicitly — `ltr` included — so the popup never inherits the direction of
+the host page.
 
 ### `autoLaunch()`
 
