@@ -966,7 +966,13 @@ export class DeepdotsPopups {
     private async fetchPopupsFromServer(): Promise<unknown[]> {
         const apiKey = this.config?.apiKey;
         const baseUrl = this.baseUrl;
-        const userId = this.config?.userId;
+        // El backend aplica las reglas de redisplay AQUI: si este userId ya tiene un
+        // SHOWED/PARTIAL/COMPLETED dentro del cooldown, no devuelve ese popup. Para que
+        // cuadre, hay que preguntar por el MISMO id con el que se reporta el estado en
+        // `POST /sdk/popups` — el del tracking (host si lo hay, si no el anonimo
+        // persistente). Con `config.userId` a secas, la integracion que no pasa userId
+        // (el caso por defecto) preguntaba sin filtro y el backend devolvia todo.
+        const userId = this.tracking?.getUserId() ?? this.config?.userId;
         if (!apiKey || !baseUrl) {
             this.log('Missing apiKey or baseUrl. Skipping popups fetch.');
             return [];
