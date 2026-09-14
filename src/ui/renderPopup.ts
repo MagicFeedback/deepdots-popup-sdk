@@ -3,6 +3,7 @@ import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import type { PopupRenderOptions } from '../platform/renderer';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { insertPopupLogo } from './logo';
+import { applySurveyPrimaryColor } from './surveyPalette';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS, revealWhenPainted as revealWhenImagesLoaded } from './reveal';
@@ -462,7 +463,7 @@ export async function renderPopup(
       border: none;
       min-height: 44px;
       padding: 12px 24px;
-      border-radius: 6px;
+      border-radius: 999px; /* píldora, como el Button de Material3 en KMP */
       cursor: pointer;
       font-size: 15px;
       font-weight: 600;
@@ -496,7 +497,7 @@ export async function renderPopup(
       border: none;
       min-height: 44px;
       padding: 12px 24px;
-      border-radius: 6px;
+      border-radius: 999px; /* píldora, como el Button de Material3 en KMP */
       cursor: pointer;
       font-size: 15px;
       font-weight: 600;
@@ -527,7 +528,7 @@ export async function renderPopup(
       border: none;
       min-height: 44px;
       padding: 12px 24px;
-      border-radius: 6px;
+      border-radius: 999px; /* píldora, como el Button de Material3 en KMP */
       cursor: pointer;
       font-size: 15px;
       font-weight: 600;
@@ -560,7 +561,7 @@ export async function renderPopup(
       border: none;
       min-height: 44px;
       padding: 12px 24px;
-      border-radius: 6px;
+      border-radius: 999px; /* píldora, como el Button de Material3 en KMP */
       cursor: pointer;
       font-size: 15px;
       font-weight: 600;
@@ -864,6 +865,10 @@ export async function renderPopup(
                     main.style.justifyContent = s.contentAlign === 'center' ? 'center' : 'flex-start';
                 }
                 // Botón primario (submit, start)
+                // El survey pinta sus controles con `--mf-primary`, que sale de `primaryColor`;
+                // si la integración solo configura el del botón, el popup mezclaría el color de
+                // la marca con el gris azulado por defecto del paquete.
+                applySurveyPrimaryColor(popup, s);
                 if (s.buttonPrimaryColor) {
                     submitButton.style.background = s.buttonPrimaryColor;
                     submitButton.style.border = 'none';
