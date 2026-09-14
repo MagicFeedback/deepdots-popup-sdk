@@ -4,6 +4,7 @@ import type { PopupRenderOptions } from '../platform/renderer';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { insertPopupLogo } from './logo';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
+import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
 
@@ -135,6 +136,18 @@ export async function renderPopup(
     let pageDepth = 0;
     let onStartPage = false;
 
+    // Textos del chrome (botones, progreso, aria-labels, errores). Arrancan con el idioma que
+    // conoce el init y se re-resuelven en `onLoadedEvent` con el idioma del survey
+    // (`formData.lang[0]`, el configurado en la integración), que es el que manda: un survey
+    // en danés debe traer también su footer en danés aunque el host no declare idioma.
+    let labels = getLabels(options?.language);
+    let actionLabels = resolveActionLabels(actions, options?.language);
+    // Dirección del chrome. Desde `@magicfeedback/native` 2.2.22 el survey se voltea solo
+    // (`dir="rtl"` en SU contenedor) para los idiomas RTL; si el header, el footer y la barra
+    // de progreso se quedaran en LTR, media tarjeta miraría a cada lado. Se marca siempre,
+    // también en `ltr`, para no heredar la dirección de la página del host.
+    let direction = directionFor(options?.language);
+
     const isDark = style?.theme === 'dark';
     const theme = {
         popupBg:          isDark ? '#1e1e1e' : '#fff',
@@ -164,6 +177,7 @@ export async function renderPopup(
     const popup = document.createElement('div');
     popup.id = 'dd-popup';
     popup.className = 'deepdots-popup';
+    popup.setAttribute('dir', direction);
     popup.style.cssText = `
       position: relative;
       display: flex;
@@ -204,7 +218,7 @@ export async function renderPopup(
     titleEl.className = 'deepdots-popup-title';
     // text-transform/text-align/margin neutralizan la regla `.deepdots-popup h2` del CSS del
     // survey (uppercase, centrado, margin-bottom 40px), pensada para los enunciados.
-    titleEl.style.cssText = `margin:0; font-size:17px; font-weight:600; line-height:1.3; color:${theme.textPrimary}; text-transform:none; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`;
+    titleEl.style.cssText = `margin:0; font-size:17px; font-weight:600; line-height:1.3; color:${theme.textPrimary}; text-transform:none; text-align:start; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`;
     titleEl.hidden = true;
     const setTitle = (value?: string) => {
         if (!value) return;
@@ -218,7 +232,7 @@ export async function renderPopup(
     const closeBtn = document.createElement('button');
     closeBtn.id = 'dd-close';
     closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'Close popup');
+    closeBtn.setAttribute('aria-label', labels.closeAria);
     closeBtn.innerHTML = `
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5 5L19 19M5 19L19 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="butt"/>
@@ -284,7 +298,7 @@ export async function renderPopup(
     progressLabel.appendChild(progressTotal);
     const progressFollowUp = document.createElement('span');
     progressFollowUp.id = 'dd-progress-followup';
-    progressFollowUp.textContent = 'Follow-up';
+    progressFollowUp.textContent = labels.followUp;
     progressFollowUp.style.cssText = 'display:none; font-size:12px; font-weight:600; color:#fff; background:rgba(59,130,246,0.44); border-radius:999px; padding:2px 10px;';
     progressHead.appendChild(progressLabel);
     progressHead.appendChild(progressFollowUp);
@@ -322,8 +336,8 @@ export async function renderPopup(
             progressCurrent.textContent = `${Math.round(pct)}%`;
             progressTotal.textContent = '';
         } else {
-            progressCurrent.textContent = `Question ${label}`;
-            progressTotal.textContent = ` of ${total}`;
+            progressCurrent.textContent = `${labels.question} ${label}`;
+            progressTotal.textContent = ` ${labels.of} ${total}`;
         }
         progressFollowUp.style.display = p.followup ? 'inline-block' : 'none';
     }
@@ -377,7 +391,7 @@ export async function renderPopup(
     const spinnerEl = document.createElement('div');
     spinnerEl.className = 'mf-spinner';
     spinnerEl.setAttribute('role', 'status');
-    spinnerEl.setAttribute('aria-label', 'Loading survey');
+    spinnerEl.setAttribute('aria-label', labels.loadingAria);
     spinnerEl.innerHTML = '<div class="mf-spinner-circle"></div>';
     spinnerEl.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);';
 
@@ -403,7 +417,7 @@ export async function renderPopup(
     const backButton = document.createElement('button');
     backButton.id = 'dd-back';
     backButton.className = 'dd-nav-btn';
-    backButton.textContent = actions?.back ? actions.back.label : 'Back';
+    backButton.textContent = actionLabels.back;
     // Secundario como botón de texto: sin borde, fondo ni sombra, para que el primario sea
     // la única CTA con peso visual.
     backButton.style.cssText = `
@@ -439,7 +453,7 @@ export async function renderPopup(
     const startButton = document.createElement('button');
     startButton.id = 'dd-start';
     startButton.className = 'dd-nav-btn';
-    startButton.textContent = actions?.start ? actions.start.label : 'Start survey';
+    startButton.textContent = actionLabels.start;
     startButton.style.cssText = `
       background: #1E293B;
       color: #fff;
@@ -470,7 +484,7 @@ export async function renderPopup(
     const closeButton = document.createElement('button');
     closeButton.id = 'dd-complete';
     closeButton.className = 'dd-nav-btn';
-    closeButton.textContent = actions?.complete ? actions.complete.label : 'Complete survey';
+    closeButton.textContent = actionLabels.complete;
     closeButton.style.cssText = `
       background: #1E293B;
       color: #fff;
@@ -503,7 +517,7 @@ export async function renderPopup(
     const submitButton = document.createElement('button');
     submitButton.id = 'dd-submit';
     submitButton.className = 'dd-nav-btn';
-    submitButton.textContent = actions?.accept ? actions.accept.label : 'Send';
+    submitButton.textContent = actionLabels.accept;
     submitButton.style.cssText = `
       background: #1E293B;
       color: #fff;
@@ -529,6 +543,28 @@ export async function renderPopup(
             (formInstance as any)?.send?.();
         }
     };
+
+    /**
+     * Re-resuelve todos los textos del chrome para `lang`. Se llama cuando el survey ya cargó
+     * y se conoce su idioma. Las etiquetas que configure la plataforma por popup
+     * (`actions.*.label`) siguen ganando: `resolveActionLabels` solo rellena las que falten.
+     * El contador de progreso no se toca aquí porque `updateProgress` lo repinta justo después
+     * leyendo `labels`.
+     */
+    function applyLabels(lang: string): void {
+        labels = getLabels(lang);
+        actionLabels = resolveActionLabels(actions, lang);
+        backButton.textContent = actionLabels.back;
+        startButton.textContent = actionLabels.start;
+        closeButton.textContent = actionLabels.complete;
+        submitButton.textContent = actionLabels.accept;
+        closeBtn.setAttribute('aria-label', labels.closeAria);
+        spinnerEl.setAttribute('aria-label', labels.loadingAria);
+        progressFollowUp.textContent = labels.followUp;
+        // El survey ya se ha volteado a sí mismo: el chrome tiene que acompañarlo.
+        direction = directionFor(lang);
+        popup.setAttribute('dir', direction);
+    }
 
     backButton.style.display = 'none';
     startButton.style.display = 'none';
@@ -707,6 +743,13 @@ export async function renderPopup(
             addSuccessScreen: false,
         };
         generateOptions.onLoadedEvent = ({formData}) => {
+            // Idioma del survey: el que la plataforma configura en la integración y con el que
+            // `@magicfeedback/native` localiza preguntas y placeholders. Manda sobre el del init
+            // para que el chrome no se quede en inglés delante de un survey traducido.
+            const surveyLang = Array.isArray(formData?.lang)
+                ? formData.lang.find((l) => typeof l === 'string' && l.trim().length > 0)
+                : undefined;
+            if (surveyLang) applyLabels(surveyLang);
             // Calcular altura disponible y aplicarla al main (restando header + footer + paddings)
             try {
                 /*
@@ -799,7 +842,7 @@ export async function renderPopup(
                 setLoading(false);
                 // Caso específico: error de pregunta obligatoria
                 if (errText.toLowerCase().includes('no response')) {
-                    errorHint.textContent = 'Please answer the required question to continue.';
+                    errorHint.textContent = labels.errorRequired;
                     errorHint.style.display = 'block';
                     emit('popup_clicked', surveyId, {action: 'validation_error_required'});
                     // La página no ha cambiado: el estado de navegación se queda como estaba.
@@ -807,7 +850,7 @@ export async function renderPopup(
                     return;
                 }
                 // Otros errores: mostrar mensaje genérico y permitir cerrar
-                errorHint.textContent = 'An error occurred while submitting. Please try again or close the popup.';
+                errorHint.textContent = labels.errorSubmit;
                 errorHint.style.display = 'block';
                 emit('popup_clicked', surveyId, {action: 'submit_error', error: errText});
                 // updateButtons('error');

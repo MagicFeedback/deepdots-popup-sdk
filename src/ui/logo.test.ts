@@ -67,10 +67,11 @@ describe('insertPopupLogo', () => {
     const left = insertPopupLogo(makePopup().popup, document.getElementById('dd-progress'), { logo: 'a.png', logoPosition: 'left' }, 'dd-logo');
     expect(left!.style.marginBottom).toBe('0px');
     expect(left!.style.marginTop).toBe('12px');
-    expect(left!.style.marginLeft).toBe('0px');
+    expect(left!.style.getPropertyValue('margin-inline-start')).toBe('0');
+    expect(left!.style.getPropertyValue('margin-inline-end')).toBe('16px');
 
     const right = insertPopupLogo(makePopup().popup, document.getElementById('dd-progress'), { logo: 'a.png', logoPosition: 'right' }, 'dd-logo');
-    expect(right!.style.marginLeft).toBe('auto');
+    expect(right!.style.getPropertyValue('margin-inline-start')).toBe('auto');
     expect(right!.style.marginBottom).toBe('0px');
 
     const center = insertPopupLogo(makePopup().popup, document.getElementById('dd-progress'), { logo: 'a.png', logoPosition: 'center' }, 'dd-logo');

@@ -281,6 +281,11 @@ export interface FormData {
     companyId: string;
     productId: string;
     userId: string;
+    /**
+     * Idiomas configurados en la integración del survey. `@magicfeedback/native` localiza
+     * preguntas y placeholders con el primero, y el popup traduce su chrome con el mismo.
+     */
+    lang?: string[];
     style: FormStyle
 }
 

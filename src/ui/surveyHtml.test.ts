@@ -185,7 +185,9 @@ describe('buildSurveyHtml título de cabecera', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', title: 'App Survey' });
     expect(html).toContain('#dd-title{');
     expect(html).toContain('text-transform:none');
-    expect(html).toContain('text-align:left');
+    // Alineación lógica: `start` en vez de `left`, para que el título acompañe al chrome
+    // cuando el survey es RTL (árabe) y no se quede anclado a la izquierda.
+    expect(html).toContain('text-align:start');
   });
 });
 
@@ -226,7 +228,7 @@ describe('buildSurveyHtml barra de progreso', () => {
     // la barra usa el valor real (con el +0.5 de las follow-up), la etiqueta el entero
     expect(html).toContain('var current=Math.min(total,Math.max(1,progress+1))');
     expect(html).toContain('var label=Math.min(total,Math.max(1,Math.floor(progress)+1))');
-    expect(html).toContain("progressCurrent.textContent='Question '+label");
+    expect(html).toContain("progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label");
   });
 
   it('respeta progressUnit percentage y el color de loadingBarColor', () => {
@@ -257,8 +259,9 @@ describe('buildSurveyHtml métricas del diseño', () => {
     expect(html).toContain('id="dd-progress-total"');
     expect(html).toContain('#dd-progress-current{font-weight:700');
     expect(html).toContain('#dd-progress-total{font-weight:400;color:#6b7280}');
-    expect(html).toContain("progressCurrent.textContent='Question '+label");
-    expect(html).toContain("progressTotal.textContent=' of '+total");
+    // El texto sale de la tabla de traducciones (i18n del chrome), no de un literal inglés.
+    expect(html).toContain("progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label");
+    expect(html).toContain("progressTotal.textContent=' '+DD_LABELS_ACTIVE.of+' '+total");
   });
 
   it('los botones tienen altura y radio de acción táctil', () => {
@@ -373,8 +376,9 @@ describe('buildSurveyHtml navegación (botón Back)', () => {
 
   it('un error de validación no cambia la profundidad', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    const validationBranch = html.slice(html.indexOf('Please answer the required question'));
-    expect(validationBranch.slice(0, 200)).toContain('updateNavButtons()');
+    // Ancla en la condición, no en el texto: el literal inglés vive ahora en la tabla DD_LABELS.
+    const validationBranch = html.slice(html.indexOf("indexOf('no response')"));
+    expect(validationBranch.slice(0, 400)).toContain('updateNavButtons()');
   });
 });
 
@@ -407,9 +411,15 @@ describe('buildSurveyHtml stylesheet (legacy)', () => {
   });
 
   it('sin version: la del bundle web, para no divergir entre plataformas', () => {
-    // Tiene que coincidir con la dep "@magicfeedback/native" de package.json.
+    // El default del CDN se compara contra la dep real de package.json en vez de contra un
+    // literal: así un `npm i @magicfeedback/native@X` que se olvide de `surveyHtml.ts` falla
+    // aquí, en vez de dejar el WebView con un JS distinto al del bundle (y al CSS vendorizado).
+    const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
+    // Va en devDependencies: tsup lo empaqueta dentro del chunk de renderPopup, no es runtime.
+    const declared = pkg.devDependencies?.['@magicfeedback/native'] ?? pkg.dependencies?.['@magicfeedback/native'];
+    const dep = String(declared).replace(/^[^0-9]*/, '');
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain('https://cdn.jsdelivr.net/npm/@magicfeedback/native@2.2.8/dist/magicfeedback-sdk.browser.js');
+    expect(html).toContain(`https://cdn.jsdelivr.net/npm/@magicfeedback/native@${dep}/dist/magicfeedback-sdk.browser.js`);
   });
 });
 
@@ -443,8 +453,11 @@ describe('buildSurveyHtml logo', () => {
   it('el logo es un bloque con hueco solo por arriba', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     expect(html).toContain('#dd-logo{max-height:40px;max-width:100%;object-fit:contain;display:block;margin:12px 0 0 0}');
-    expect(html).toContain("logoImg.style.margin='12px 16px 0 0'");
-    expect(html).toContain("logoImg.style.margin='12px 0 0 16px'");
+    // El hueco lateral va en propiedades lógicas para que el logo acompañe al chrome cuando
+    // el survey es RTL; en LTR el resultado es el mismo que con margin-left/right.
+    expect(html).toContain("logoImg.style.setProperty('margin-inline-end','16px')");
+    expect(html).toContain("logoImg.style.setProperty('margin-inline-start','auto')");
     expect(html).toContain("logoImg.style.margin='12px auto 0 auto'");
+    expect(html).not.toContain("logoImg.style.marginLeft");
   });
 });

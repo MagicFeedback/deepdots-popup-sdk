@@ -17,6 +17,12 @@ export interface PopupRenderOptions {
   showProgressBar?: boolean;
   /** CSS del host, inyectado el último: gana sobre el del SDK y el de `@magicfeedback/native`. */
   surveyCss?: string;
+  /**
+   * Idioma con el que arranca el chrome del popup (botones, progreso, aria-labels, errores).
+   * Es el idioma resuelto en `init()` (host > navigator > Intl). Lo pisa el idioma del survey
+   * (`formData.lang[0]`) en cuanto este carga, y ambos los pisa `actions.*.label` de la API.
+   */
+  language?: string;
 }
 
 export interface PopupRenderer {

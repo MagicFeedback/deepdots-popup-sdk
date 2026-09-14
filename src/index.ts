@@ -40,6 +40,12 @@ export type { CrashRecord, CrashSeverity, ReportErrorOptions, DeviceSnapshot, Re
 export { ReactNativePopupRenderer } from './platform/react-native-renderer';
 export type { ReactNativeRendererOptions, ReactNativeSurveyPayload } from './platform/react-native-renderer';
 export { buildSurveyHtml } from './ui/surveyHtml';
+
+// i18n del chrome del popup (botones, progreso, aria-labels, errores). El host no necesita
+// tocarlo — el SDK resuelve el idioma solo — pero se exporta para poder consultar qué idiomas
+// trae de serie y qué texto saldría en cada uno.
+export { LABELS, SUPPORTED_LANGUAGES, RTL_LOCALES, getLabels, resolveLocale, resolveActionLabels, isRtlLanguage, directionFor } from './i18n/labels';
+export type { PopupLabels, PopupLocale, ResolvedActionLabels } from './i18n/labels';
 // React Native: auto-wiring en una llamada (storage MMKV + device + platform + lifecycle).
 export { setupReactNative, mmkvStorage, collectRnDevice } from './react-native/setup';
 export type { ReactNativeSetupDeps, MmkvLike, DeviceInfoLike, AppStateLike } from './react-native/setup';

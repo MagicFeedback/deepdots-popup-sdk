@@ -33,6 +33,20 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
     expect(shown!.html).toContain('magicfeedback'); // carga el survey desde CDN
   });
 
+  it('el idioma del init llega al HTML del WebView (chrome traducido)', () => {
+    // El survey ya se localiza solo con `formData.lang`; lo que faltaba era el chrome del
+    // popup, que se quedaba en inglés delante de un survey en danés.
+    const rn = new ReactNativePopupRenderer({ onShow: (p) => { shown = p; } });
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(rn);
+    sdk.init({ apiKey: 'fake-key', language: 'da-DK' });
+    const show = (sdk as unknown as { showDefinition: (d: unknown) => void }).showDefinition.bind(sdk);
+    show({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
+
+    expect(shown!.html).toContain('backBtn.textContent="Tilbage"');
+    expect(shown!.html).toContain('submitBtn.textContent="Send"');
+  });
+
   it('traduce mensajes del WebView a eventos de popup (PARTIAL una vez, COMPLETED al final)', () => {
     const clicked = vi.fn();
     const completed = vi.fn();

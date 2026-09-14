@@ -86,6 +86,7 @@ export class ReactNativePopupRenderer implements PopupRenderer {
       title: options?.title,
       showProgressBar: options?.showProgressBar,
       surveyCss: options?.surveyCss,
+      language: options?.language,
     });
     if (this.options.onShow) {
       this.options.onShow({ surveyId, productId, html });
