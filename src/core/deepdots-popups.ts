@@ -279,6 +279,10 @@ export class DeepdotsPopups {
             this.popupDefinitions = this.validatePopupDefinitions(defs);
             this.popupsLoaded = true;
             this.log('Popups loaded from API', this.popupDefinitions);
+            // Con al menos un popup que pueda abrirse, el renderer se trae ya lo que costará la
+            // apertura (en navegador, el chunk de renderPopup). Un host sin popups no descarga
+            // nada.
+            if (this.popupDefinitions.length) this.renderer.preload?.();
             this.configureTriggersFromDefinitions();
             this.processDeferredExitQueue();
             if (this.pendingAutoLaunch) {

@@ -5,8 +5,13 @@ import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { insertPopupLogo } from './logo';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
+import { REVEAL_TIMEOUT_MS, revealWhenPainted as revealWhenImagesLoaded } from './reveal';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
+
+// Reexportado desde aquí porque este era su sitio original: la constante se mudó a `reveal.ts`
+// para que la ruta del WebView pueda leerla sin arrastrar `@magicfeedback/native`.
+export { REVEAL_TIMEOUT_MS } from './reveal';
 
 // Inserta la hoja de estilos de MagicFeedback directamente en el popup para garantizar estilos incluso si el bundler no la inyecta globalmente.
 function ensureMagicFeedbackStyles(_popup: HTMLElement) {
@@ -15,6 +20,35 @@ function ensureMagicFeedbackStyles(_popup: HTMLElement) {
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = magicfeedbackCss;
+    document.head.appendChild(style);
+}
+
+/**
+ * Id del bloque que alinea el contenido del survey con el chrome del popup. Exportado para que
+ * los tests puedan localizarlo sin depender de la posición en el `<head>`.
+ */
+export const SURVEY_ALIGNMENT_STYLE_ID = 'deepdots-survey-alignment';
+
+/**
+ * El margen lateral lo pone la tarjeta del popup, pero el CSS de `@magicfeedback/native` añade el
+ * suyo en tres capas: el contenedor, el formulario (hasta 28px) y el bloque de cada pregunta
+ * (12px, con fondo igual al de la tarjeta, así que ni se ve). Sumados, dejan el enunciado y las
+ * opciones bastante más adentro que el logo, el título y la barra de progreso, que sí llegan al
+ * borde. Aquí se anula solo el lateral: el vertical es el que separa las preguntas.
+ *
+ * Va acotado a `.deepdots-popup` porque esta hoja se inyecta en el `<head>` del host y sin acotar
+ * repintaría sus propios formularios; de paso, la especificidad extra hace que gane sobre el CSS
+ * del paquete sin depender del orden.
+ */
+function ensureSurveyAlignmentStyles() {
+    if (document.getElementById(SURVEY_ALIGNMENT_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = SURVEY_ALIGNMENT_STYLE_ID;
+    style.textContent = `
+    .deepdots-popup .magicfeedback-container,
+    .deepdots-popup .magicfeedback-form,
+    .deepdots-popup .magicfeedback-div { padding-left: 0; padding-right: 0; }
+  `;
     document.head.appendChild(style);
 }
 
@@ -343,6 +377,8 @@ export async function renderPopup(
     }
 
     ensureMagicFeedbackStyles(popup);
+    // Después del CSS del paquete y antes del CSS del host, que sigue teniendo la última palabra.
+    ensureSurveyAlignmentStyles();
     ensureSpinnerStyles(popup);
     ensureResponsiveStyles(popup);
     // El último en entrar: el CSS del host gana sobre todo lo anterior.
@@ -669,16 +705,57 @@ export async function renderPopup(
     container.innerHTML = '';
     container.appendChild(popup);
     container.style.display = 'flex';
+    // Apertura diferida: el contenedor entra en el layout (el survey necesita medidas reales
+    // para pintarse) pero invisible y sin capturar clics, hasta que `reveal()` lo enseñe.
+    container.style.visibility = 'hidden';
+    container.style.pointerEvents = 'none';
     container.style.justifyContent = pos.justifyContent;
     container.style.alignItems = pos.alignItems;
     container.style.background = pos.background;
     if (pos.padding) container.style.padding = pos.padding;
+
+    // ── Apertura diferida ────────────────────────────────────────────────────────────────
+    // El spinner de apertura es lo que el cliente reporta como mala sensación: medido, está
+    // ~310 ms en pantalla esperando el JSON del survey. En vez de enseñar la espera, se espera
+    // en silencio y se abre el popup ya montado.
+    let revealed = false;
+    let revealTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function reveal() {
+        if (revealed) return;
+        revealed = true;
+        if (revealTimer !== null) {
+            clearTimeout(revealTimer);
+            revealTimer = null;
+        }
+        // Si el popup se cerró durante la espera, este contenedor ya no es suyo: `hide()` lo ha
+        // vaciado y puede estar sirviendo a otra apertura. Revelarlo aquí la sacaría antes de
+        // tiempo.
+        if (!container.contains(popup)) return;
+        container.style.visibility = 'visible';
+        container.style.pointerEvents = '';
+    }
+
+    /**
+     * Revela en cuanto el popup está pintado del todo. Se mira el popup entero, no solo el
+     * formulario, porque el logo del survey se inserta sobre la barra de progreso y es el que más
+     * desplaza el contenido al entrar.
+     */
+    function revealWhenPainted() {
+        if (revealed) return;
+        revealWhenImagesLoaded(popup, reveal);
+    }
+
+    revealTimer = setTimeout(reveal, REVEAL_TIMEOUT_MS);
 
     // Gestión dinámica de loading
     function setLoading(isLoading: boolean) {
         spinnerEl.style.display = isLoading ? 'flex' : 'none';
         if (!isLoading) {
             formHost.style.visibility = 'visible';
+            // Fin de la carga, sea por survey cargado o por error: el popup ya puede verse.
+            // Entre páginas del survey es no-op, porque `reveal` solo actúa la primera vez.
+            revealWhenPainted();
         }
         // Ocultar totalmente los botones cuando está cargando
         footer.style.display = isLoading ? 'none' : 'flex';

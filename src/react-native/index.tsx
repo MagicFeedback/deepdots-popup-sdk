@@ -69,6 +69,12 @@ export function DeepdotsProvider({ config, children }: DeepdotsProviderProps) {
     <DeepdotsContext.Provider value={sdk}>
       {children}
       {survey ? (
+        // El Modal se abre en cuanto hay popup, y es el HTML del WebView el que se revela solo
+        // cuando el survey está pintado (apertura diferida): con el Modal transparente, hasta ese
+        // momento no se ve nada, ni velo ni spinner. No se difiere el Modal con `onReady` porque
+        // React Native no monta los hijos de un Modal cerrado: el WebView no llegaría a cargar y
+        // el aviso no llegaría nunca. El host que quiera diferir su contenedor debe montar el
+        // WebView invisible (ver el ejemplo de `ReactNativePopupRenderer`).
         <Modal visible transparent animationType="slide">
           <View style={{ flex: 1 }}>
             <WebView

@@ -172,6 +172,39 @@ flips on its own since 2.2.22). The direction follows the same resolution chain 
 and is always set explicitly — `ltr` included — so the popup never inherits the direction of
 the host page.
 
+### Deferred opening (no loading spinner)
+
+The popup is not shown while the survey loads. Its chrome is mounted invisible, the survey is
+fetched, and the popup is revealed once the questions and their images are painted, so it appears
+complete instead of opening on a spinner. If loading takes longer than `REVEAL_TIMEOUT_MS`
+(1200 ms, exported) the popup opens anyway with the spinner, so a bad network delays the opening
+but never prevents it. This is automatic on both the web DOM popup and the React Native WebView.
+
+In React Native, the WebView pays for its own startup and for the survey bundle on top of the
+fetch, so the renderer also tells the host when the survey is painted:
+
+```tsx
+const renderer = new ReactNativePopupRenderer({
+  onShow: (p) => setSurvey({ ...p, ready: false }),
+  onReady: () => setSurvey((s) => (s ? { ...s, ready: true } : s)),
+  onHide: () => setSurvey(null),
+});
+
+// The WebView must be mounted (and merely invisible) for the survey to start loading.
+// `<Modal visible={survey.ready}>` would NOT work: React Native does not mount the children of
+// a closed Modal, so the WebView would never load and `onReady` would never fire.
+{survey ? (
+  <View style={[StyleSheet.absoluteFill, { opacity: survey.ready ? 1 : 0 }]}
+        pointerEvents={survey.ready ? 'auto' : 'none'}>
+    <WebView source={{ html: survey.html }}
+             onMessage={(e) => renderer.handleMessage(e.nativeEvent.data)} />
+  </View>
+) : null}
+```
+
+`onReady` is optional: a host that opens its container on `onShow` still never shows the spinner,
+because the HTML reveals itself; the container just appears a few hundred ms before the card.
+
 ### `autoLaunch()`
 
 Starts the triggers derived from the popup definitions loaded during `init()`.

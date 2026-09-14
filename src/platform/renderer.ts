@@ -1,5 +1,6 @@
 import {DeepdotsEventType, PopupActions, PopupStyle} from '../types';
 import { isReactNativeEnv, createReactNativeRenderer } from './react-native-renderer';
+import { schedulePreloadRenderPopup } from '../ui/preload';
 // renderPopup (DOM + @magicfeedback/native) se carga PEREZOSAMENTE solo al mostrar
 // un popup en navegador, para que importar el SDK sea seguro en React Native/SSR.
 
@@ -28,6 +29,11 @@ export interface PopupRenderOptions {
 export interface PopupRenderer {
   /** Preparar recursos si aplica */
   init?(): void;
+  /**
+   * Traer por adelantado lo que la apertura necesitará, en idle. Opcional: solo lo implementan
+   * los renderers cuyo coste de apertura se paga delante del usuario.
+   */
+  preload?(): void;
   /** Mostrar popup */
   show(
     surveyId: string,
@@ -82,6 +88,14 @@ export class BrowserPopupRenderer implements PopupRenderer {
     }
   }
 
+  /**
+   * Descarga el chunk de `renderPopup` antes de que ningún trigger dispare, para que abrir el
+   * popup no empiece por esperar ~238 KB de JS.
+   */
+  preload(): void {
+    schedulePreloadRenderPopup();
+  }
+
   show(
     surveyId: string,
     productId: string,
@@ -111,6 +125,10 @@ export class BrowserPopupRenderer implements PopupRenderer {
     this.visible = false;
     if (this.container) {
       this.container.style.display = 'none';
+      // `renderPopup` abre el contenedor invisible y lo revela al cargar el survey; si se cierra
+      // antes de esa revelación, el estado oculto no puede quedarse pegado al contenedor.
+      this.container.style.visibility = '';
+      this.container.style.pointerEvents = '';
       this.container.innerHTML = '';
     }
   }

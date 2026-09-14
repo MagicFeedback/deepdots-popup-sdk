@@ -40,6 +40,10 @@ export type { CrashRecord, CrashSeverity, ReportErrorOptions, DeviceSnapshot, Re
 export { ReactNativePopupRenderer } from './platform/react-native-renderer';
 export type { ReactNativeRendererOptions, ReactNativeSurveyPayload } from './platform/react-native-renderer';
 export { buildSurveyHtml } from './ui/surveyHtml';
+// Techo de la apertura diferida: útil para el host de RN que monte el WebView por su cuenta y
+// quiera alinear su propio temporizador con el del SDK.
+export { REVEAL_TIMEOUT_MS } from './ui/reveal';
+export { NATIVE_READY_GRACE_MS } from './platform/react-native-renderer';
 
 // i18n del chrome del popup (botones, progreso, aria-labels, errores). El host no necesita
 // tocarlo — el SDK resuelve el idioma solo — pero se exporta para poder consultar qué idiomas
