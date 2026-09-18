@@ -9,7 +9,7 @@ Package name: `@magicfeedback/popup-sdk`
 - Loads popup definitions from the Deepdots API
 - Triggers popups by time on page, scroll depth, click, route exit, or host-driven events
 - Emits lifecycle events so the host app can track popup activity
-- Supports route and language targeting through `segments.path` / `segments.lang`
+- Supports route and language targeting through `segments.path` / `segments.excludedPaths` / `segments.lang`
 - Collects analytics (navigation, engagement, messaging, crashes) and sends them to Deepdots
 - Falls back to a no-op renderer outside the browser
 
@@ -345,8 +345,8 @@ Popup definitions use these trigger types:
 ## Popup Definition Shape
 
 The API returns popup definitions with this structure. `triggers` is an array, `time_on_page`
-values are in seconds, and `segments.path` accepts full URLs, path fragments such as `/pricing`,
-or hash routes such as `/#/home`:
+values are in seconds, and `segments.path` / `segments.excludedPaths` accept full URLs, path
+fragments such as `/pricing`, or hash routes such as `/#/home`:
 
 ```ts
 interface PopupDefinition {
@@ -395,7 +395,8 @@ interface PopupDefinition {
     };
   };
   segments?: {
-    path?: string[];
+    path?: string[];          // routes where it can be shown (empty/absent = all routes)
+    excludedPaths?: string[]; // routes where it must NOT be shown; wins over `path`
     lang?: string[];
     [key: string]: unknown;
   };
@@ -431,7 +432,9 @@ interface DeepdotsEvent {
 
 ## Important Behavior Notes
 
-- `segments.path` and `segments.lang` are the segments currently evaluated by the SDK runtime. If no language can be resolved, popups with `segments.lang` are shown rather than filtered out.
+- `segments.path`, `segments.excludedPaths`, and `segments.lang` are the segments currently evaluated by the SDK runtime. If no language can be resolved, popups with `segments.lang` are shown rather than filtered out.
+- `segments.excludedPaths` wins over `segments.path`, and applies on its own when `path` is absent. So `{ "path": ["/"], "excludedPaths": ["/cart"] }` means "everywhere except the cart", and `{ "excludedPaths": ["/cart"] }` means the same thing. Both lists use the same matching rules, which includes the substring match for entries starting with `/` — an entry such as `/cart` also excludes `/cart-recovery`, and `/` on its own would exclude every route.
+- For a deferred `exit` popup, `segments.excludedPaths` is checked twice: on the route the popup was queued from, and again on the destination route where it would be painted. `segments.path` is only checked on the first one, because the destination route is different by definition.
 - `exit` triggers work across anchor navigation, hash navigation, `history.pushState()`, and `history.replaceState()`.
 - Pending `exit` popups are stored in `sessionStorage` until they are shown or discarded.
 - The default browser renderer uses Deepdots forms and applies button labels from `actions.accept`, `actions.start`, `actions.back`, and `actions.complete`.
