@@ -709,6 +709,12 @@ export class DeepdotsPopups {
     }
 
     private shouldShow(def: NormalizedPopupDefinition, pathUrl?: string, skipPathCheck = false): boolean {
+        // La exclusión se evalúa SIEMPRE, también cuando `skipPathCheck` levanta la
+        // restricción de "dónde PUEDE mostrarse" (popup de exit ya encolado): decir
+        // "no en /cart" es una regla sobre la pantalla en la que se va a pintar.
+        if (this.isPathExcluded(def, pathUrl)) {
+            return false;
+        }
         if (!skipPathCheck && !this.matchesSegmentsPath(def, pathUrl)) {
             return false;
         }
@@ -752,43 +758,95 @@ export class DeepdotsPopups {
         return matches;
     }
 
+    /** `segments.path`: rutas donde el popup PUEDE mostrarse. Sin lista, en todas. */
     private matchesSegmentsPath(def: PopupDefinition, pathUrl?: string): boolean {
         const paths = def.segments?.path;
-        if (!paths || paths.length === 0) return true;
-        if (typeof window === 'undefined' || !window.location) {
+        if (!Array.isArray(paths) || paths.length === 0) return true;
+
+        const location = this.resolveCurrentLocation(pathUrl);
+        if (!location) {
             this.debug('No window.location available for path comparison', { popupId: def.id, paths });
             return true;
         }
 
-        const normalizedHref = this.normalizeUrl(pathUrl || window.location.href || '');
-        const currentUrl = this.safeParseUrl(normalizedHref);
-        const normalizedPath = this.normalizeUrl(currentUrl?.pathname || window.location.pathname || '');
-
         const matches = paths.some((rawCandidate) => {
-            const candidate = this.normalizeUrl(rawCandidate);
-            let match = false;
-            if (candidate.startsWith('http://') || candidate.startsWith('https://')) {
-                match = normalizedHref === candidate;
-            } else if (candidate.startsWith('/')) {
-                match = normalizedHref.includes(candidate);
-            } else {
-                match = normalizedPath === candidate;
-            }
+            const match = this.matchesPathCandidate(rawCandidate, location);
             this.debug('Path comparison', {
                 popupId: def.id,
-                candidate,
-                currentPath: normalizedPath,
-                currentHref: normalizedHref,
+                candidate: rawCandidate,
+                currentPath: location.path,
+                currentHref: location.href,
                 match,
             });
             return match;
         });
 
         if (!matches) {
-            this.debug('No path match for popup', { popupId: def.id, paths, currentPath: normalizedPath });
+            this.debug('No path match for popup', { popupId: def.id, paths, currentPath: location.path });
         }
 
         return matches;
+    }
+
+    /**
+     * `segments.excludedPaths`: rutas donde el popup NO debe mostrarse. Gana sobre
+     * `segments.path` (`path: ['/']` + `excludedPaths: ['/cart']` = en todas menos el
+     * carrito) y se aplica también cuando no hay `path` (= en todas menos las excluidas).
+     */
+    private isPathExcluded(def: PopupDefinition, pathUrl?: string): boolean {
+        const excluded = def.segments?.excludedPaths;
+        if (!Array.isArray(excluded) || excluded.length === 0) return false;
+
+        const location = this.resolveCurrentLocation(pathUrl);
+        if (!location) {
+            // Sin `window.location` (RN/SSR) no se puede evaluar: no bloqueamos, igual
+            // que hace `matchesSegmentsPath` con la lista de inclusión.
+            this.debug('No window.location available for excluded path comparison', { popupId: def.id, excluded });
+            return false;
+        }
+
+        const hit = excluded.find((rawCandidate) => this.matchesPathCandidate(rawCandidate, location));
+        if (hit !== undefined) {
+            this.debug('Popup excluded by path', {
+                popupId: def.id,
+                candidate: hit,
+                currentPath: location.path,
+                currentHref: location.href,
+            });
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Compara UN candidato de `segments.path`/`segments.excludedPaths` con la ruta
+     * actual. Mismas reglas para incluir y para excluir:
+     *  - URL absoluta  → href completo exacto
+     *  - empieza por / → subcadena del href (así entran las rutas con hash: `/#/home`)
+     *  - resto         → pathname exacto
+     * Ignora entradas que no sean string: el backend puede colar un `null` en la lista
+     * y no puede tumbar la evaluación del trigger entero (mismo fallo que hubo con
+     * `segments.lang`).
+     */
+    private matchesPathCandidate(rawCandidate: unknown, location: { href: string; path: string }): boolean {
+        if (typeof rawCandidate !== 'string') return false;
+        const candidate = this.normalizeUrl(rawCandidate);
+        if (!candidate) return false;
+        if (candidate.startsWith('http://') || candidate.startsWith('https://')) {
+            return location.href === candidate;
+        }
+        if (candidate.startsWith('/')) {
+            return location.href.includes(candidate);
+        }
+        return location.path === candidate;
+    }
+
+    /** href + pathname normalizados de la ruta a evaluar, o null si no hay `window.location`. */
+    private resolveCurrentLocation(pathUrl?: string): { href: string; path: string } | null {
+        if (typeof window === 'undefined' || !window.location) return null;
+        const href = this.normalizeUrl(pathUrl || window.location.href || '');
+        const parsed = this.safeParseUrl(href);
+        return { href, path: this.normalizeUrl(parsed?.pathname || window.location.pathname || '') };
     }
 
     private evaluateCooldown(def: PopupDefinition, condition: PopupTriggerCondition): boolean {

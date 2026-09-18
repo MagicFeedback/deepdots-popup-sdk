@@ -219,6 +219,15 @@ export interface PopupStyle {
 export interface PopupSegments {
     lang?: string[]; // allowed languages
     path?: string[]; // app routes where it can be shown
+    /**
+     * App routes where it must NOT be shown. Wins over `path`: a route listed here
+     * blocks the popup even if `path` matches it (so `path: ['/']` +
+     * `excludedPaths: ['/cart']` = everywhere but the cart).
+     * Same matching rules as `path`: an absolute URL matches the full href, an entry
+     * starting with `/` matches any href containing it (this is what covers hash
+     * routes like `/#/cart`), anything else matches the pathname exactly.
+     */
+    excludedPaths?: string[];
     [key: string]: unknown; // possible future extension
 }
 
