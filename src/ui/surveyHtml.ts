@@ -4,6 +4,7 @@ import type { PopupActions, PopupFont } from '../types';
 import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS } from './reveal';
 import { PRIMARY_COLOR_JS } from './surveyPalette';
+import { BUSY_JS } from './busy';
 import magicfeedbackCss from '../assets/style.css';
 
 /**
@@ -339,6 +340,7 @@ ${customCss}
   var footer=document.getElementById('dd-footer');
   var spinner=document.getElementById('dd-spinner');
   var formHost=document.getElementById('mf');
+  var formWrapper=document.getElementById('dd-form-wrapper');
   var errorHint=document.getElementById('dd-error');
   var backBtn=document.getElementById('dd-back');
   var startBtn=document.getElementById('dd-start');
@@ -498,6 +500,7 @@ ${customCss}
   }
 
 ${PRIMARY_COLOR_JS}
+${BUSY_JS}
 ${REVEAL_JS}
   // El popup se enseña cuando el survey está pintado; \`ready\` deja al host abrir su propio
   // Modal en ese momento en vez de montar un WebView en blanco.
@@ -508,6 +511,11 @@ ${REVEAL_JS}
 
   function setLoading(isLoading){
     spinner.style.display=isLoading?'flex':'none';
+    // El spinner no tapa el survey (28px en posicion absoluta), asi que sin esto el usuario
+    // puede seguir cambiando de opcion mientras se envia la pagina, y ese cambio ya no viaja
+    // con ella. Se bloquea el wrapper, que es el elemento estable: el div de dentro lo
+    // sustituye @magicfeedback/native por su propio contenedor al generar el survey.
+    ddSetSurveyBusy(formWrapper, isLoading);
     if(!isLoading){
       formHost.style.visibility='visible';
       // Fin de la carga, sea por survey cargado o por error. Entre páginas es no-op: la
