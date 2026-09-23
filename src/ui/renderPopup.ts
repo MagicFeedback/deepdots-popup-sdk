@@ -4,6 +4,7 @@ import type { PopupRenderOptions } from '../platform/renderer';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { insertPopupLogo } from './logo';
 import { applySurveyPrimaryColor } from './surveyPalette';
+import { setSurveyBusy } from './busy';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS, revealWhenPainted as revealWhenImagesLoaded } from './reveal';
@@ -752,6 +753,11 @@ export async function renderPopup(
     // Gestión dinámica de loading
     function setLoading(isLoading: boolean) {
         spinnerEl.style.display = isLoading ? 'flex' : 'none';
+        // El spinner no tapa el survey (28px en posición absoluta), así que sin esto el usuario
+        // puede seguir cambiando de opción mientras se envía la página — y ese cambio ya no
+        // viaja con ella. Se bloquea el wrapper, que es el elemento estable: el div de dentro lo
+        // sustituye `@magicfeedback/native` por su propio contenedor al generar el survey.
+        setSurveyBusy(formWrapper, isLoading);
         if (!isLoading) {
             formHost.style.visibility = 'visible';
             // Fin de la carga, sea por survey cargado o por error: el popup ya puede verse.
