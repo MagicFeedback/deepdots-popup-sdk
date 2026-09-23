@@ -14,14 +14,19 @@ import { getLabels } from '../i18n/labels';
 
 /** Controla el `formData` que el mock de @magicfeedback/native entrega en `onLoadedEvent`. */
 let loadedFormData: { lang?: string[]; style?: Record<string, unknown> } | null = null;
+/** `lang` que native >= 2.3 añade al evento: el idioma en el que muestra el survey. */
+let loadedLang: string | undefined;
+/** Opciones con las que el popup llamó a `generate()`. */
+let generateOptions: Record<string, unknown> | null = null;
 
 vi.mock('@magicfeedback/native', () => {
   const form = () => ({
     progress: 0,
     total: 3,
     generate: (_divId: string, options: { onLoadedEvent?: (args: unknown) => void }) => {
+      generateOptions = options as Record<string, unknown>;
       if (loadedFormData && options.onLoadedEvent) {
-        options.onLoadedEvent({ loading: false, progress: 0, total: 3, formData: loadedFormData });
+        options.onLoadedEvent({ loading: false, progress: 0, total: 3, formData: loadedFormData, lang: loadedLang });
       }
       return Promise.resolve();
     },
@@ -71,6 +76,27 @@ describe('renderPopup i18n', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     loadedFormData = null;
+    loadedLang = undefined;
+    generateOptions = null;
+  });
+
+  it('pide a native el survey en el idioma del init', async () => {
+    const container = makeContainer();
+    await render(container, undefined, { language: 'es-ES' });
+
+    expect(generateOptions?.lang).toBe('es-ES');
+  });
+
+  it('el idioma en que native muestra el survey gana sobre su idioma por defecto', async () => {
+    // Survey multi-idioma: por defecto danés, servido en español.
+    loadedFormData = { lang: ['da', 'es'], style: {} };
+    loadedLang = 'es';
+    const container = makeContainer();
+    await render(container, undefined, { language: 'es-ES' });
+
+    const es = getLabels('es');
+    expect(text(container, 'dd-back')).toBe(es.back);
+    expect(text(container, 'dd-submit')).toBe(es.accept);
   });
 
   it('sin idioma se queda en inglés (comportamiento previo)', async () => {

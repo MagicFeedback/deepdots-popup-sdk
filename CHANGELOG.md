@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-language surveys.** The popup now passes the language resolved at `init` (the
+  explicit `language`, else the browser or device language) to `@magicfeedback/native` as
+  `generate({ lang })`, on web and in the React Native WebView. Native asks the API for that
+  language and, when the survey does not have it, the API serves the survey's default.
+- The popup chrome (buttons, progress, aria-labels) follows the language native reports in
+  `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
+  entry of `formData.lang`, the survey's default language.
+
 ## [1.3.0] — 2026-07-31
 
 ### Changed
