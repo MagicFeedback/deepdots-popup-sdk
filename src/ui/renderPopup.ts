@@ -173,9 +173,9 @@ export async function renderPopup(
     let onStartPage = false;
 
     // Textos del chrome (botones, progreso, aria-labels, errores). Arrancan con el idioma que
-    // conoce el init y se re-resuelven en `onLoadedEvent` con el idioma del survey
-    // (`formData.lang[0]`, el configurado en la integración), que es el que manda: un survey
-    // en danés debe traer también su footer en danés aunque el host no declare idioma.
+    // conoce el init y se re-resuelven en `onLoadedEvent` con el idioma en el que se muestra el
+    // survey (`lang` del evento; `formData.lang[0]`, el idioma por defecto, en native < 2.3),
+    // que es el que manda: un survey en danés debe traer también su footer en danés.
     let labels = getLabels(options?.language);
     let actionLabels = resolveActionLabels(actions, options?.language);
     // Dirección del chrome. Desde `@magicfeedback/native` 2.2.22 el survey se voltea solo
@@ -809,8 +809,10 @@ export async function renderPopup(
             addButton: boolean;
             getMetaData: boolean;
             addSuccessScreen: boolean;
+            lang?: string;
             onLoadedEvent?: (args: {
                 formData: FormData,
+                lang?: string,
                 progress?: number, total?: number
             }) => void;
             beforeSubmitEvent?: () => void;
@@ -825,14 +827,18 @@ export async function renderPopup(
             // textContent, así que el mensaje de la plataforma (HTML con imagen) no se vería, y
             // su fallback es un literal genérico que ignora `style.successMessage`.
             addSuccessScreen: false,
+            // Surveys multi-idioma: native pide a la API este idioma (el del init o el del
+            // dispositivo) y, si el survey no lo tiene, la API sirve el idioma por defecto.
+            lang: options?.language,
         };
-        generateOptions.onLoadedEvent = ({formData}) => {
-            // Idioma del survey: el que la plataforma configura en la integración y con el que
-            // `@magicfeedback/native` localiza preguntas y placeholders. Manda sobre el del init
-            // para que el chrome no se quede en inglés delante de un survey traducido.
-            const surveyLang = Array.isArray(formData?.lang)
+        generateOptions.onLoadedEvent = ({formData, lang}) => {
+            // Idioma en el que native muestra el survey. Manda sobre el del init para que el
+            // chrome no se quede en inglés delante de un survey traducido. Native < 2.3 no lo
+            // envía: entonces el primero de `formData.lang` (el idioma por defecto).
+            const shownLang = typeof lang === 'string' && lang.trim().length > 0 ? lang : undefined;
+            const surveyLang = shownLang ?? (Array.isArray(formData?.lang)
                 ? formData.lang.find((l) => typeof l === 'string' && l.trim().length > 0)
-                : undefined;
+                : undefined);
             if (surveyLang) applyLabels(surveyLang);
             // Calcular altura disponible y aplicarla al main (restando header + footer + paddings)
             try {

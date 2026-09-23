@@ -66,6 +66,23 @@ describe('buildSurveyHtml i18n', () => {
   });
 });
 
+describe('buildSurveyHtml surveys multi-idioma', () => {
+  it('pide a native el survey en el idioma del init', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', language: 'es-ES' });
+    expect(html).toContain('lang:"es-ES"||undefined');
+  });
+
+  it('sin idioma no fuerza ninguno (native usa el del dispositivo)', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain('lang:""||undefined');
+  });
+
+  it('el chrome sigue el idioma que native reporta en onLoadedEvent', () => {
+    const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
+    expect(html).toContain("typeof args.lang==='string'");
+  });
+});
+
 describe('buildSurveyHtml RTL', () => {
   it('con idioma LTR el contenedor va marcado ltr', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', language: 'da' });
