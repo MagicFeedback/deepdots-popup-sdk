@@ -732,6 +732,8 @@ export class DeepdotsPopups {
     }
 
     private shouldShow(def: NormalizedPopupDefinition, pathUrl?: string, skipPathCheck = false): boolean {
+        // Otra pestaña puede haber enseñado o contestado este popup desde nuestro `init()`.
+        if (this.storage) this.loadPopupState(this.storage);
         // La exclusión se evalúa SIEMPRE, también cuando `skipPathCheck` levanta la
         // restricción de "dónde PUEDE mostrarse" (popup de exit ya encolado): decir
         // "no en /cart" es una regla sobre la pantalla en la que se va a pintar.
@@ -1345,23 +1347,33 @@ export class DeepdotsPopups {
     }
 
     /**
-     * Rehidrata el estado de redisplay desde el storage. `answeredSurveys` se reconstruye
-     * desde las entradas COMPLETED: es exactamente lo que persiste `markSurveyAnswered`.
+     * Fusiona el estado de redisplay del storage con el de memoria: por cada popup/survey gana
+     * la entrada MÁS RECIENTE. Fusionar y no sustituir es lo que hace convivir a varias
+     * pestañas sobre el mismo `localStorage`: se llama en el `init()`, antes de cada decisión
+     * de mostrar y antes de cada escritura. `answeredSurveys` se reconstruye desde las
+     * entradas COMPLETED: es exactamente lo que persiste `markSurveyAnswered`.
      */
     private loadPopupState(storage: KeyValueStorage): void {
         const state = readPopupState(storage);
         Object.entries(state.lastShown).forEach(([popupId, timestamp]) => {
-            this.lastShown.set(popupId, timestamp);
+            if (timestamp > (this.lastShown.get(popupId) ?? -Infinity)) this.lastShown.set(popupId, timestamp);
         });
         Object.entries(state.progress).forEach(([surveyId, entry]) => {
+            const current = this.surveyProgress.get(surveyId);
+            if (current && current.timestamp >= entry.timestamp) return;
             this.surveyProgress.set(surveyId, { status: entry.status, timestamp: entry.timestamp });
             if (entry.status === 'COMPLETED') this.answeredSurveys.add(surveyId);
         });
     }
 
-    /** Vuelca el estado de redisplay al storage. Sin storage (o bloqueado) degrada a memoria. */
+    /**
+     * Vuelca el estado de redisplay al storage. Sin storage (o bloqueado) degrada a memoria.
+     * Fusiona antes de escribir: escribir solo la foto en memoria borraba lo que otra pestaña
+     * hubiese guardado desde nuestro `init()`.
+     */
     private persistPopupState(): void {
         if (!this.storage) return;
+        this.loadPopupState(this.storage);
         writePopupState(this.storage, {
             lastShown: Object.fromEntries(this.lastShown),
             progress: Object.fromEntries(this.surveyProgress),
