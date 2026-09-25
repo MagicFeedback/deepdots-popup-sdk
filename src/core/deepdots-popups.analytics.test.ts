@@ -251,11 +251,12 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
   });
 
   /**
-   * Al cerrar la pestaña el navegador puede cancelar un fetch en vuelo: ese último lote
-   * (con el page_view y el engagement finales) se perdía. El flush de `pagehide` va por
-   * sendBeacon, que sobrevive al unload.
+   * Al cerrar la pestaña, el último lote es el único con `completed:true`: sin él la API no
+   * ensambla la sesión y todo lo que llevaba (page_views incluidos) no llega a BigQuery.
+   * Salía por `sendBeacon`, que va con credenciales, y el CORS de la API (`Allow-Origin: *`)
+   * lo cortaba en el preflight. Va por `fetch` con `keepalive` y sin credenciales.
    */
-  it('el flush de pagehide sale por sendBeacon, no por fetch', () => {
+  it('el flush de pagehide cierra la sesión por fetch keepalive, nunca por sendBeacon', () => {
     const beacon = vi.fn().mockReturnValue(true);
     Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true, writable: true });
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
@@ -266,17 +267,145 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     sdk.init({
       apiKey: 'pk-1',
       nodeEnv: 'development',
-      analytics: { publicKey: 'pub-a', integration: 'int-7' },
+      analytics: { publicKey: 'pub-a', integration: 'int-pagehide' },
     });
     sdk.track('cta_click');
     window.dispatchEvent(new Event('pagehide'));
 
-    expect(beacon).toHaveBeenCalled();
-    expect(beacon.mock.calls[0][0]).toBe('https://api-dev.deepdots.com/sdk/feedback');
-    expect(fetchSpy.mock.calls.some(([u]) => typeof u === 'string' && u.endsWith('/sdk/feedback'))).toBe(false);
+    expect(beacon).not.toHaveBeenCalled();
+    // Las instancias de tests anteriores siguen escuchando `pagehide` en el mismo window.
+    const posts = fetchSpy.mock.calls.filter(
+      ([u, i]) =>
+        typeof u === 'string' &&
+        u.endsWith('/sdk/feedback') &&
+        JSON.parse((i as RequestInit).body as string).integration === 'int-pagehide'
+    );
+    expect(posts).toHaveLength(1);
+    const init = posts[0][1] as RequestInit;
+    expect(init.keepalive).toBe(true);
+    expect(init.credentials).toBe('omit');
+    expect(JSON.parse(init.body as string).completed).toBe(true);
 
     vi.unstubAllGlobals();
     Reflect.deleteProperty(navigator, 'sendBeacon');
+  });
+
+  /**
+   * En Chromium, al cerrar la pestaña `pagehide` llega ANTES que `visibilitychange`. El
+   * cierre ya había volcado el engagement y olvidado el sessionId, pero el contador seguía
+   * en marcha: el `visibilitychange` emitía un `user_engagement` de unos milisegundos que
+   * salía SIN sessionId y abría en la API un registro nuevo que nunca se cierra. Visto
+   * contra un servidor real, uno por cada pestaña cerrada.
+   */
+  it('lo que llega después del cierre de sesión no abre un registro huérfano', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({
+      apiKey: 'pk-1',
+      nodeEnv: 'development',
+      analytics: { publicKey: 'pub-a', integration: 'int-orphan' },
+    });
+    window.dispatchEvent(new Event('pagehide'));
+
+    // El usuario tarda en soltar la pestaña: si el contador siguiera vivo, esto se contaría.
+    vi.setSystemTime(Date.now() + 5_000);
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const posts = fetchSpy.mock.calls
+      .filter(([u]) => typeof u === 'string' && u.endsWith('/sdk/feedback'))
+      .map(([, init]) => JSON.parse((init as RequestInit).body as string))
+      .filter((b) => b.integration === 'int-orphan');
+    expect(posts).toHaveLength(1); // solo el lote de cierre
+    expect(posts[0].completed).toBe(true);
+
+    Reflect.deleteProperty(document, 'visibilityState');
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  /** Bodies POSTeados a /sdk/feedback por ESTA instancia (las de tests anteriores siguen vivas). */
+  function bodiesFor(spy: ReturnType<typeof vi.fn>, integration: string) {
+    return spy.mock.calls
+      .filter(([u]) => typeof u === 'string' && (u as string).endsWith('/sdk/feedback'))
+      .map(([, init]) => JSON.parse((init as RequestInit).body as string))
+      .filter((b) => b.integration === integration);
+  }
+
+  function eventsOf(body: { feedback: { metadata: Array<{ key: string; value: string[] }> } }) {
+    return body.feedback.metadata
+      .filter((e) => e.key.startsWith('deepdots_') && e.value?.[0]?.startsWith('{'))
+      .map((e) => ({ name: e.key, ...JSON.parse(e.value[0]) }));
+  }
+
+  /**
+   * Una pestaña abierta en segundo plano (clic central) nace oculta y no recibe
+   * `visibilitychange` hasta que el usuario la mira. El contador arrancaba en `init()` sin
+   * mirar la visibilidad, así que todo ese rato contaba como tiempo activo.
+   */
+  it('una pestaña abierta en segundo plano no cuenta engagement hasta que se muestra', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchSpy);
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({ apiKey: 'pk-1', nodeEnv: 'development', analytics: { publicKey: 'pub-a', integration: 'int-bgtab' } });
+
+    vi.setSystemTime(Date.now() + 60_000); // un minuto sin que nadie la mire
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    vi.setSystemTime(Date.now() + 2_000);
+    window.dispatchEvent(new Event('pagehide'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const closing = bodiesFor(fetchSpy, 'int-bgtab').find((b) => b.completed);
+    const engagement = eventsOf(closing).find((e) => e.name === 'deepdots_user_engagement');
+    expect(engagement?.engagement_time_msec).toBe(2_000);
+
+    Reflect.deleteProperty(document, 'visibilityState');
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  /**
+   * Botón atrás con bfcache: la página se restaura sin recargar, `init()` no vuelve a correr y
+   * el `pagehide` anterior ya cerró la sesión y paró el flush periódico. Sin reabrirlos, la
+   * pestaña no mandaba nada más: ni sesión, ni navegación, ni cierre.
+   */
+  it('al volver desde la bfcache abre sesión nueva y la vuelve a cerrar al salir', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({ apiKey: 'pk-1', nodeEnv: 'development', analytics: { publicKey: 'pub-a', integration: 'int-bfcache' } });
+
+    // Una carga normal también emite pageshow: no debe abrir una segunda sesión.
+    window.dispatchEvent(new Event('pageshow'));
+    window.dispatchEvent(new Event('pagehide'));
+
+    const restored = new Event('pageshow');
+    Object.defineProperty(restored, 'persisted', { value: true });
+    window.dispatchEvent(restored);
+    sdk.track('cta_click');
+    window.dispatchEvent(new Event('pagehide'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const closings = bodiesFor(fetchSpy, 'int-bfcache').filter((b) => b.completed);
+    expect(closings).toHaveLength(2);
+    expect(eventsOf(closings[0]).filter((e) => e.name === 'deepdots_session_start')).toHaveLength(1);
+    expect(eventsOf(closings[1]).map((e) => e.name)).toEqual(
+      expect.arrayContaining(['deepdots_session_start', 'deepdots_event_cta_click', 'deepdots_session_end'])
+    );
+
+    vi.unstubAllGlobals();
   });
 
   /**
