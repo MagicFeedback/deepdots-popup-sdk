@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.2] — 2026-09-25
+
+### Fixed
+
+- **Web analytics sessions now actually close, so their data reaches the dashboard.** The last
+  batch of a session is the only one with `completed: true`, and the API only assembles a
+  session into a feedback when that batch arrives. It was sent with `navigator.sendBeacon`,
+  which always includes credentials and, with an `application/json` body, needs a CORS
+  preflight. The API answers `Access-Control-Allow-Origin: *` with
+  `Access-Control-Allow-Credentials: true`, which browsers reject for credentialed requests,
+  so the preflight failed and the batch was never sent. Sessions ending in a tab close never
+  completed, and none of their events (page views included) reached analytics. Every batch
+  now goes through `fetch` with `credentials: 'omit'`, and the closing one also with
+  `keepalive`, which survives the page unload just as `sendBeacon` did.
+- **No more orphan record per closed tab.** In Chromium `visibilitychange` fires after
+  `pagehide`; the engagement timer kept running after the session closed and sent a
+  `user_engagement` event without a session id, which opened a record that never closes.
+- **Tabs opened in the background no longer count engagement nobody saw.** The timer now
+  starts with the session and only while the tab is visible.
+- **Returning to a page from the back/forward cache resumes tracking.** The `pagehide` had
+  closed the session and stopped the periodic flush, and nothing reopened them until a reload.
+- **Several tabs no longer overwrite each other's popup redisplay history.** Each tab read it
+  only at `init` and then rewrote the whole record from memory, so one tab could show a popup
+  another had just shown and could erase a survey marked as completed. The record is now
+  merged (the most recent entry wins) before every decision and every write.
+
+### Deprecated
+
+- `FeedbackSinkOptions.sendBeaconImpl` is ignored and kept only for type compatibility.
+
+
 ## [1.3.0] — 2026-07-31
 
 ### Changed
