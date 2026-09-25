@@ -80,6 +80,16 @@ export class NavigationObserver {
     this.currentScreen = null;
   }
 
+  /**
+   * Retoma el seguimiento en la pantalla actual tras un `stop()`, cuando se abre una sesión
+   * nueva sin navegar (cambio de usuario, vuelta de la bfcache). No-op si nunca se instaló
+   * (navegación manual por `setScreen`, RN) o si ya hay pantalla en curso.
+   */
+  restart(): void {
+    if (!this.installed || this.currentScreen != null || typeof window === 'undefined') return;
+    this.begin(window.location.href);
+  }
+
   private closeCurrent(): void {
     if (this.currentScreen == null) return;
     const exit = this.now();

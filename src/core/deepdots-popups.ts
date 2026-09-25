@@ -200,11 +200,6 @@ export class DeepdotsPopups {
                   baseUrl: this.baseUrl,
                   keys: config.analytics,
                   log: (...a) => this.log(...a),
-                  // sendBeacon: único transporte que sobrevive al cierre de la página.
-                  sendBeaconImpl:
-                      typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function'
-                          ? (url, body) => navigator.sendBeacon(url, body)
-                          : undefined,
                   onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
                   onSessionReset: () => { this.analyticsFeedbackSessionId = undefined; },
               })
@@ -255,8 +250,8 @@ export class DeepdotsPopups {
         this.navObserver.onVisit((v) => this.track('deepdots_page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
         this.navObserver.install();
         // Engagement time (#8): cuenta tiempo activo en primer plano.
+        // No arranca aquí: lo hace `openSession`, y solo con la pestaña visible.
         this.engagement = new EngagementTracker();
-        this.engagement.resume();
         this.setupAnalyticsFlush();
         // Marca de inicio de sesión (base para Crash-Free Users #14).
         this.openSession();
@@ -522,8 +517,12 @@ export class DeepdotsPopups {
         this.navStarted = false;
         this.analytics?.exitAllMiniServices(); // → mini_service_exit con duración
         this.flushEngagement(); // → user_engagement con el tiempo activo
+        // Parado hasta la sesión siguiente. Si siguiera en marcha, lo que llega después del
+        // cierre (en Chromium el `visibilitychange` va DESPUÉS de `pagehide`) emitía un
+        // `user_engagement` sin sessionId que abría en la API un registro que nunca se cierra.
+        this.engagement?.pause();
         this.track('deepdots_session_end', { reason });
-        // `final` solo cuando el documento se está muriendo: ahí hace falta sendBeacon.
+        // `final` solo cuando el documento se está muriendo (el transporte no espera respuestas).
         this.flushAnalytics({ final: reason === 'page_hide', sessionEnd: true });
         // El session_id del canal de analytics y el de popups pertenecían a la sesión cerrada.
         this.analyticsFeedbackSessionId = undefined;
@@ -540,6 +539,16 @@ export class DeepdotsPopups {
         if (!this.tracking?.isTrackingEnabled()) return;
         this.sessionOpen = true;
         this.track('deepdots_session_start', {});
+        // El cierre anterior dejó sin pantalla al observador: sin esto, la pantalla en la que
+        // está el usuario al reabrir (cambio de usuario, vuelta de la bfcache) no contaba.
+        this.navObserver?.restart();
+        // Una pestaña abierta en segundo plano no ha sido vista: no cuenta hasta que se muestre.
+        if (this.isDocumentVisible()) this.engagement?.resume();
+    }
+
+    /** Web: si la pestaña se ve. Sin `document` (RN) manda AppState vía onForeground/onBackground. */
+    private isDocumentVisible(): boolean {
+        return typeof document === 'undefined' || document.visibilityState !== 'hidden';
     }
 
     /** Payload que se ENVIARÍA al endpoint de analytics (no envía ni vacía el buffer). */
@@ -556,8 +565,8 @@ export class DeepdotsPopups {
 
     /**
      * Envía el lote acumulado de analytics y vacía el buffer.
-     * `final: true` (cierre de página/app) cambia el transporte a `sendBeacon`, que sobrevive
-     * al unload; un lote que falle por red o 5xx se re-encola para el siguiente flush.
+     * `final: true` (cierre de página/app): el lote no espera al primer POST en vuelo, porque
+     * el documento se muere; un lote que falle por red o 5xx se re-encola para el siguiente flush.
      */
     flushAnalytics(options?: { final?: boolean; sessionEnd?: boolean }): void {
         if (!this.tracking?.isTrackingEnabled()) return;
@@ -582,12 +591,20 @@ export class DeepdotsPopups {
     private setupAnalyticsFlush(): void {
         if (typeof document === 'undefined' || typeof window === 'undefined') return;
         // flush periódico mientras la app está en primer plano
-        this.analyticsFlushTimer = setInterval(() => this.flushAnalytics(), ANALYTICS_FLUSH_INTERVAL_MS);
+        this.startAnalyticsFlushTimer();
         // al cerrar la página: FIN DE SESIÓN (page_view + mini_service_exit + engagement +
-        // session_end) y último lote con completed:true vía sendBeacon.
+        // session_end) y último lote con completed:true.
         window.addEventListener('pagehide', () => {
             clearInterval(this.analyticsFlushTimer);
             this.closeSession('page_hide');
+        });
+        // Vuelta desde la bfcache (botón atrás): la página no se recarga, así que `init()` no
+        // vuelve a correr. El `pagehide` cerró la sesión y paró el flush; sin reabrir ambos, la
+        // pestaña no mandaba nada más hasta una recarga.
+        window.addEventListener('pageshow', (event) => {
+            if (!(event as PageTransitionEvent).persisted) return;
+            this.startAnalyticsFlushTimer();
+            this.openSession();
         });
         // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado
         document.addEventListener('visibilitychange', () => {
@@ -596,9 +613,15 @@ export class DeepdotsPopups {
                 this.engagement?.pause();
                 this.flushAnalytics();
             } else if (document.visibilityState === 'visible') {
-                this.engagement?.resume();
+                // Sin sesión abierta no hay dónde contar ese tiempo.
+                if (this.sessionOpen) this.engagement?.resume();
             }
         });
+    }
+
+    private startAnalyticsFlushTimer(): void {
+        clearInterval(this.analyticsFlushTimer);
+        this.analyticsFlushTimer = setInterval(() => this.flushAnalytics(), ANALYTICS_FLUSH_INTERVAL_MS);
     }
 
     /** Enable auto-launch functionality with configured triggers */

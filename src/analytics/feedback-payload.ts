@@ -139,9 +139,11 @@ export interface FeedbackSinkOptions {
   /** fetch inyectable (tests / RN). */
   fetchImpl?: typeof fetch;
   /**
-   * `navigator.sendBeacon` inyectable. Solo se usa en el flush final (cierre de página):
-   * sobrevive al unload, a cambio de no poder leer la respuesta. Si no se pasa, el flush
-   * final usa `fetch` con `keepalive`.
+   * @deprecated Se ignora. El flush final salía por `sendBeacon`, que va SIEMPRE con
+   * credenciales; contra la API (`Access-Control-Allow-Origin: *` + `Allow-Credentials:
+   * true`) el preflight fallaba y el lote de cierre, el único con `completed:true`, no
+   * llegaba nunca. Ahora sale por `fetch` con `keepalive`. Se mantiene en el tipo para no
+   * romper a quien lo pase.
    */
   sendBeaconImpl?: (url: string, body: Blob | string) => boolean;
   /** Callback invocado cuando el backend devuelve un nuevo sessionId (primer POST). */
@@ -150,7 +152,7 @@ export interface FeedbackSinkOptions {
   onSessionReset?: () => void;
 }
 
-/** Límite práctico de `fetch({keepalive:true})` y de `sendBeacon` (~64KB en Chrome). */
+/** Límite práctico de `fetch({keepalive:true})` (~64KB en Chrome). */
 const KEEPALIVE_MAX_BYTES = 60_000;
 
 /** Un fallo transitorio merece reintento; un 4xx (payload/claves/Contact) no. */
@@ -176,8 +178,9 @@ async function safeBodyText(res: Response): Promise<string> {
  * Garantías de entrega:
  *  - mientras no se conozca el `sessionId`, los lotes se **serializan** (esperan la primera
  *    respuesta): dos POSTs a la vez sin `sessionId` crearían dos registros y partirían los datos;
- *  - `keepalive` para que el navegador no cancele el POST al navegar fuera, y `sendBeacon`
- *    en el flush final (cierre de página), donde `fetch` puede morir con el documento;
+ *  - `keepalive` para que el navegador no cancele el POST al navegar fuera ni al cerrar la
+ *    página, también en el flush final (sin `sendBeacon`: ver `sendBeaconImpl`);
+ *  - sin credenciales, que es lo único que pasa el CORS de la API (`Allow-Origin: *`);
  *  - la promesa **rechaza** en fallo transitorio (red, 5xx, 408, 429) para que el
  *    `AnalyticsManager` re-encole el lote; un 4xx se loguea y se descarta.
  */
@@ -192,15 +195,9 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
     const json = JSON.stringify(body);
     const small = json.length <= KEEPALIVE_MAX_BYTES;
 
-    // Cierre de página: sendBeacon sobrevive al unload (a cambio, no hay respuesta que leer).
-    if (final && options.sendBeaconImpl && small) {
-      const payload = typeof Blob !== 'undefined' ? new Blob([json], { type: 'application/json' }) : json;
-      if (options.sendBeaconImpl(url, payload)) {
-        options.log?.('[DeepdotsAnalytics] final flush via sendBeacon');
-        return;
-      }
-      options.log?.('[DeepdotsAnalytics] sendBeacon rejected the batch; falling back to fetch');
-    }
+    // Sin `sendBeacon` a propósito, también en el cierre de página (ver `sendBeaconImpl`):
+    // `keepalive` sobrevive igual al unload y, sin credenciales, pasa el preflight de la API.
+    if (final) options.log?.('[DeepdotsAnalytics] final flush via fetch keepalive');
 
     const f = options.fetchImpl ?? (typeof fetch !== 'undefined' ? fetch : undefined);
     if (!f) {
@@ -212,6 +209,9 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: json,
+      // La API autentica por `publicKey` en el body y responde `Allow-Origin: *`: una
+      // petición con credenciales fallaría el CORS. Explícito para no depender del default.
+      credentials: 'omit',
       // keepalive: el POST sobrevive a la navegación mientras el body sea pequeño.
       ...(small ? { keepalive: true } : {}),
     });

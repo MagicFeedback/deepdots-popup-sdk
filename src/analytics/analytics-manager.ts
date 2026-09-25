@@ -42,7 +42,8 @@ export interface AnalyticsEnvelope {
 export interface AnalyticsFlushMeta {
   /**
    * `true` cuando el flush ocurre porque la página/app se está cerrando. El sink debe usar
-   * un transporte que sobreviva al unload (sendBeacon) y no puede esperar respuestas.
+   * un transporte que sobreviva al unload (`fetch` con `keepalive`) y no puede esperar
+   * respuestas.
    */
   final?: boolean;
   /**

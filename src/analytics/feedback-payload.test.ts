@@ -263,8 +263,36 @@ describe('createFeedbackSink', () => {
     expect(sent2.sessionId).toBe('fbk-1'); // agrupado en el mismo registro
   });
 
+  /**
+   * Cierre de página. El lote final es el ÚNICO que lleva `completed:true`, y sin él la API
+   * no ensambla la sesión en un feedback: todo lo que llevaba (page_views incluidos) nunca
+   * llega a BigQuery.
+   *
+   * ⚠️ Nada de `sendBeacon` (verificado en Chromium contra las cabeceras reales de
+   * api.deepdots.com, 2026-09-25): la API responde `Access-Control-Allow-Origin: *` con
+   * `Allow-Credentials: true`, `sendBeacon` va SIEMPRE con credenciales y un Blob
+   * `application/json` obliga a preflight. Un preflight con credenciales no acepta `*`, así
+   * que el navegador lo cortaba en el OPTIONS y el POST no salía nunca. `fetch` con
+   * `keepalive` sobrevive igual al cierre y, sin credenciales, pasa ese mismo preflight.
+   */
   describe('flush final (cierre de página)', () => {
-    it('usa sendBeacon, que sobrevive al unload, en vez de fetch', async () => {
+    it('sale por fetch con keepalive, que sobrevive al cierre de la página', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      await sink(envelope(), { final: true });
+
+      expect(fetchImpl).toHaveBeenCalledOnce();
+      const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://api-dev.deepdots.com/sdk/feedback');
+      expect(init.keepalive).toBe(true);
+    });
+
+    it('ignora sendBeaconImpl aunque el host lo pase: el navegador lo cortaba en el preflight', async () => {
       const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
       const sendBeaconImpl = vi.fn().mockReturnValue(true);
       const sink = createFeedbackSink({
@@ -276,25 +304,7 @@ describe('createFeedbackSink', () => {
 
       await sink(envelope(), { final: true });
 
-      expect(sendBeaconImpl).toHaveBeenCalledOnce();
-      expect(fetchImpl).not.toHaveBeenCalled();
-      const [beaconUrl] = sendBeaconImpl.mock.calls[0];
-      expect(beaconUrl).toBe('https://api-dev.deepdots.com/sdk/feedback');
-    });
-
-    it('cae a fetch si sendBeacon rechaza el lote (cola del navegador llena)', async () => {
-      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
-      const sendBeaconImpl = vi.fn().mockReturnValue(false);
-      const sink = createFeedbackSink({
-        baseUrl: 'https://api-dev.deepdots.com',
-        keys: KEYS,
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-        sendBeaconImpl,
-      });
-
-      await sink(envelope(), { final: true });
-
-      expect(sendBeaconImpl).toHaveBeenCalledOnce();
+      expect(sendBeaconImpl).not.toHaveBeenCalled();
       expect(fetchImpl).toHaveBeenCalledOnce();
     });
 
@@ -303,19 +313,39 @@ describe('createFeedbackSink', () => {
         .fn()
         .mockImplementationOnce(() => new Promise(() => {})) // primer POST nunca responde
         .mockResolvedValue({ ok: true, json: async () => ({}) });
-      const sendBeaconImpl = vi.fn().mockReturnValue(true);
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
         fetchImpl: fetchImpl as unknown as typeof fetch,
-        sendBeaconImpl,
       });
 
       void sink(envelope());
       await sink(envelope(), { final: true }); // no se queda colgado
 
-      expect(sendBeaconImpl).toHaveBeenCalledOnce();
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
+  });
+
+  /**
+   * La API autentica por `publicKey` en el body, nunca por cookie, y responde con
+   * `Access-Control-Allow-Origin: *`. Cualquier petición CON credenciales falla el CORS
+   * contra esa cabecera, así que se omiten de forma explícita en todos los lotes, no solo
+   * en el final: no dependemos de que el default de `fetch` siga siendo el que es.
+   */
+  it.each([
+    ['un lote normal', undefined],
+    ['el lote final', { final: true }],
+  ])('%s va sin credenciales', async (_label, meta) => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    const sink = createFeedbackSink({
+      baseUrl: 'https://api-dev.deepdots.com',
+      keys: KEYS,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await sink(envelope(), meta as never);
+
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).credentials).toBe('omit');
   });
 
   /**
