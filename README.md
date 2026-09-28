@@ -268,7 +268,7 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 | `trackFunnelStep(funnel, step, taskId, params?)` | A funnel step, correlated by `taskId` |
 | `trackFindabilityFriction(topic, params?)` | Friction signal |
 | `trackMeaningfulInteraction(interactionType, params?)` | A meaningful interaction, grouped by `interaction_type` |
-| `enterMiniService(name, entryPointType?)` / `exitMiniService(name)` | Mini-service, with duration |
+| `enterMiniService(name, entryPointType?)` / `exitMiniService(name)` | A task flow with a start and an end — [not a page](#mini-services--enterminiservicename-entrypointtype--exitminiservicename) |
 | `setUserAttributes(map)` / `setMetric(key, value)` | Breakdown dimensions / measurable values |
 | `setUserId(userId?)` | Login, logout or account switch |
 | `endSession()` | Closes the session explicitly |
@@ -331,6 +331,32 @@ values (oldest evicted first). A rejected event does not consume state: after a
 > with `mutable-content` on iOS. Notifications arriving while the app is killed, or with
 > restricted permissions, will not fire it — so a client-side `delivered` count sits below the
 > real one. For a reliable denominator, take `delivered` from your sending provider.
+
+### Mini-services — `enterMiniService(name, entryPointType?)` / `exitMiniService(name)`
+
+A mini-service is a **self-contained task inside the app, with a start and an end**: a booking,
+a checkout, an onboarding, a form the user fills in. Deepdots treats it as a flow. It reports
+completion and drop-off per mini-service, draws it in the session journey as a lane between
+where it was entered and where it was left, and tags every event emitted while it is active
+with `mini_service`.
+
+```ts
+popups.enterMiniService('checkout', 'cart_button'); // the user starts the task
+// ...
+popups.exitMiniService('checkout');                 // and finishes it
+```
+
+- Enter it when the task starts and exit it when the task is done. One still open when the
+  session closes is exited by the SDK.
+- `entryPointType` is optional and says where the user started it from (a banner, a menu, a
+  deep link). It is sent as `entry_point_type`.
+
+**A mini-service is not a page, a section or an area of the app.** Navigation is already
+recorded as `page_view`, with the screen and how long the user stayed on it, and time per area
+comes from grouping those page views by screen. Opening a mini-service for every section turns
+each navigation into an abandoned flow: a move from `/feedback` to `/explorer` reads as
+*"entered the explorer mini-service and never completed it"*, the journey loses the edge
+between the two pages, and every section counts as drop-off.
 
 ## Supported Trigger Types
 
