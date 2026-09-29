@@ -246,6 +246,13 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
   };
 
   return async (envelope: AnalyticsEnvelope, meta) => {
+    if (meta?.resetSession) {
+      // Sesión cerrada por el backend: no se envía nada, solo se olvida el registro.
+      feedbackSessionId = undefined;
+      firstPostInFlight = null;
+      options.onSessionReset?.();
+      return;
+    }
     const final = meta?.final === true;
     const sessionEnd = meta?.sessionEnd === true;
 

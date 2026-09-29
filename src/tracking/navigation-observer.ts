@@ -81,6 +81,15 @@ export class NavigationObserver {
   }
 
   /**
+   * Olvida la pantalla actual SIN emitir su visita. Para una sesión que el backend ya dio
+   * por cerrada: su visita no tiene dónde ir, y mandarla con la sesión nueva la contaría
+   * donde no ocurrió. Después, `restart()` vuelve a empezar en la pantalla actual.
+   */
+  discard(): void {
+    this.currentScreen = null;
+  }
+
+  /**
    * Retoma el seguimiento en la pantalla actual tras un `stop()`, cuando se abre una sesión
    * nueva sin navegar (cambio de usuario, vuelta de la bfcache). No-op si nunca se instaló
    * (navegación manual por `setScreen`, RN) o si ya hay pantalla en curso.
