@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.3] — 2026-09-29
+
 ### Fixed
 
 - **Analytics sessions in use are no longer closed by the backend as abandoned.** The backend
@@ -22,6 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   closed it.
 - **React Native apps flush on a timer too.** They only sent a batch on reaching the batch
   size or going to the background.
+- **The IP geolocation lookup only runs when its result is actually sent.** On every `init()`
+  the SDK called third-party services (`ipapi.co`, then `ipwho.is`, then `ipinfo.io` as
+  fallbacks, 3 s timeout each), even without `analytics` configured (the result went nowhere),
+  with `trackingEnabled: false`, and on every page load despite the 30-day cache. Now it only
+  runs with `analytics` configured, tracking enabled and no fresh cached value, at most once
+  per SDK instance. With consent granted later, it waits for `setTrackingEnabled(true)`.
+
+### Added
+
+- **`geolocation?: boolean` init option** (default `true`). With `false` the SDK never calls
+  the geolocation services and sends no country or city.
 
 ## [1.8.2] — 2026-09-25
 
