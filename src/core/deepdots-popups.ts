@@ -38,6 +38,27 @@ const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const ANALYTICS_MAX_BATCH_SIZE = 20;
 const ANALYTICS_FLUSH_INTERVAL_MS = 30_000;
+/**
+ * Latido: con la pestaña visible (o la app en foreground), el flush periódico manda el
+ * engagement acumulado al menos cada ANALYTICS_HEARTBEAT_MS. Sin él, alguien leyendo una
+ * sola página no enviaba nada — el page_view sale al SALIR de la pantalla y el engagement
+ * al ocultar/cerrar — y el backend daba la sesión por abandonada con solo su session_start.
+ */
+const ANALYTICS_HEARTBEAT_MS = 5 * 60_000;
+/** Una pestaña que vuelve a verse tras este tiempo oculta empieza sesión nueva (timeout de sesión, como GA). */
+const ANALYTICS_SESSION_TIMEOUT_MS = 30 * 60_000;
+/**
+ * Inactividad tras la que el backend cierra una sesión por su cuenta (Run_Jobs
+ * `incomplete-surveys`, `IDLE_MINUTES`, 60 min; el barrido corre cada 20). Mantener en sincronía.
+ */
+const ANALYTICS_SERVER_IDLE_MS = 60 * 60_000;
+/**
+ * Pasado este tiempo oculta, la sesión se da por cerrada en el backend: reenviarle el cierre
+ * la volvería a montar entera en un segundo feedback, así que se descarta sin enviar nada.
+ * Margen de 10 min bajo la ventana del backend: el último lote enviado puede ser algo
+ * anterior al momento en que se ocultó la pestaña.
+ */
+const ANALYTICS_SESSION_DISCARD_MS = ANALYTICS_SERVER_IDLE_MS - 10 * 60_000;
 /** Namespace reservado para los eventos que emite el propio SDK (page_view, message, mini_service…). */
 const RESERVED_EVENT_PREFIX = 'deepdots_';
 /** Prefijo que se antepone a los eventos custom del host para poder identificarlos frente a los reservados. */
@@ -127,6 +148,10 @@ export class DeepdotsPopups {
      * nueva al volver a foreground o al conceder el consentimiento más tarde.
      */
     private sessionOpen = false;
+    /** Último `user_engagement` emitido (ms epoch): marca el latido. */
+    private lastEngagementAt = 0;
+    /** Cuándo se ocultó la pestaña por última vez (ms epoch); null si está visible. */
+    private hiddenAt: number | null = null;
     /**
      * Idioma resuelto en init() (explícito > navigator.language > Intl). Única fuente de
      * verdad para el context de analytics Y para la segmentación por idioma de los popups.
@@ -538,6 +563,7 @@ export class DeepdotsPopups {
         if (this.sessionOpen) return;
         if (!this.tracking?.isTrackingEnabled()) return;
         this.sessionOpen = true;
+        this.lastEngagementAt = Date.now();
         this.track('deepdots_session_start', {});
         // El cierre anterior dejó sin pantalla al observador: sin esto, la pantalla en la que
         // está el usuario al reabrir (cambio de usuario, vuelta de la bfcache) no contaba.
@@ -577,7 +603,58 @@ export class DeepdotsPopups {
     private flushEngagement(): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         const ms = this.engagement?.consume() ?? 0;
-        if (ms > 0) this.track('deepdots_user_engagement', { engagement_time_msec: ms });
+        if (ms > 0) {
+            this.track('deepdots_user_engagement', { engagement_time_msec: ms });
+            this.lastEngagementAt = Date.now();
+        }
+    }
+
+    /** Tick del flush periódico: latido de engagement si toca, y envío de lo acumulado. */
+    private onAnalyticsFlushTick(): void {
+        if (
+            this.sessionOpen &&
+            this.isDocumentVisible() &&
+            Date.now() - this.lastEngagementAt >= ANALYTICS_HEARTBEAT_MS
+        ) {
+            this.flushEngagement();
+        }
+        this.flushAnalytics();
+    }
+
+    /**
+     * La pestaña vuelve a verse. Tras más de ANALYTICS_SESSION_TIMEOUT_MS oculta, la sesión
+     * anterior termina y empieza otra: seguir con el mismo sessionId mezclaba dos visitas y,
+     * si el backend ya la había cerrado por inactividad, la partía en dos feedbacks.
+     *  - Oculta menos de ANALYTICS_SESSION_DISCARD_MS: el backend aún la tiene abierta → se
+     *    cierra con normalidad (page_view de la pantalla, session_end `idle_timeout`, completed).
+     *  - Más: ya la cerró el backend → se descarta sin enviar nada.
+     */
+    private onDocumentVisible(): void {
+        const hiddenFor = this.hiddenAt === null ? 0 : Date.now() - this.hiddenAt;
+        this.hiddenAt = null;
+        if (!this.sessionOpen) return; // sin sesión abierta no hay dónde contar ese tiempo
+        if (hiddenFor < ANALYTICS_SESSION_TIMEOUT_MS) {
+            this.engagement?.resume();
+            return;
+        }
+        if (hiddenFor < ANALYTICS_SESSION_DISCARD_MS) {
+            this.closeSession('idle_timeout');
+        } else {
+            this.discardSession();
+        }
+        this.openSession();
+    }
+
+    /** Olvida la sesión abierta sin enviar nada (ver onDocumentVisible). */
+    private discardSession(): void {
+        this.sessionOpen = false;
+        this.navObserver?.discard();
+        this.analytics?.discardSession(this.analyticsIdentity());
+        this.engagement?.consume(); // tiramos lo acumulado: era de la sesión descartada
+        this.engagement?.pause();
+        this.analyticsFeedbackSessionId = undefined;
+        this.tracking?.setSessionId(null);
+        this.log('tracking · session discarded after', ANALYTICS_SESSION_DISCARD_MS / 60_000, 'min hidden');
     }
 
     private analyticsIdentity() {
@@ -589,9 +666,10 @@ export class DeepdotsPopups {
 
     /** Flush automático al ocultar/cerrar la página (no perder el lote pendiente). */
     private setupAnalyticsFlush(): void {
-        if (typeof document === 'undefined' || typeof window === 'undefined') return;
-        // flush periódico mientras la app está en primer plano
+        // Flush periódico + latido en todos los entornos. En RN no había ninguno: una app en
+        // foreground que no llegaba a `maxBatchSize` no enviaba nada hasta ir a background.
         this.startAnalyticsFlushTimer();
+        if (typeof document === 'undefined' || typeof window === 'undefined') return;
         // al cerrar la página: FIN DE SESIÓN (page_view + mini_service_exit + engagement +
         // session_end) y último lote con completed:true.
         window.addEventListener('pagehide', () => {
@@ -612,16 +690,16 @@ export class DeepdotsPopups {
                 this.flushEngagement();
                 this.engagement?.pause();
                 this.flushAnalytics();
+                this.hiddenAt = Date.now();
             } else if (document.visibilityState === 'visible') {
-                // Sin sesión abierta no hay dónde contar ese tiempo.
-                if (this.sessionOpen) this.engagement?.resume();
+                this.onDocumentVisible();
             }
         });
     }
 
     private startAnalyticsFlushTimer(): void {
         clearInterval(this.analyticsFlushTimer);
-        this.analyticsFlushTimer = setInterval(() => this.flushAnalytics(), ANALYTICS_FLUSH_INTERVAL_MS);
+        this.analyticsFlushTimer = setInterval(() => this.onAnalyticsFlushTick(), ANALYTICS_FLUSH_INTERVAL_MS);
     }
 
     /** Enable auto-launch functionality with configured triggers */

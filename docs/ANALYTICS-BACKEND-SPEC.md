@@ -186,7 +186,10 @@ Se emite al salir de una pantalla. Registra el tiempo que el usuario estuvo en e
 ---
 
 #### `deepdots_user_engagement`
-Se emite en cada flush. Acumula el tiempo activo en primer plano desde el flush anterior.
+Acumula el tiempo activo en primer plano desde el anterior. Se emite al ocultar la pestaña,
+al cerrar la sesión y, como **latido**, al menos cada 5 min mientras la pestaña está visible o
+la app en foreground (desde 1.8.3). El latido es lo que permite al backend distinguir una
+sesión en uso de una abandonada: sin él, alguien leyendo una sola página no enviaba nada.
 
 ```json
 {
@@ -232,6 +235,7 @@ Se emite al abrir sesión: en el `init()`, al volver a foreground tras un cierre
 | `user_change` | `setUserId()` o un `init()` con otro `userId` (login/logout) |
 | `tracking_disabled` | `setTrackingEnabled(false)` (consentimiento revocado) |
 | `manual` | El host llamó a `endSession()` |
+| `idle_timeout` | La pestaña vuelve a verse tras más de 30 min oculta (web, desde 1.8.3): se cierra y se abre otra |
 
 #### `deepdots_app_crash`
 Crash o error reportado. Los crashes no capturados se persisten a disco y se reenvían en el siguiente arranque; los `reportError()` del host se emiten en el momento.
@@ -417,14 +421,25 @@ acumulado y por último `deepdots_session_end` con su `reason`.
 | `setUserId()` / `init()` con otro `userId` | Todas | Total (lo dispara el host) |
 | `setTrackingEnabled(false)` | Todas | Total |
 | `endSession()` | Todas | Total |
+| Pestaña visible tras 30–50 min oculta (`idle_timeout`) | Web | Total. Tras **50 min o más** la sesión se **descarta sin enviar nada**: el backend ya la cerró por inactividad |
 
 ### ⚠️ El backend necesita igualmente una ventana de inactividad
 
 Hay cierres que **ningún SDK puede detectar**: kill de la app por el usuario o por el SO
 (no hay callback ni en iOS ni en Android), crash del proceso, pérdida de conexión, apagón.
 En esos casos el registro se queda **abierto sin `completed: true`**. El backend debe cerrarlo
-por inactividad (p. ej. sin eventos durante X minutos). `completed: true` es una señal
-**oportunista** que permite cerrar antes y con datos completos, no una garantía.
+por inactividad. `completed: true` es una señal **oportunista** que permite cerrar antes y
+con datos completos, no una garantía.
+
+La ventana actual es de **60 min sin ningún lote** (Run_Jobs `incomplete-surveys`,
+`IDLE_MINUTES`), medida por **sesión**: una sesión que sigue enviando lotes no se cierra. Tres
+valores del SDK dependen de ella y deben mantenerse en sincronía (`deepdots-popups.ts`):
+
+| Constante | Valor | Por qué |
+|---|---|---|
+| `ANALYTICS_HEARTBEAT_MS` | 5 min | Muy por debajo de la ventana: una sesión visible nunca parece abandonada |
+| `ANALYTICS_SESSION_TIMEOUT_MS` | 30 min | Una pestaña que vuelve tras más tiempo oculta empieza sesión nueva |
+| `ANALYTICS_SERVER_IDLE_MS` | 60 min | La ventana del backend; se descarta (sin POST) a partir de 50 min oculta, con 10 min de margen, para no reabrir una sesión que el backend ya montó |
 
 ### Impacto en el conteo de sesiones
 

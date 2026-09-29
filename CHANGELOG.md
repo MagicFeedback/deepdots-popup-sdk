@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Analytics sessions in use are no longer closed by the backend as abandoned.** The backend
+  closes a session after a window without batches, but a visible tab sent nothing while the
+  user read one page (a page view is emitted on leaving a screen, engagement only on hide or
+  close). The session was closed with just its `deepdots_session_start` — the "0 pages, 0
+  seconds" sessions — and what the user did next arrived as a second fragment. A visible tab
+  (or a React Native app in the foreground) now sends its engagement at least every 5 minutes.
+- **A tab that comes back after 30 minutes hidden starts a new session** (`session_end`
+  reason `idle_timeout`). Before, it kept the old session id, so a session the backend had
+  already closed received more batches and was assembled twice. After 50 minutes or more
+  hidden the old session is dropped without sending anything, since the backend has already
+  closed it.
+- **React Native apps flush on a timer too.** They only sent a batch on reaching the batch
+  size or going to the background.
+
 ## [1.8.2] — 2026-09-25
 
 ### Fixed
