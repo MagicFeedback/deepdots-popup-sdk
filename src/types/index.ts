@@ -136,8 +136,16 @@ export type EventListener = (event: DeepdotsEvent) => void;
  *  - `user_change`: `setUserId()` o un `init()` con otro `userId` (login/logout del host).
  *  - `tracking_disabled`: `setTrackingEnabled(false)` (consentimiento revocado).
  *  - `manual`: `endSession()` llamado por el host.
+ *  - `idle_timeout`: la pestaña vuelve a verse tras más de 30 min oculta (web). La sesión
+ *    anterior se cierra y se abre otra, como hace GA con su timeout de sesión.
  */
-export type SessionEndReason = 'page_hide' | 'background' | 'user_change' | 'tracking_disabled' | 'manual';
+export type SessionEndReason =
+    | 'page_hide'
+    | 'background'
+    | 'user_change'
+    | 'tracking_disabled'
+    | 'manual'
+    | 'idle_timeout';
 
 /** Trigger type used by remote popup definitions */
 export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
