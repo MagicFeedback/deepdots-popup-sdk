@@ -157,6 +157,12 @@ export class DeepdotsPopups {
      * verdad para el context de analytics Y para la segmentación por idioma de los popups.
      */
     private language: string | undefined = undefined;
+    /** `geolocation` del init: si es false no se usa ni la caché ni el lookup. */
+    private geoEnabled = true;
+    /** Solo se consulta a terceros si el país/ciudad se va a enviar (analytics configurado). */
+    private geoWanted = false;
+    /** Evita más de un lookup por instancia (el consentimiento puede ir y venir). */
+    private geoLookupStarted = false;
 
     /** Initialize the SDK with configuration */
     init(config: DeepdotsInitParams): void {
@@ -258,18 +264,10 @@ export class DeepdotsPopups {
         if (this.tracking?.isTrackingEnabled()) {
             this.crashReporter.install();
         }
-        // Geolocalización por IP: aplica el cache persistente de inmediato (sin gap de timing)
-        // y refresca en background (cadena de proveedores + timeout), recacheando el resultado.
-        const cachedGeo = readCachedGeo(storage, Date.now());
-        if (cachedGeo) this.analytics.updateDevice(cachedGeo);
-        fetchGeo()
-            .then((geo) => {
-                if (geo) {
-                    this.analytics?.updateDevice(geo);
-                    writeCachedGeo(storage, geo, Date.now());
-                }
-            })
-            .catch(() => {});
+        // Geolocalización por IP: ver `resolveGeo()` para cuándo se consulta a terceros.
+        this.geoEnabled = config.geolocation ?? true;
+        this.geoWanted = this.geoEnabled && !!config.analytics;
+        this.resolveGeo();
         // Fase 2: navegación → eventos page_view por el canal de analytics.
         this.navObserver = new NavigationObserver();
         this.navObserver.onVisit((v) => this.track('deepdots_page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
@@ -329,6 +327,8 @@ export class DeepdotsPopups {
         this.tracking?.setTrackingEnabled(enabled);
         // Consentimiento concedido (ahora o más tarde que el init): abre sesión.
         if (enabled) this.openSession();
+        // El lookup de geo se aplaza hasta que haya consentimiento.
+        if (enabled) this.resolveGeo();
         this.log('tracking · setTrackingEnabled:', enabled, '· session_id:', this.tracking?.getSessionId() ?? null);
     }
 
@@ -655,6 +655,33 @@ export class DeepdotsPopups {
         this.analyticsFeedbackSessionId = undefined;
         this.tracking?.setSessionId(null);
         this.log('tracking · session discarded after', ANALYTICS_SESSION_DISCARD_MS / 60_000, 'min hidden');
+    }
+
+    /**
+     * Geolocalización por IP (país/ciudad para analytics). La caché persistente es local y se
+     * aplica siempre que `geolocation` no esté desactivado. El lookup a terceros (ipapi.co →
+     * ipwho.is → ipinfo.io, fallback con timeout) solo se hace si el dato se va a ENVIAR:
+     * analytics configurado + tracking activo + caché ausente o caducada. Una vez por instancia.
+     */
+    private resolveGeo(): void {
+        const storage = this.storage;
+        if (!this.geoEnabled || !storage || !this.analytics) return;
+        const cachedGeo = readCachedGeo(storage, Date.now());
+        if (cachedGeo) {
+            this.analytics.updateDevice(cachedGeo);
+            return;
+        }
+        if (!this.geoWanted || this.geoLookupStarted) return;
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.geoLookupStarted = true;
+        fetchGeo()
+            .then((geo) => {
+                if (geo) {
+                    this.analytics?.updateDevice(geo);
+                    writeCachedGeo(storage, geo, Date.now());
+                }
+            })
+            .catch(() => {});
     }
 
     private analyticsIdentity() {

@@ -52,6 +52,13 @@ export interface DeepdotsInitParams {
      */
     analytics?: AnalyticsKeys;
     /**
+     * IP geolocation (country/city) added to analytics. Default `true`. The lookup calls
+     * third-party services (ipapi.co, then ipwho.is, then ipinfo.io as fallbacks, 3 s timeout
+     * each) and only runs when `analytics` is configured, tracking is enabled and the 30-day
+     * cache is missing or expired. Set `false` to never call them nor attach country/city.
+     */
+    geolocation?: boolean;
+    /**
      * Internal user attributes known only by the host (language, age, plan, ...), sent
      * to the backend Contact for segmentation/targeting. Requires `userId`. Equivalent to calling
      * `setContactAttributes` after init (sends only when values changed from the last sync).
