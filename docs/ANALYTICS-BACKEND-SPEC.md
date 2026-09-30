@@ -171,6 +171,7 @@ Se emite al salir de una pantalla. Registra el tiempo que el usuario estuvo en e
 {
   "timestamp": 1750000000000,
   "screen": "HomeScreen",
+  "path": "HomeScreen",
   "duration_seconds": 42,
   "mini_service": "checkout"
 }
@@ -180,6 +181,7 @@ Se emite al salir de una pantalla. Registra el tiempo que el usuario estuvo en e
 |---|---|---|
 | `timestamp` | number (ms) | Momento en que el usuario salió de la pantalla |
 | `screen` | string | Nombre o ruta de la pantalla. En web se normaliza: sin query params, IDs/UUIDs → `:id` |
+| `path` | string | La ruta real, sin query params, **con** los IDs (desde 1.8.5): `/insights/requests/2f1c…` donde `screen` es `/insights/requests/:id`. Para enlazar la visita al elemento concreto; agrupar por `screen` |
 | `duration_seconds` | number | Segundos que el usuario estuvo en esa pantalla |
 | `mini_service` | string? | Presente si había un mini-service activo durante la visita |
 

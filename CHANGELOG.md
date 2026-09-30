@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`deepdots_page_view` carries the real `path`** next to the normalized `screen`:
+  `/insights/requests/2f1c…` where `screen` says `/insights/requests/:id`, query string still
+  dropped. Group by `screen`; use `path` to link a visit to the item it was about (the platform's
+  session messages link each research this way).
+
+### Changed
+
+- **Moving between two items of the same screen is a new page view.** Going from one request to
+  another (`/insights/requests/A` → `/B`) used to be swallowed as "same screen" because both
+  normalize to `/insights/requests/:id`; only a query-string change is ignored now.
+
 ## [1.8.4] — 2026-09-30
 
 ### Changed
