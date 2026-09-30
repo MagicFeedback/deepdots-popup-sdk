@@ -271,7 +271,9 @@ export class DeepdotsPopups {
         this.resolveGeo();
         // Fase 2: navegación → eventos page_view por el canal de analytics.
         this.navObserver = new NavigationObserver();
-        this.navObserver.onVisit((v) => this.track('deepdots_page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
+        this.navObserver.onVisit((v) =>
+            this.track('deepdots_page_view', { screen: v.screen, path: v.path, duration_seconds: v.durationSeconds })
+        );
         this.navObserver.install();
         // Engagement time (#8): cuenta tiempo activo en primer plano.
         // No arranca aquí: lo hace `openSession`, y solo con la pestaña visible.
