@@ -77,14 +77,25 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     expect(popups.previewAnalytics().events[1].params).toMatchObject({ mini_service: 'checkout', task_id: 't-9' });
   });
 
-  it('flushAnalytics() pinta por consola el payload (dry-run) y vacía el buffer', () => {
+  it('sin debug, el dry-run NO escribe en consola (web del host en producción) y vacía el buffer', () => {
     popups.track('page_view', { screen: '/home' });
     popups.flushAnalytics();
 
-    expect(logSpy).toHaveBeenCalled();
+    const printed = logSpy.mock.calls.flat().some((a: unknown) => typeof a === 'string' && a.includes('/sdk/feedback'));
+    expect(printed).toBe(false);
+    expect(popups.previewAnalytics().events).toHaveLength(0);
+  });
+
+  it('con debug, flushAnalytics() pinta por consola el payload (dry-run) y vacía el buffer', () => {
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({ apiKey: 'pk-1', debug: true });
+    sdk.track('page_view', { screen: '/home' });
+    sdk.flushAnalytics();
+
     const printed = logSpy.mock.calls.flat().some((a: unknown) => typeof a === 'string' && a.includes('/sdk/feedback'));
     expect(printed).toBe(true);
-    expect(popups.previewAnalytics().events).toHaveLength(0);
+    expect(sdk.previewAnalytics().events).toHaveLength(0);
   });
 
   it('con init.analytics, flushAnalytics() hace POST real a /sdk/feedback', () => {
