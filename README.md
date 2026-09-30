@@ -121,7 +121,8 @@ Config fields:
 - `logger?: DeepdotsLogger` — replaces `console` for SDK logs
 - `trackingEnabled?: boolean` — starts analytics on (default) or off, for consent flows
 - `analytics?: { publicKey: string; integration: string }` — enables the real analytics
-  delivery. Without it the analytics channel stays in dry-run and only logs the payload.
+  delivery. Without it the analytics channel stays in dry-run: nothing is sent, and the
+  payload is only logged when `debug` is on.
 - `geolocation?: boolean` — IP geolocation (country/city) for analytics, default `true`. It
   calls third-party services (`ipapi.co`, then `ipwho.is`, then `ipinfo.io` as fallbacks, 3 s
   timeout each, stopping at the first answer). It only runs when `analytics` is set, tracking

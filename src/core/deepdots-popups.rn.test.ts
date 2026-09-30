@@ -64,7 +64,7 @@ describe('DeepdotsPopups — inyección RN', () => {
   });
 
   it('onBackground() cierra el mini-service y hace flush del lote (dry-run)', () => {
-    popups.init({ apiKey: 'k', platform: 'android' });
+    popups.init({ apiKey: 'k', platform: 'android', debug: true });
     popups.onForeground();
     popups.enterMiniService('checkout', 'home');
     popups.onBackground();

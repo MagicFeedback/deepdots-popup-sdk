@@ -225,7 +225,8 @@ export class DeepdotsPopups {
         this.log('tracking · user_id:', this.tracking.getUserId(), '· new_user:', this.tracking.isNewUser(), '· enabled:', this.tracking.isTrackingEnabled());
 
         // Analytics: se envía como Feedback a la integración (`POST /sdk/feedback`) si se
-        // pasan claves en init.analytics; si no, queda en dry-run (solo console.log).
+        // pasan claves en init.analytics; si no, queda en dry-run: no envía nada y el payload
+        // solo se pinta con `debug`, para no ensuciar la consola de la web del host en producción.
         const analyticsSink = config.analytics
             ? createFeedbackSink({
                   baseUrl: this.baseUrl,
@@ -234,7 +235,7 @@ export class DeepdotsPopups {
                   onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
                   onSessionReset: () => { this.analyticsFeedbackSessionId = undefined; },
               })
-            : createDryRunSink((...a) => this.logger.log(...a));
+            : createDryRunSink((...a) => { if (this.config?.debug) this.logger.log(...a); });
         const device = config.device ?? collectDeviceInfo(config.appVersion);
         this.language = resolveLanguage({
             explicit: config.language,

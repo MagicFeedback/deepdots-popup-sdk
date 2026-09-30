@@ -48,7 +48,8 @@ export interface DeepdotsInitParams {
     device?: DeviceInfo;
     /**
      * Analytics channel keys (`POST /sdk/feedback`). If provided, analytics is SENT
-     * to the configured integration; if missing, it stays in dry-run mode (console.log only).
+     * to the configured integration; if missing, it stays in dry-run mode: nothing is sent, and the payload is only
+     * logged when `debug` is true.
      */
     analytics?: AnalyticsKeys;
     /**
