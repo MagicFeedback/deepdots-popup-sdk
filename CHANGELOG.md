@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.4] — 2026-09-30
+
+### Changed
+
+- **The analytics dry-run log only appears with `debug: true`.** Without `init.analytics` the
+  SDK sends nothing and used to print the would-be payload of every batch
+  (`[DeepdotsAnalytics] (dry-run · NOT sent · no init.analytics) …`) to the host's console on
+  every page, even in production. It now goes through the same `debug` gate as the rest of the
+  SDK logs. Nothing else changes: without `init.analytics` no data is sent, as before.
+
 ## [1.8.3] — 2026-09-29
 
 ### Fixed
