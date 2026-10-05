@@ -1,0 +1,123 @@
+name: Release
+
+# Publica en npm al subir un tag `vX.Y.Z`. Sustituye al `npm run release` desde el portatil
+# (que dependia de un NPM_TOKEN en `.npm.env` y de la linea de auth del `~/.npmrc`).
+#
+# Flujo de release:
+#   1. En `dev`: subir `version` en package.json + seccion `## [X.Y.Z]` en CHANGELOG.md,
+#      commit `chore(release): X.Y.Z`.
+#   2. `git tag vX.Y.Z && git push origin vX.Y.Z`
+#
+# Autenticacion: npm Trusted Publishing (OIDC), sin token guardado. Se configura UNA vez en
+# npmjs.com > @magicfeedback/popup-sdk > Settings > Trusted publisher:
+#   GitHub Actions · MagicFeedback / deepdots-popup-sdk · workflow `release.yml`.
+# La provenance se genera sola al publicar desde aqui.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write # crear la GitHub Release
+  id-token: write # OIDC para npm Trusted Publishing
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag, version and changelog
+        id: meta
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::El tag $TAG no coincide con package.json ($PKG_VERSION)."
+            exit 1
+          fi
+          # Se releasea desde dev: un tag sobre un commit que no esta en dev es un error.
+          git fetch --no-tags origin dev
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/dev; then
+            echo "::error::El commit del tag $TAG no esta en origin/dev."
+            exit 1
+          fi
+          if ! grep -qE "^## \[${VERSION//./\\.}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md no tiene seccion '## [$VERSION]'."
+            exit 1
+          fi
+          # Seccion del CHANGELOG para las notas de la GitHub Release.
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          # Un X.Y.Z-algo va al dist-tag `next`, para no moverle el `latest` a nadie.
+          if [[ "$VERSION" == *-* ]]; then DIST_TAG=next; else DIST_TAG=latest; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Trusted Publishing necesita npm >= 11.5.1.
+      - name: Update npm
+        run: npm install -g npm@latest && npm --version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check package layout
+        run: npm run check:layout
+
+      # Re-ejecutar el workflow no debe fallar si npm ya tiene la version.
+      - name: Check if already published
+        id: published
+        run: |
+          if npm view "@magicfeedback/popup-sdk@${{ steps.meta.outputs.version }}" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::@magicfeedback/popup-sdk@${{ steps.meta.outputs.version }} ya esta en npm; no se republica."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: steps.published.outputs.already == 'false'
+        run: npm publish --access public --tag "${{ steps.meta.outputs.dist_tag }}"
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "::notice::La GitHub Release $GITHUB_REF_NAME ya existe."
+            exit 0
+          fi
+          PRERELEASE=()
+          if [ "${{ steps.meta.outputs.dist_tag }}" = "next" ]; then PRERELEASE=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag "${PRERELEASE[@]}"
