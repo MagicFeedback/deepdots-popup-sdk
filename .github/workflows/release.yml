@@ -148,8 +148,14 @@ jobs:
             git merge --abort
             BRANCH="release-to-main/$GITHUB_REF_NAME"
             git push -f origin "$GITHUB_SHA:refs/heads/$BRANCH"
-            gh pr create --base main --head "$BRANCH" \
+            # Abrir la PR exige "Allow GitHub Actions to create and approve pull requests" en
+            # Settings > Actions > General. Sin esa opcion, la rama queda subida y se avisa.
+            if gh pr create --base main --head "$BRANCH" \
               --title "Release $GITHUB_REF_NAME: dev a main" \
-              --body "El merge automatico de $GITHUB_REF_NAME en main ha dado conflicto. Resuelvelo en esta PR."
-            echo "::warning::Conflicto al fusionar $GITHUB_REF_NAME en main: abierta una PR para resolverlo."
+              --body "El merge automatico de $GITHUB_REF_NAME en main ha dado conflicto. Resuelvelo en esta PR."; then
+              echo "::warning::Conflicto al fusionar $GITHUB_REF_NAME en main: abierta una PR para resolverlo."
+            else
+              echo "::error::Conflicto al fusionar $GITHUB_REF_NAME en main. Abre a mano una PR de $BRANCH a main."
+              exit 1
+            fi
           fi
