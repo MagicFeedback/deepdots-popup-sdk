@@ -123,6 +123,10 @@ Config fields:
 - `analytics?: { publicKey: string; integration: string }` — enables the real analytics
   delivery. Without it the analytics channel stays in dry-run: nothing is sent, and the
   payload is only logged when `debug` is on.
+- `onFeedbackSession?: (session: { sessionId: string; status: 'open' | 'closed' }) => void` —
+  called when an analytics session opens or closes, with the id the Deepdots API stores as
+  `sdkSessionId` on the feedback the session becomes. See
+  [Linking your backend to a session](#linking-your-backend-to-a-session).
 - `geolocation?: boolean` — IP geolocation (country/city) for analytics, default `true`. It
   calls third-party services (`ipapi.co`, then `ipwho.is`, then `ipinfo.io` as fallbacks, 3 s
   timeout each, stopping at the first answer). It only runs when `analytics` is set, tracking
@@ -281,6 +285,42 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 | `setTrackingEnabled(enabled)` | Kill switch (consent) |
 | `reportError(error, options?)` | A handled error |
 | `previewAnalytics()` / `flushAnalytics()` | Inspect the pending payload / send it now |
+| `getFeedbackSessionId()` / `init({ onFeedbackSession })` | The id of the feedback the current session becomes |
+
+### Linking your backend to a session
+
+Every analytics session becomes one feedback in Deepdots, and the API stores the session's id
+on it as `sdkSessionId`. Send that id to your backend and it can find the feedback
+(`GET /feedbacks?filter={"where":{"sdkSessionId":"<id>"}}`) and add data to it later, such as
+the push deliveries the app never sees. The lookup can return more than one feedback: a session
+can be completed twice (the API closes it for inactivity and the app posts to it again later),
+and both feedbacks carry the same id. Sort by `createdAt` and take the latest.
+
+```ts
+popups.init({
+  apiKey: 'YOUR_PUBLIC_API_KEY',
+  analytics: { publicKey: 'YOUR_PUBLIC_API_KEY', integration: 'YOUR_INTEGRATION_ID' },
+  onFeedbackSession: ({ sessionId, status }) => {
+    // 'open': first batch accepted. 'closed': the feedback exists within seconds.
+    myBackend.reportSession(sessionId, status);
+  },
+});
+```
+
+- `open` comes when the API accepts the session's first batch, `closed` when it accepts the
+  closing one (`completed: true`). A session whose only batch is the closing one reports just
+  `closed`.
+- `closed` does not come when the page unloads before the closing request returns, for a
+  session dropped after 30 minutes hidden, nor when the closing request fails (network error,
+  5xx): its events are re-sent with the next session and the API closes the old record itself,
+  later. In all three cases the id already came with `open`.
+- Key what you store by `sessionId`, not by arrival order: the closing request and the next
+  session's first one go out in parallel, so the new session's `open` can arrive before the
+  previous one's `closed`.
+- `getFeedbackSessionId()` returns the open session's id, or `null` before its first batch is
+  accepted and after it closes.
+- This is not `getSessionId()`, the SDK's own session id. That one travels in the metadata as
+  `deepdots_session_id`, and the feedback can't be looked up by it.
 
 ### Messaging — `trackMessage(stage, options)`
 
