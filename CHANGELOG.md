@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
   entry of `formData.lang`, the survey's default language.
 
+### Fixed
+
+- **React Native: loading the survey no longer marks the popup as `PARTIAL`.**
+  `ReactNativePopupRenderer.handleMessage` counted the WebView's `loaded` message as the first
+  interaction, so every popup that opened posted `PARTIAL` to `POST /sdk/popups` (inflating
+  "started" in the dashboards) and fired a `popup_clicked` to host listeners with nobody
+  touching it. Now only a real interaction (sending an answer, or going back) does, once per
+  popup.
+
 ## [1.9.0] — 2026-10-06
 
 ### Added
