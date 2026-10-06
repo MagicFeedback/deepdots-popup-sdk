@@ -115,6 +115,42 @@ describe('DeepdotsPopups · persistencia del cooldown', () => {
     expect(shown).toHaveBeenCalledTimes(2);
   });
 
+  /**
+   * Dos pestañas comparten `localStorage` pero cada instancia leía el historial SOLO en su
+   * `init()`: la que ya estaba abierta no se enteraba de lo que hacía la otra.
+   */
+  it('una pestaña no vuelve a enseñar un popup que otra ya enseñó', async () => {
+    const storage = new InMemoryStorage();
+    const tabA = await boot(storage);
+    const tabB = await boot(storage); // abierta antes de que A enseñe nada
+
+    tabA.popups.triggerEvent(EVENT);
+    tabB.popups.triggerEvent(EVENT);
+
+    expect(tabA.shown).toHaveBeenCalledTimes(1);
+    expect(tabB.shown).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Además cada pestaña reescribía el registro ENTERO con su foto en memoria, así que la que
+   * guardaba después borraba lo de la otra: un survey contestado dejaba de constar y volvía
+   * a salir tras recargar.
+   */
+  it('una pestaña no borra lo que guardó la otra', async () => {
+    const storage = new InMemoryStorage();
+    const tabA = await boot(storage);
+    const tabB = await boot(storage);
+
+    tabA.popups.triggerEvent(EVENT);
+    tabA.popups.markSurveyAnswered(SURVEY_ID);
+    tabB.popups.markSurveyAnswered('otro-survey'); // B guarda con su foto vieja
+
+    const persisted = JSON.parse(storage.getItem(POPUP_STATE_STORAGE_KEY) as string);
+    expect(persisted.lastShown[POPUP_ID]).toBeDefined();
+    expect(persisted.progress[SURVEY_ID]?.status).toBe('COMPLETED');
+    expect(persisted.progress['otro-survey']?.status).toBe('COMPLETED');
+  });
+
   it('degrada a solo-memoria si el storage no llega a persistir', async () => {
     // Cuota llena / navegador que traga las escrituras: lo escrito nunca se vuelve a leer.
     // El cooldown debe seguir valiendo DENTRO de la sesión, aunque no sobreviva a la recarga.

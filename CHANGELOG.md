@@ -17,6 +17,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
   entry of `formData.lang`, the survey's default language.
 
+## [1.9.0] — 2026-10-06
+
+### Added
+
+- **The id of the feedback a session becomes is readable.** `getFeedbackSessionId()` returns
+  the `sessionId` that `POST /sdk/feedback` returned for the open session, which the API stores
+  as `sdkSessionId` on its feedback, and `init({ onFeedbackSession })` reports it with
+  `status: 'open'` when the session's first batch is accepted and `'closed'` when the closing
+  one is. A host can hand it to its backend to find that feedback and add data to it. Until now
+  the SDK kept it internal, so nothing could link a session to its feedback.
+
+### Fixed
+
+- **A closed session no longer comes back through a late response.** When a batch was still
+  in flight as the session closed, its response arrived afterwards and the SDK cached the closed
+  session's `sessionId` again, so the next session wrote into the closed record and the API built
+  a second feedback for it. In React Native on iOS this happened on every quick return to the
+  app: AppState `inactive` sends a regular batch and `background` closes the session a few ms
+  later, and iOS suspends the app before the first response arrives. It also happened on the web
+  after a return from the bfcache, when the page hid while its first batch was in flight.
+  Responses from a session that is already closed are now ignored.
+
+- **Survey options no longer look selected on touch screens before the user taps them.** WebKit
+  keeps `:hover` stuck on the last point touched, so the option of the next page that landed there
+  showed the brand border and grey fill, as if chosen. Every `:hover` rule of the vendored survey
+  CSS now sits behind `@media (hover: hover)` (mouse and trackpad keep it); groups that mixed
+  `:hover` with `:focus`/`:focus-visible` were split so keyboard focus still shows on touch
+  devices. Affects the DOM popup on mobile web, the React Native WebView and, once its pinned
+  stylesheet version is bumped, the native SDK.
+
+## [1.8.5] — 2026-09-30
+
+### Added
+
+- **`deepdots_page_view` carries the real `path`** next to the normalized `screen`:
+  `/insights/requests/2f1c…` where `screen` says `/insights/requests/:id`, query string still
+  dropped. Group by `screen`; use `path` to link a visit to the item it was about (the platform's
+  session messages link each research this way).
+
+### Changed
+
+- **Moving between two items of the same screen is a new page view.** Going from one request to
+  another (`/insights/requests/A` → `/B`) used to be swallowed as "same screen" because both
+  normalize to `/insights/requests/:id`; only a query-string change is ignored now.
+
+## [1.8.4] — 2026-09-30
+
+### Changed
+
+- **The analytics dry-run log only appears with `debug: true`.** Without `init.analytics` the
+  SDK sends nothing and used to print the would-be payload of every batch
+  (`[DeepdotsAnalytics] (dry-run · NOT sent · no init.analytics) …`) to the host's console on
+  every page, even in production. It now goes through the same `debug` gate as the rest of the
+  SDK logs. Nothing else changes: without `init.analytics` no data is sent, as before.
+
+## [1.8.3] — 2026-09-29
+
+### Fixed
+
+- **Analytics sessions in use are no longer closed by the backend as abandoned.** The backend
+  closes a session after a window without batches, but a visible tab sent nothing while the
+  user read one page (a page view is emitted on leaving a screen, engagement only on hide or
+  close). The session was closed with just its `deepdots_session_start` — the "0 pages, 0
+  seconds" sessions — and what the user did next arrived as a second fragment. A visible tab
+  (or a React Native app in the foreground) now sends its engagement at least every 5 minutes.
+- **A tab that comes back after 30 minutes hidden starts a new session** (`session_end`
+  reason `idle_timeout`). Before, it kept the old session id, so a session the backend had
+  already closed received more batches and was assembled twice. After 50 minutes or more
+  hidden the old session is dropped without sending anything, since the backend has already
+  closed it.
+- **React Native apps flush on a timer too.** They only sent a batch on reaching the batch
+  size or going to the background.
+- **The IP geolocation lookup only runs when its result is actually sent.** On every `init()`
+  the SDK called third-party services (`ipapi.co`, then `ipwho.is`, then `ipinfo.io` as
+  fallbacks, 3 s timeout each), even without `analytics` configured (the result went nowhere),
+  with `trackingEnabled: false`, and on every page load despite the 30-day cache. Now it only
+  runs with `analytics` configured, tracking enabled and no fresh cached value, at most once
+  per SDK instance. With consent granted later, it waits for `setTrackingEnabled(true)`.
+
+### Added
+
+- **`geolocation?: boolean` init option** (default `true`). With `false` the SDK never calls
+  the geolocation services and sends no country or city.
+
+## [1.8.2] — 2026-09-25
+
+### Fixed
+
+- **Web analytics sessions now actually close, so their data reaches the dashboard.** The last
+  batch of a session is the only one with `completed: true`, and the API only assembles a
+  session into a feedback when that batch arrives. It was sent with `navigator.sendBeacon`,
+  which always includes credentials and, with an `application/json` body, needs a CORS
+  preflight. The API answers `Access-Control-Allow-Origin: *` with
+  `Access-Control-Allow-Credentials: true`, which browsers reject for credentialed requests,
+  so the preflight failed and the batch was never sent. Sessions ending in a tab close never
+  completed, and none of their events (page views included) reached analytics. Every batch
+  now goes through `fetch` with `credentials: 'omit'`, and the closing one also with
+  `keepalive`, which survives the page unload just as `sendBeacon` did.
+- **No more orphan record per closed tab.** In Chromium `visibilitychange` fires after
+  `pagehide`; the engagement timer kept running after the session closed and sent a
+  `user_engagement` event without a session id, which opened a record that never closes.
+- **Tabs opened in the background no longer count engagement nobody saw.** The timer now
+  starts with the session and only while the tab is visible.
+- **Returning to a page from the back/forward cache resumes tracking.** The `pagehide` had
+  closed the session and stopped the periodic flush, and nothing reopened them until a reload.
+- **Several tabs no longer overwrite each other's popup redisplay history.** Each tab read it
+  only at `init` and then rewrote the whole record from memory, so one tab could show a popup
+  another had just shown and could erase a survey marked as completed. The record is now
+  merged (the most recent entry wins) before every decision and every write.
+
+### Deprecated
+
+- `FeedbackSinkOptions.sendBeaconImpl` is ignored and kept only for type compatibility.
+
+
 ## [1.3.0] — 2026-07-31
 
 ### Changed

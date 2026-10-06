@@ -42,7 +42,8 @@ export interface AnalyticsEnvelope {
 export interface AnalyticsFlushMeta {
   /**
    * `true` cuando el flush ocurre porque la página/app se está cerrando. El sink debe usar
-   * un transporte que sobreviva al unload (sendBeacon) y no puede esperar respuestas.
+   * un transporte que sobreviva al unload (`fetch` con `keepalive`) y no puede esperar
+   * respuestas.
    */
   final?: boolean;
   /**
@@ -51,6 +52,12 @@ export interface AnalyticsFlushMeta {
    * el `sessionId`, para que el lote siguiente abra un registro nuevo.
    */
   sessionEnd?: boolean;
+  /**
+   * `true` para olvidar la sesión SIN enviar nada (el payload llega vacío): el backend ya la
+   * cerró por inactividad. El sink descarta su `sessionId` para que el lote siguiente abra un
+   * registro nuevo, igual que tras `sessionEnd`, pero sin POST.
+   */
+  resetSession?: boolean;
 }
 
 /**
@@ -71,11 +78,13 @@ export interface AnalyticsIdentity {
  * (default `console.log`, o el logger inyectado por el host en init()).
  */
 export function createDryRunSink(log: (...args: unknown[]) => void = console.log): AnalyticsSink {
-  return (payload) =>
+  return (payload, meta) => {
+    if (meta?.resetSession) return;
     log(
       '[DeepdotsAnalytics] (dry-run · NOT sent · no init.analytics) POST /sdk/feedback →',
       JSON.stringify(payload, null, 2),
     );
+  };
 }
 
 /** Sink por defecto: NO envía nada, solo pinta por consola lo que se enviaría. */
@@ -179,6 +188,21 @@ export class AnalyticsManager {
   exitAllMiniServices(): void {
     for (const name of Array.from(this.activeMiniServices.keys()).reverse()) {
       this.exitMiniService(name);
+    }
+  }
+
+  /**
+   * Olvida la sesión en curso SIN emitir nada: vacía el buffer y los mini-services activos
+   * (sin `mini_service_exit`). Para una sesión que el backend ya cerró por inactividad: lo
+   * que quedara pendiente pertenecía a ella y no debe llegar con la sesión nueva.
+   */
+  discardSession(identity: AnalyticsIdentity): void {
+    this.events = [];
+    this.activeMiniServices.clear();
+    try {
+      void this.sink({ ...this.buildPayload(identity), events: [] }, { resetSession: true });
+    } catch {
+      /* el sink no debe romper el ciclo de vida */
     }
   }
 

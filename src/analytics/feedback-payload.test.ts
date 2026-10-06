@@ -263,8 +263,36 @@ describe('createFeedbackSink', () => {
     expect(sent2.sessionId).toBe('fbk-1'); // agrupado en el mismo registro
   });
 
+  /**
+   * Cierre de página. El lote final es el ÚNICO que lleva `completed:true`, y sin él la API
+   * no ensambla la sesión en un feedback: todo lo que llevaba (page_views incluidos) nunca
+   * llega a BigQuery.
+   *
+   * ⚠️ Nada de `sendBeacon` (verificado en Chromium contra las cabeceras reales de
+   * api.deepdots.com, 2026-09-25): la API responde `Access-Control-Allow-Origin: *` con
+   * `Allow-Credentials: true`, `sendBeacon` va SIEMPRE con credenciales y un Blob
+   * `application/json` obliga a preflight. Un preflight con credenciales no acepta `*`, así
+   * que el navegador lo cortaba en el OPTIONS y el POST no salía nunca. `fetch` con
+   * `keepalive` sobrevive igual al cierre y, sin credenciales, pasa ese mismo preflight.
+   */
   describe('flush final (cierre de página)', () => {
-    it('usa sendBeacon, que sobrevive al unload, en vez de fetch', async () => {
+    it('sale por fetch con keepalive, que sobrevive al cierre de la página', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      await sink(envelope(), { final: true });
+
+      expect(fetchImpl).toHaveBeenCalledOnce();
+      const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://api-dev.deepdots.com/sdk/feedback');
+      expect(init.keepalive).toBe(true);
+    });
+
+    it('ignora sendBeaconImpl aunque el host lo pase: el navegador lo cortaba en el preflight', async () => {
       const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
       const sendBeaconImpl = vi.fn().mockReturnValue(true);
       const sink = createFeedbackSink({
@@ -276,25 +304,7 @@ describe('createFeedbackSink', () => {
 
       await sink(envelope(), { final: true });
 
-      expect(sendBeaconImpl).toHaveBeenCalledOnce();
-      expect(fetchImpl).not.toHaveBeenCalled();
-      const [beaconUrl] = sendBeaconImpl.mock.calls[0];
-      expect(beaconUrl).toBe('https://api-dev.deepdots.com/sdk/feedback');
-    });
-
-    it('cae a fetch si sendBeacon rechaza el lote (cola del navegador llena)', async () => {
-      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
-      const sendBeaconImpl = vi.fn().mockReturnValue(false);
-      const sink = createFeedbackSink({
-        baseUrl: 'https://api-dev.deepdots.com',
-        keys: KEYS,
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-        sendBeaconImpl,
-      });
-
-      await sink(envelope(), { final: true });
-
-      expect(sendBeaconImpl).toHaveBeenCalledOnce();
+      expect(sendBeaconImpl).not.toHaveBeenCalled();
       expect(fetchImpl).toHaveBeenCalledOnce();
     });
 
@@ -303,19 +313,39 @@ describe('createFeedbackSink', () => {
         .fn()
         .mockImplementationOnce(() => new Promise(() => {})) // primer POST nunca responde
         .mockResolvedValue({ ok: true, json: async () => ({}) });
-      const sendBeaconImpl = vi.fn().mockReturnValue(true);
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
         fetchImpl: fetchImpl as unknown as typeof fetch,
-        sendBeaconImpl,
       });
 
       void sink(envelope());
       await sink(envelope(), { final: true }); // no se queda colgado
 
-      expect(sendBeaconImpl).toHaveBeenCalledOnce();
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
+  });
+
+  /**
+   * La API autentica por `publicKey` en el body, nunca por cookie, y responde con
+   * `Access-Control-Allow-Origin: *`. Cualquier petición CON credenciales falla el CORS
+   * contra esa cabecera, así que se omiten de forma explícita en todos los lotes, no solo
+   * en el final: no dependemos de que el default de `fetch` siga siendo el que es.
+   */
+  it.each([
+    ['un lote normal', undefined],
+    ['el lote final', { final: true }],
+  ])('%s va sin credenciales', async (_label, meta) => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    const sink = createFeedbackSink({
+      baseUrl: 'https://api-dev.deepdots.com',
+      keys: KEYS,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await sink(envelope(), meta as never);
+
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).credentials).toBe('omit');
   });
 
   /**
@@ -373,6 +403,122 @@ describe('createFeedbackSink', () => {
       await sink(envelope(), { sessionEnd: true });
 
       expect(onSessionReset).toHaveBeenCalledOnce();
+    });
+
+    it('avisa por onSessionClosed con el sessionId del registro que cierra', async () => {
+      const onSessionClosed = vi.fn();
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) })
+        // Respuesta de cierre sin JSON útil: vale el sessionId que llevaba el lote.
+        .mockResolvedValue({ ok: true, json: async () => ({}) });
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        onSessionClosed,
+      });
+
+      await sink(envelope()); // abre fbk-1
+      expect(onSessionClosed).not.toHaveBeenCalled();
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(onSessionClosed).toHaveBeenCalledOnce();
+      expect(onSessionClosed).toHaveBeenCalledWith('fbk-1');
+    });
+
+    it('en una sesión de un solo lote, onSessionClosed recibe el sessionId que devuelve el cierre', async () => {
+      const onSessionId = vi.fn();
+      const onSessionClosed = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-9' }) }) as unknown as typeof fetch,
+        onSessionId,
+        onSessionClosed,
+      });
+
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(onSessionId).not.toHaveBeenCalled(); // el cierre no se re-cachea
+      expect(onSessionClosed).toHaveBeenCalledWith('fbk-9');
+    });
+
+    it('ignora la respuesta del primer lote si la sesión se cerró mientras estaba en vuelo', async () => {
+      // page_hide con el primer POST aún sin respuesta: el cierre (final) no lo espera.
+      let resolveFirst!: (r: unknown) => void;
+      const fetchImpl = vi
+        .fn()
+        .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }))
+        .mockResolvedValue({ ok: true, json: async () => ({}) });
+      const onSessionId = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        onSessionId,
+      });
+
+      const first = sink(envelope());
+      await sink(envelope(), { final: true, sessionEnd: true });
+      resolveFirst({ ok: true, json: async () => ({ sessionId: 'fbk-stale' }) });
+      await first;
+
+      // Ni se avisa como abierto ni se cachea: el lote siguiente (sesión nueva) va sin sessionId.
+      expect(onSessionId).not.toHaveBeenCalled();
+      await sink(envelope());
+      const lastBody = JSON.parse(fetchImpl.mock.calls[2][1].body);
+      expect(lastBody).not.toHaveProperty('sessionId');
+    });
+
+    it('la sesión siguiente no hereda el id viejo si un lote normal seguía en vuelo al cerrar', async () => {
+      // RN iOS: AppState 'inactive' hace un flush normal y 'background' cierra milisegundos
+      // después. iOS suspende la app y la respuesta del primero llega al volver, ya cerrada la
+      // sesión. Visto en producción (MOM): la sesión nueva escribía en el registro cerrado.
+      let resolveInactive!: (r: unknown) => void;
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) })
+        .mockImplementationOnce(() => new Promise((r) => { resolveInactive = r; }))
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) }) // cierre
+        .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-new' }) });
+      const onSessionId = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        onSessionId,
+      });
+
+      await sink(envelope()); // sesión abierta en fbk-old
+      const inactive = sink(envelope()); // flush de 'inactive', sin respuesta todavía
+      await sink(envelope(), { sessionEnd: true }); // 'background' → cierre
+      resolveInactive({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) });
+      await inactive;
+
+      await sink(envelope()); // primer lote de la sesión nueva
+      const nextBody = JSON.parse(fetchImpl.mock.calls[3][1].body);
+      expect(nextBody).not.toHaveProperty('sessionId');
+      // fbk-old no se vuelve a dar por abierto tras el cierre
+      expect(onSessionId.mock.calls).toEqual([['fbk-old'], ['fbk-new']]);
+    });
+
+    it('no avisa onSessionClosed si el backend rechaza el lote de cierre', async () => {
+      const onSessionClosed = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue({ ok: false, status: 406, text: async () => 'Contact not found' }) as unknown as typeof fetch,
+        onSessionClosed,
+      });
+
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(onSessionClosed).not.toHaveBeenCalled();
     });
   });
 });

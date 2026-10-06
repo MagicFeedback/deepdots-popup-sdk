@@ -121,7 +121,17 @@ Config fields:
 - `logger?: DeepdotsLogger` — replaces `console` for SDK logs
 - `trackingEnabled?: boolean` — starts analytics on (default) or off, for consent flows
 - `analytics?: { publicKey: string; integration: string }` — enables the real analytics
-  delivery. Without it the analytics channel stays in dry-run and only logs the payload.
+  delivery. Without it the analytics channel stays in dry-run: nothing is sent, and the
+  payload is only logged when `debug` is on.
+- `onFeedbackSession?: (session: { sessionId: string; status: 'open' | 'closed' }) => void` —
+  called when an analytics session opens or closes, with the id the Deepdots API stores as
+  `sdkSessionId` on the feedback the session becomes. See
+  [Linking your backend to a session](#linking-your-backend-to-a-session).
+- `geolocation?: boolean` — IP geolocation (country/city) for analytics, default `true`. It
+  calls third-party services (`ipapi.co`, then `ipwho.is`, then `ipinfo.io` as fallbacks, 3 s
+  timeout each, stopping at the first answer). It only runs when `analytics` is set, tracking
+  is enabled and the 30-day cache is missing or expired, at most once per SDK instance. Pass
+  `false` to never call those services nor attach country/city.
 - `appVersion?: string` — reported in the analytics device context
 - `storage?: KeyValueStorage` — persistence override (React Native uses MMKV; the browser
   defaults to `localStorage`)
@@ -268,13 +278,49 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 | `trackFunnelStep(funnel, step, taskId, params?)` | A funnel step, correlated by `taskId` |
 | `trackFindabilityFriction(topic, params?)` | Friction signal |
 | `trackMeaningfulInteraction(interactionType, params?)` | A meaningful interaction, grouped by `interaction_type` |
-| `enterMiniService(name, entryPointType?)` / `exitMiniService(name)` | Mini-service, with duration |
+| `enterMiniService(name, entryPointType?)` / `exitMiniService(name)` | A task flow with a start and an end — [not a page](#mini-services--enterminiservicename-entrypointtype--exitminiservicename) |
 | `setUserAttributes(map)` / `setMetric(key, value)` | Breakdown dimensions / measurable values |
 | `setUserId(userId?)` | Login, logout or account switch |
 | `endSession()` | Closes the session explicitly |
 | `setTrackingEnabled(enabled)` | Kill switch (consent) |
 | `reportError(error, options?)` | A handled error |
 | `previewAnalytics()` / `flushAnalytics()` | Inspect the pending payload / send it now |
+| `getFeedbackSessionId()` / `init({ onFeedbackSession })` | The id of the feedback the current session becomes |
+
+### Linking your backend to a session
+
+Every analytics session becomes one feedback in Deepdots, and the API stores the session's id
+on it as `sdkSessionId`. Send that id to your backend and it can find the feedback
+(`GET /feedbacks?filter={"where":{"sdkSessionId":"<id>"}}`) and add data to it later, such as
+the push deliveries the app never sees. A session keeps that one feedback even when it closes
+again (the app retries a closing batch whose response it lost, or a late batch lands after the
+close): the API updates the feedback instead of creating another one.
+
+```ts
+popups.init({
+  apiKey: 'YOUR_PUBLIC_API_KEY',
+  analytics: { publicKey: 'YOUR_PUBLIC_API_KEY', integration: 'YOUR_INTEGRATION_ID' },
+  onFeedbackSession: ({ sessionId, status }) => {
+    // 'open': first batch accepted. 'closed': the feedback exists within seconds.
+    myBackend.reportSession(sessionId, status);
+  },
+});
+```
+
+- `open` comes when the API accepts the session's first batch, `closed` when it accepts the
+  closing one (`completed: true`). A session whose only batch is the closing one reports just
+  `closed`.
+- `closed` does not come when the page unloads before the closing request returns, for a
+  session dropped after 30 minutes hidden, nor when the closing request fails (network error,
+  5xx): its events are re-sent with the next session and the API closes the old record itself,
+  later. In all three cases the id already came with `open`.
+- Key what you store by `sessionId`, not by arrival order: the closing request and the next
+  session's first one go out in parallel, so the new session's `open` can arrive before the
+  previous one's `closed`.
+- `getFeedbackSessionId()` returns the open session's id, or `null` before its first batch is
+  accepted and after it closes.
+- This is not `getSessionId()`, the SDK's own session id. That one travels in the metadata as
+  `deepdots_session_id`, and the feedback can't be looked up by it.
 
 ### Messaging — `trackMessage(stage, options)`
 
@@ -331,6 +377,32 @@ values (oldest evicted first). A rejected event does not consume state: after a
 > with `mutable-content` on iOS. Notifications arriving while the app is killed, or with
 > restricted permissions, will not fire it — so a client-side `delivered` count sits below the
 > real one. For a reliable denominator, take `delivered` from your sending provider.
+
+### Mini-services — `enterMiniService(name, entryPointType?)` / `exitMiniService(name)`
+
+A mini-service is a **self-contained task inside the app, with a start and an end**: a booking,
+a checkout, an onboarding, a form the user fills in. Deepdots treats it as a flow. It reports
+completion and drop-off per mini-service, draws it in the session journey as a lane between
+where it was entered and where it was left, and tags every event emitted while it is active
+with `mini_service`.
+
+```ts
+popups.enterMiniService('checkout', 'cart_button'); // the user starts the task
+// ...
+popups.exitMiniService('checkout');                 // and finishes it
+```
+
+- Enter it when the task starts and exit it when the task is done. One still open when the
+  session closes is exited by the SDK.
+- `entryPointType` is optional and says where the user started it from (a banner, a menu, a
+  deep link). It is sent as `entry_point_type`.
+
+**A mini-service is not a page, a section or an area of the app.** Navigation is already
+recorded as `page_view`, with the screen and how long the user stayed on it, and time per area
+comes from grouping those page views by screen. Opening a mini-service for every section turns
+each navigation into an abandoned flow: a move from `/feedback` to `/explorer` reads as
+*"entered the explorer mini-service and never completed it"*, the journey loses the edge
+between the two pages, and every section counts as drop-off.
 
 ## Supported Trigger Types
 

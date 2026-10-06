@@ -6,6 +6,7 @@ import {
     EventListener,
     DeepdotsInitParams,
     DeepdotsLogger,
+    FeedbackSession,
     PopupDefinition,
     PopupTriggerCondition,
     PopupActions,
@@ -38,6 +39,27 @@ const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const ANALYTICS_MAX_BATCH_SIZE = 20;
 const ANALYTICS_FLUSH_INTERVAL_MS = 30_000;
+/**
+ * Latido: con la pestaña visible (o la app en foreground), el flush periódico manda el
+ * engagement acumulado al menos cada ANALYTICS_HEARTBEAT_MS. Sin él, alguien leyendo una
+ * sola página no enviaba nada — el page_view sale al SALIR de la pantalla y el engagement
+ * al ocultar/cerrar — y el backend daba la sesión por abandonada con solo su session_start.
+ */
+const ANALYTICS_HEARTBEAT_MS = 5 * 60_000;
+/** Una pestaña que vuelve a verse tras este tiempo oculta empieza sesión nueva (timeout de sesión, como GA). */
+const ANALYTICS_SESSION_TIMEOUT_MS = 30 * 60_000;
+/**
+ * Inactividad tras la que el backend cierra una sesión por su cuenta (Run_Jobs
+ * `incomplete-surveys`, `IDLE_MINUTES`, 60 min; el barrido corre cada 20). Mantener en sincronía.
+ */
+const ANALYTICS_SERVER_IDLE_MS = 60 * 60_000;
+/**
+ * Pasado este tiempo oculta, la sesión se da por cerrada en el backend: reenviarle el cierre
+ * la volvería a montar entera en un segundo feedback, así que se descarta sin enviar nada.
+ * Margen de 10 min bajo la ventana del backend: el último lote enviado puede ser algo
+ * anterior al momento en que se ocultó la pestaña.
+ */
+const ANALYTICS_SESSION_DISCARD_MS = ANALYTICS_SERVER_IDLE_MS - 10 * 60_000;
 /** Namespace reservado para los eventos que emite el propio SDK (page_view, message, mini_service…). */
 const RESERVED_EVENT_PREFIX = 'deepdots_';
 /** Prefijo que se antepone a los eventos custom del host para poder identificarlos frente a los reservados. */
@@ -105,6 +127,8 @@ export class DeepdotsPopups {
     private analytics: AnalyticsManager | null = null;
     /** feedbackSessionId cacheado del canal de analytics (devuelto por POST /sdk/feedback). */
     private analyticsFeedbackSessionId: string | undefined = undefined;
+    /** `init({ onFeedbackSession })`: avisa al host al abrir y cerrar cada registro. */
+    private onFeedbackSession: DeepdotsInitParams['onFeedbackSession'] = undefined;
     /** Timer del flush periódico de analytics (cada ANALYTICS_FLUSH_INTERVAL_MS). */
     private analyticsFlushTimer: ReturnType<typeof setInterval> | undefined = undefined;
     /** Crash & error reporting (#14–17). Null hasta init(). */
@@ -127,11 +151,21 @@ export class DeepdotsPopups {
      * nueva al volver a foreground o al conceder el consentimiento más tarde.
      */
     private sessionOpen = false;
+    /** Último `user_engagement` emitido (ms epoch): marca el latido. */
+    private lastEngagementAt = 0;
+    /** Cuándo se ocultó la pestaña por última vez (ms epoch); null si está visible. */
+    private hiddenAt: number | null = null;
     /**
      * Idioma resuelto en init() (explícito > navigator.language > Intl). Única fuente de
      * verdad para el context de analytics Y para la segmentación por idioma de los popups.
      */
     private language: string | undefined = undefined;
+    /** `geolocation` del init: si es false no se usa ni la caché ni el lookup. */
+    private geoEnabled = true;
+    /** Solo se consulta a terceros si el país/ciudad se va a enviar (analytics configurado). */
+    private geoWanted = false;
+    /** Evita más de un lookup por instancia (el consentimiento puede ir y venir). */
+    private geoLookupStarted = false;
 
     /** Initialize the SDK with configuration */
     init(config: DeepdotsInitParams): void {
@@ -157,6 +191,7 @@ export class DeepdotsPopups {
         this.renderChrome = config.renderChrome ?? true;
         this.showProgressBar = config.showProgressBar;
         this.surveyCss = config.surveyCss;
+        this.onFeedbackSession = config.onFeedbackSession;
 
         this.config = {
             apiKey: config.apiKey || undefined,
@@ -194,21 +229,21 @@ export class DeepdotsPopups {
         this.log('tracking · user_id:', this.tracking.getUserId(), '· new_user:', this.tracking.isNewUser(), '· enabled:', this.tracking.isTrackingEnabled());
 
         // Analytics: se envía como Feedback a la integración (`POST /sdk/feedback`) si se
-        // pasan claves en init.analytics; si no, queda en dry-run (solo console.log).
+        // pasan claves en init.analytics; si no, queda en dry-run: no envía nada y el payload
+        // solo se pinta con `debug`, para no ensuciar la consola de la web del host en producción.
         const analyticsSink = config.analytics
             ? createFeedbackSink({
                   baseUrl: this.baseUrl,
                   keys: config.analytics,
                   log: (...a) => this.log(...a),
-                  // sendBeacon: único transporte que sobrevive al cierre de la página.
-                  sendBeaconImpl:
-                      typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function'
-                          ? (url, body) => navigator.sendBeacon(url, body)
-                          : undefined,
-                  onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
+                  onSessionId: (id) => {
+                      this.analyticsFeedbackSessionId = id;
+                      this.notifyFeedbackSession(id, 'open');
+                  },
+                  onSessionClosed: (id) => this.notifyFeedbackSession(id, 'closed'),
                   onSessionReset: () => { this.analyticsFeedbackSessionId = undefined; },
               })
-            : createDryRunSink((...a) => this.logger.log(...a));
+            : createDryRunSink((...a) => { if (this.config?.debug) this.logger.log(...a); });
         const device = config.device ?? collectDeviceInfo(config.appVersion);
         this.language = resolveLanguage({
             explicit: config.language,
@@ -238,25 +273,19 @@ export class DeepdotsPopups {
         if (this.tracking?.isTrackingEnabled()) {
             this.crashReporter.install();
         }
-        // Geolocalización por IP: aplica el cache persistente de inmediato (sin gap de timing)
-        // y refresca en background (cadena de proveedores + timeout), recacheando el resultado.
-        const cachedGeo = readCachedGeo(storage, Date.now());
-        if (cachedGeo) this.analytics.updateDevice(cachedGeo);
-        fetchGeo()
-            .then((geo) => {
-                if (geo) {
-                    this.analytics?.updateDevice(geo);
-                    writeCachedGeo(storage, geo, Date.now());
-                }
-            })
-            .catch(() => {});
+        // Geolocalización por IP: ver `resolveGeo()` para cuándo se consulta a terceros.
+        this.geoEnabled = config.geolocation ?? true;
+        this.geoWanted = this.geoEnabled && !!config.analytics;
+        this.resolveGeo();
         // Fase 2: navegación → eventos page_view por el canal de analytics.
         this.navObserver = new NavigationObserver();
-        this.navObserver.onVisit((v) => this.track('deepdots_page_view', { screen: v.screen, duration_seconds: v.durationSeconds }));
+        this.navObserver.onVisit((v) =>
+            this.track('deepdots_page_view', { screen: v.screen, path: v.path, duration_seconds: v.durationSeconds })
+        );
         this.navObserver.install();
         // Engagement time (#8): cuenta tiempo activo en primer plano.
+        // No arranca aquí: lo hace `openSession`, y solo con la pestaña visible.
         this.engagement = new EngagementTracker();
-        this.engagement.resume();
         this.setupAnalyticsFlush();
         // Marca de inicio de sesión (base para Crash-Free Users #14).
         this.openSession();
@@ -301,6 +330,25 @@ export class DeepdotsPopups {
         return this.tracking?.getSessionId() ?? null;
     }
 
+    /**
+     * Id del registro de analytics abierto: el `sessionId` que devolvió `POST /sdk/feedback`,
+     * que la API guarda como `sdkSessionId` en el Feedback en que se convierte la sesión. No es
+     * `getSessionId()`. Null hasta que el backend acepta el primer lote y de nuevo al cerrar la
+     * sesión: para saber también qué registro se cerró, usa `init({ onFeedbackSession })`.
+     */
+    getFeedbackSessionId(): string | null {
+        return this.analyticsFeedbackSessionId ?? null;
+    }
+
+    /** Avisa al host del registro abierto o cerrado; un fallo del host no corta el envío. */
+    private notifyFeedbackSession(sessionId: string, status: FeedbackSession['status']): void {
+        try {
+            this.onFeedbackSession?.({ sessionId, status });
+        } catch (error) {
+            this.log('analytics · onFeedbackSession threw:', error);
+        }
+    }
+
     /** Activa/desactiva el tracking (identidad + sesión + analytics). Kill-switch del contrato §7bis. */
     setTrackingEnabled(enabled: boolean): void {
         // Al revocar el consentimiento se cierra la sesión ANTES de apagar el canal: si no, lo
@@ -309,6 +357,8 @@ export class DeepdotsPopups {
         this.tracking?.setTrackingEnabled(enabled);
         // Consentimiento concedido (ahora o más tarde que el init): abre sesión.
         if (enabled) this.openSession();
+        // El lookup de geo se aplaza hasta que haya consentimiento.
+        if (enabled) this.resolveGeo();
         this.log('tracking · setTrackingEnabled:', enabled, '· session_id:', this.tracking?.getSessionId() ?? null);
     }
 
@@ -522,8 +572,12 @@ export class DeepdotsPopups {
         this.navStarted = false;
         this.analytics?.exitAllMiniServices(); // → mini_service_exit con duración
         this.flushEngagement(); // → user_engagement con el tiempo activo
+        // Parado hasta la sesión siguiente. Si siguiera en marcha, lo que llega después del
+        // cierre (en Chromium el `visibilitychange` va DESPUÉS de `pagehide`) emitía un
+        // `user_engagement` sin sessionId que abría en la API un registro que nunca se cierra.
+        this.engagement?.pause();
         this.track('deepdots_session_end', { reason });
-        // `final` solo cuando el documento se está muriendo: ahí hace falta sendBeacon.
+        // `final` solo cuando el documento se está muriendo (el transporte no espera respuestas).
         this.flushAnalytics({ final: reason === 'page_hide', sessionEnd: true });
         // El session_id del canal de analytics y el de popups pertenecían a la sesión cerrada.
         this.analyticsFeedbackSessionId = undefined;
@@ -539,7 +593,18 @@ export class DeepdotsPopups {
         if (this.sessionOpen) return;
         if (!this.tracking?.isTrackingEnabled()) return;
         this.sessionOpen = true;
+        this.lastEngagementAt = Date.now();
         this.track('deepdots_session_start', {});
+        // El cierre anterior dejó sin pantalla al observador: sin esto, la pantalla en la que
+        // está el usuario al reabrir (cambio de usuario, vuelta de la bfcache) no contaba.
+        this.navObserver?.restart();
+        // Una pestaña abierta en segundo plano no ha sido vista: no cuenta hasta que se muestre.
+        if (this.isDocumentVisible()) this.engagement?.resume();
+    }
+
+    /** Web: si la pestaña se ve. Sin `document` (RN) manda AppState vía onForeground/onBackground. */
+    private isDocumentVisible(): boolean {
+        return typeof document === 'undefined' || document.visibilityState !== 'hidden';
     }
 
     /** Payload que se ENVIARÍA al endpoint de analytics (no envía ni vacía el buffer). */
@@ -556,8 +621,8 @@ export class DeepdotsPopups {
 
     /**
      * Envía el lote acumulado de analytics y vacía el buffer.
-     * `final: true` (cierre de página/app) cambia el transporte a `sendBeacon`, que sobrevive
-     * al unload; un lote que falle por red o 5xx se re-encola para el siguiente flush.
+     * `final: true` (cierre de página/app): el lote no espera al primer POST en vuelo, porque
+     * el documento se muere; un lote que falle por red o 5xx se re-encola para el siguiente flush.
      */
     flushAnalytics(options?: { final?: boolean; sessionEnd?: boolean }): void {
         if (!this.tracking?.isTrackingEnabled()) return;
@@ -568,7 +633,85 @@ export class DeepdotsPopups {
     private flushEngagement(): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         const ms = this.engagement?.consume() ?? 0;
-        if (ms > 0) this.track('deepdots_user_engagement', { engagement_time_msec: ms });
+        if (ms > 0) {
+            this.track('deepdots_user_engagement', { engagement_time_msec: ms });
+            this.lastEngagementAt = Date.now();
+        }
+    }
+
+    /** Tick del flush periódico: latido de engagement si toca, y envío de lo acumulado. */
+    private onAnalyticsFlushTick(): void {
+        if (
+            this.sessionOpen &&
+            this.isDocumentVisible() &&
+            Date.now() - this.lastEngagementAt >= ANALYTICS_HEARTBEAT_MS
+        ) {
+            this.flushEngagement();
+        }
+        this.flushAnalytics();
+    }
+
+    /**
+     * La pestaña vuelve a verse. Tras más de ANALYTICS_SESSION_TIMEOUT_MS oculta, la sesión
+     * anterior termina y empieza otra: seguir con el mismo sessionId mezclaba dos visitas y,
+     * si el backend ya la había cerrado por inactividad, la partía en dos feedbacks.
+     *  - Oculta menos de ANALYTICS_SESSION_DISCARD_MS: el backend aún la tiene abierta → se
+     *    cierra con normalidad (page_view de la pantalla, session_end `idle_timeout`, completed).
+     *  - Más: ya la cerró el backend → se descarta sin enviar nada.
+     */
+    private onDocumentVisible(): void {
+        const hiddenFor = this.hiddenAt === null ? 0 : Date.now() - this.hiddenAt;
+        this.hiddenAt = null;
+        if (!this.sessionOpen) return; // sin sesión abierta no hay dónde contar ese tiempo
+        if (hiddenFor < ANALYTICS_SESSION_TIMEOUT_MS) {
+            this.engagement?.resume();
+            return;
+        }
+        if (hiddenFor < ANALYTICS_SESSION_DISCARD_MS) {
+            this.closeSession('idle_timeout');
+        } else {
+            this.discardSession();
+        }
+        this.openSession();
+    }
+
+    /** Olvida la sesión abierta sin enviar nada (ver onDocumentVisible). */
+    private discardSession(): void {
+        this.sessionOpen = false;
+        this.navObserver?.discard();
+        this.analytics?.discardSession(this.analyticsIdentity());
+        this.engagement?.consume(); // tiramos lo acumulado: era de la sesión descartada
+        this.engagement?.pause();
+        this.analyticsFeedbackSessionId = undefined;
+        this.tracking?.setSessionId(null);
+        this.log('tracking · session discarded after', ANALYTICS_SESSION_DISCARD_MS / 60_000, 'min hidden');
+    }
+
+    /**
+     * Geolocalización por IP (país/ciudad para analytics). La caché persistente es local y se
+     * aplica siempre que `geolocation` no esté desactivado. El lookup a terceros (ipapi.co →
+     * ipwho.is → ipinfo.io, fallback con timeout) solo se hace si el dato se va a ENVIAR:
+     * analytics configurado + tracking activo + caché ausente o caducada. Una vez por instancia.
+     */
+    private resolveGeo(): void {
+        const storage = this.storage;
+        if (!this.geoEnabled || !storage || !this.analytics) return;
+        const cachedGeo = readCachedGeo(storage, Date.now());
+        if (cachedGeo) {
+            this.analytics.updateDevice(cachedGeo);
+            return;
+        }
+        if (!this.geoWanted || this.geoLookupStarted) return;
+        if (!this.tracking?.isTrackingEnabled()) return;
+        this.geoLookupStarted = true;
+        fetchGeo()
+            .then((geo) => {
+                if (geo) {
+                    this.analytics?.updateDevice(geo);
+                    writeCachedGeo(storage, geo, Date.now());
+                }
+            })
+            .catch(() => {});
     }
 
     private analyticsIdentity() {
@@ -580,14 +723,23 @@ export class DeepdotsPopups {
 
     /** Flush automático al ocultar/cerrar la página (no perder el lote pendiente). */
     private setupAnalyticsFlush(): void {
+        // Flush periódico + latido en todos los entornos. En RN no había ninguno: una app en
+        // foreground que no llegaba a `maxBatchSize` no enviaba nada hasta ir a background.
+        this.startAnalyticsFlushTimer();
         if (typeof document === 'undefined' || typeof window === 'undefined') return;
-        // flush periódico mientras la app está en primer plano
-        this.analyticsFlushTimer = setInterval(() => this.flushAnalytics(), ANALYTICS_FLUSH_INTERVAL_MS);
         // al cerrar la página: FIN DE SESIÓN (page_view + mini_service_exit + engagement +
-        // session_end) y último lote con completed:true vía sendBeacon.
+        // session_end) y último lote con completed:true.
         window.addEventListener('pagehide', () => {
             clearInterval(this.analyticsFlushTimer);
             this.closeSession('page_hide');
+        });
+        // Vuelta desde la bfcache (botón atrás): la página no se recarga, así que `init()` no
+        // vuelve a correr. El `pagehide` cerró la sesión y paró el flush; sin reabrir ambos, la
+        // pestaña no mandaba nada más hasta una recarga.
+        window.addEventListener('pageshow', (event) => {
+            if (!(event as PageTransitionEvent).persisted) return;
+            this.startAnalyticsFlushTimer();
+            this.openSession();
         });
         // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado
         document.addEventListener('visibilitychange', () => {
@@ -595,10 +747,16 @@ export class DeepdotsPopups {
                 this.flushEngagement();
                 this.engagement?.pause();
                 this.flushAnalytics();
+                this.hiddenAt = Date.now();
             } else if (document.visibilityState === 'visible') {
-                this.engagement?.resume();
+                this.onDocumentVisible();
             }
         });
+    }
+
+    private startAnalyticsFlushTimer(): void {
+        clearInterval(this.analyticsFlushTimer);
+        this.analyticsFlushTimer = setInterval(() => this.onAnalyticsFlushTick(), ANALYTICS_FLUSH_INTERVAL_MS);
     }
 
     /** Enable auto-launch functionality with configured triggers */
@@ -709,6 +867,8 @@ export class DeepdotsPopups {
     }
 
     private shouldShow(def: NormalizedPopupDefinition, pathUrl?: string, skipPathCheck = false): boolean {
+        // Otra pestaña puede haber enseñado o contestado este popup desde nuestro `init()`.
+        if (this.storage) this.loadPopupState(this.storage);
         // La exclusión se evalúa SIEMPRE, también cuando `skipPathCheck` levanta la
         // restricción de "dónde PUEDE mostrarse" (popup de exit ya encolado): decir
         // "no en /cart" es una regla sobre la pantalla en la que se va a pintar.
@@ -1322,23 +1482,33 @@ export class DeepdotsPopups {
     }
 
     /**
-     * Rehidrata el estado de redisplay desde el storage. `answeredSurveys` se reconstruye
-     * desde las entradas COMPLETED: es exactamente lo que persiste `markSurveyAnswered`.
+     * Fusiona el estado de redisplay del storage con el de memoria: por cada popup/survey gana
+     * la entrada MÁS RECIENTE. Fusionar y no sustituir es lo que hace convivir a varias
+     * pestañas sobre el mismo `localStorage`: se llama en el `init()`, antes de cada decisión
+     * de mostrar y antes de cada escritura. `answeredSurveys` se reconstruye desde las
+     * entradas COMPLETED: es exactamente lo que persiste `markSurveyAnswered`.
      */
     private loadPopupState(storage: KeyValueStorage): void {
         const state = readPopupState(storage);
         Object.entries(state.lastShown).forEach(([popupId, timestamp]) => {
-            this.lastShown.set(popupId, timestamp);
+            if (timestamp > (this.lastShown.get(popupId) ?? -Infinity)) this.lastShown.set(popupId, timestamp);
         });
         Object.entries(state.progress).forEach(([surveyId, entry]) => {
+            const current = this.surveyProgress.get(surveyId);
+            if (current && current.timestamp >= entry.timestamp) return;
             this.surveyProgress.set(surveyId, { status: entry.status, timestamp: entry.timestamp });
             if (entry.status === 'COMPLETED') this.answeredSurveys.add(surveyId);
         });
     }
 
-    /** Vuelca el estado de redisplay al storage. Sin storage (o bloqueado) degrada a memoria. */
+    /**
+     * Vuelca el estado de redisplay al storage. Sin storage (o bloqueado) degrada a memoria.
+     * Fusiona antes de escribir: escribir solo la foto en memoria borraba lo que otra pestaña
+     * hubiese guardado desde nuestro `init()`.
+     */
     private persistPopupState(): void {
         if (!this.storage) return;
+        this.loadPopupState(this.storage);
         writePopupState(this.storage, {
             lastShown: Object.fromEntries(this.lastShown),
             progress: Object.fromEntries(this.surveyProgress),

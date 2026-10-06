@@ -17,6 +17,20 @@ export interface DeepdotsLogger {
     info?: (...args: unknown[]) => void;
 }
 
+/**
+ * A session of the analytics channel as the Deepdots API sees it. Every session becomes ONE
+ * feedback, and `sessionId` is what the API stores as `sdkSessionId` on it: the value to look
+ * that feedback up with (`GET /feedbacks?filter={"where":{"sdkSessionId":"<sessionId>"}}`).
+ * A session that closes again keeps that one feedback: the API updates it.
+ *  - `open`: the API acknowledged the session's first batch; its events keep accumulating.
+ *  - `closed`: the API acknowledged the session's closing batch (`completed: true`); the
+ *    feedback is created from it within seconds.
+ */
+export interface FeedbackSession {
+    sessionId: string;
+    status: 'open' | 'closed';
+}
+
 export interface DeepdotsInitParams {
     /** API key for authentication */
     apiKey?: string;
@@ -48,9 +62,28 @@ export interface DeepdotsInitParams {
     device?: DeviceInfo;
     /**
      * Analytics channel keys (`POST /sdk/feedback`). If provided, analytics is SENT
-     * to the configured integration; if missing, it stays in dry-run mode (console.log only).
+     * to the configured integration; if missing, it stays in dry-run mode: nothing is sent, and the payload is only
+     * logged when `debug` is true.
      */
     analytics?: AnalyticsKeys;
+    /**
+     * Called when the analytics channel opens or closes a session (needs `analytics`), with the
+     * id the Deepdots API stores as `sdkSessionId` on the feedback the session becomes: send it
+     * to your backend to attach data to that feedback later. A session whose only batch is the
+     * closing one reports just `closed`. `closed` does not come when the page unloads before the
+     * closing request returns, for a session dropped after 30 min hidden, nor when the closing
+     * request fails (the API closes those itself, later): their id already came with `open`. Key
+     * by `sessionId`, not by order: the next session's `open` can arrive before the previous
+     * one's `closed`. Same value as `getFeedbackSessionId()` while the session is open.
+     */
+    onFeedbackSession?: (session: FeedbackSession) => void;
+    /**
+     * IP geolocation (country/city) added to analytics. Default `true`. The lookup calls
+     * third-party services (ipapi.co, then ipwho.is, then ipinfo.io as fallbacks, 3 s timeout
+     * each) and only runs when `analytics` is configured, tracking is enabled and the 30-day
+     * cache is missing or expired. Set `false` to never call them nor attach country/city.
+     */
+    geolocation?: boolean;
     /**
      * Internal user attributes known only by the host (language, age, plan, ...), sent
      * to the backend Contact for segmentation/targeting. Requires `userId`. Equivalent to calling
@@ -136,8 +169,16 @@ export type EventListener = (event: DeepdotsEvent) => void;
  *  - `user_change`: `setUserId()` o un `init()` con otro `userId` (login/logout del host).
  *  - `tracking_disabled`: `setTrackingEnabled(false)` (consentimiento revocado).
  *  - `manual`: `endSession()` llamado por el host.
+ *  - `idle_timeout`: la pestaña vuelve a verse tras más de 30 min oculta (web). La sesión
+ *    anterior se cierra y se abre otra, como hace GA con su timeout de sesión.
  */
-export type SessionEndReason = 'page_hide' | 'background' | 'user_change' | 'tracking_disabled' | 'manual';
+export type SessionEndReason =
+    | 'page_hide'
+    | 'background'
+    | 'user_change'
+    | 'tracking_disabled'
+    | 'manual'
+    | 'idle_timeout';
 
 /** Trigger type used by remote popup definitions */
 export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';

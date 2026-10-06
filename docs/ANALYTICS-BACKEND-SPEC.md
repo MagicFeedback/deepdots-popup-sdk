@@ -171,6 +171,7 @@ Se emite al salir de una pantalla. Registra el tiempo que el usuario estuvo en e
 {
   "timestamp": 1750000000000,
   "screen": "HomeScreen",
+  "path": "HomeScreen",
   "duration_seconds": 42,
   "mini_service": "checkout"
 }
@@ -180,13 +181,17 @@ Se emite al salir de una pantalla. Registra el tiempo que el usuario estuvo en e
 |---|---|---|
 | `timestamp` | number (ms) | Momento en que el usuario salió de la pantalla |
 | `screen` | string | Nombre o ruta de la pantalla. En web se normaliza: sin query params, IDs/UUIDs → `:id` |
+| `path` | string | La ruta real, sin query params, **con** los IDs (desde 1.8.5): `/insights/requests/2f1c…` donde `screen` es `/insights/requests/:id`. Para enlazar la visita al elemento concreto; agrupar por `screen` |
 | `duration_seconds` | number | Segundos que el usuario estuvo en esa pantalla |
 | `mini_service` | string? | Presente si había un mini-service activo durante la visita |
 
 ---
 
 #### `deepdots_user_engagement`
-Se emite en cada flush. Acumula el tiempo activo en primer plano desde el flush anterior.
+Acumula el tiempo activo en primer plano desde el anterior. Se emite al ocultar la pestaña,
+al cerrar la sesión y, como **latido**, al menos cada 5 min mientras la pestaña está visible o
+la app en foreground (desde 1.8.3). El latido es lo que permite al backend distinguir una
+sesión en uso de una abandonada: sin él, alguien leyendo una sola página no enviaba nada.
 
 ```json
 {
@@ -232,6 +237,7 @@ Se emite al abrir sesión: en el `init()`, al volver a foreground tras un cierre
 | `user_change` | `setUserId()` o un `init()` con otro `userId` (login/logout) |
 | `tracking_disabled` | `setTrackingEnabled(false)` (consentimiento revocado) |
 | `manual` | El host llamó a `endSession()` |
+| `idle_timeout` | La pestaña vuelve a verse tras más de 30 min oculta (web, desde 1.8.3): se cierra y se abre otra |
 
 #### `deepdots_app_crash`
 Crash o error reportado. Los crashes no capturados se persisten a disco y se reenvían en el siguiente arranque; los `reportError()` del host se emiten en el momento.
@@ -375,11 +381,11 @@ El `deepdots_user_id` es la clave principal para cruzar datos entre sesiones y e
 ## 6. Notas de implementación
 
 - **Distinguir campos del sistema**: todas las claves `deepdots_*` son del SDK; el resto son del host (atributos o eventos).
-- **`deepdots_country` / `deepdots_city`**: se resuelven de forma asíncrona vía `ipapi.co`. Pueden **no estar presentes en el primer lote** del flush si la respuesta geo aún no llegó. Aparecerán en lotes posteriores de la misma sesión.
+- **`deepdots_country` / `deepdots_city`**: se resuelven de forma asíncrona por IP (`ipapi.co`, con fallback a `ipwho.is` e `ipinfo.io`). Pueden **no estar presentes en el primer lote** del flush si la respuesta geo aún no llegó. Aparecerán en lotes posteriores de la misma sesión. Desde 2026-09-29 **pueden faltar del todo**: el host puede desactivarlos con `geolocation: false`, y el lookup solo se hace con el tracking activo (con la caché de 30 días fresca no hay lookup, se usa el valor cacheado).
 - **Un lote puede llegar vacío si no hubo eventos**: el SDK tiene una guarda (`events.length === 0 → no flush`), pero el backend debería ser tolerante igualmente.
 - **Entrega at-least-once (⚠️ 2026-07-28)**: si el POST falla por red o responde **5xx / 408 / 429**, el SDK **re-encola el lote** y lo reenvía en el flush siguiente. Si el fallo ocurrió después de que el backend procesara los eventos, esos eventos **llegarán dos veces**. El backend debe deduplicar por `(deepdots_user_id, nombre_evento, timestamp)`, que identifica un evento de forma única. Un **4xx** (payload/claves inválidas, Contact) NO se reintenta: se loguea y el lote se descarta.
 - **Respuestas de error**: el SDK loguea el status y el cuerpo (500 primeros caracteres) cuando `debug: true`. Devolver un mensaje de error legible ayuda a diagnosticar en cliente.
-- **Último lote de la sesión vía `sendBeacon`**: el flush del cierre de página se envía con `navigator.sendBeacon`, que sobrevive al unload pero **no permite leer la respuesta**. Consecuencias: (1) ese lote llega con `Content-Type: application/json` pero puede no traer `sessionId` si aún no se conocía → el backend debe coser por `deepdots_user_id`; (2) el `sessionId` de esa respuesta se descarta. Los lotes normales van por `fetch` con `keepalive`.
+- **Último lote de la sesión por `fetch` con `keepalive`, sin credenciales (⚠️ 2026-09-25)**: hasta la 1.8.x salía por `navigator.sendBeacon`, y **no llegaba nunca**. `sendBeacon` va siempre con credenciales, un Blob `application/json` obliga a preflight, y esta API responde `Access-Control-Allow-Origin: *` junto a `Access-Control-Allow-Credentials: true`; CORS no acepta `*` en una petición con credenciales, así que el navegador cortaba en el `OPTIONS` y el `POST` no salía. Como ese lote es el único con `completed: true`, **la sesión nunca se ensamblaba en un feedback y nada de lo que llevaba (page_views incluidos) llegaba a BigQuery**; solo se cerraban las sesiones que acababan en logout o cambio de usuario, que van por `fetch` normal. Verificado en Chromium contra las cabeceras reales de `api.deepdots.com`, con el control de reflejar el origen (entonces sí llega). Ahora todos los lotes van por `fetch` con `credentials: 'omit'` y el de cierre además con `keepalive`, que sobrevive al unload igual que `sendBeacon`. Ese lote puede no traer `sessionId` si aún no se conocía (el backend cose por `deepdots_user_id`) y su respuesta no se lee. **Recomendación a backend:** `origin: '*'` con `credentials: true` es una combinación que ningún navegador acepta para peticiones con credenciales; los endpoints `/sdk/*` autentican por `publicKey`, así que `credentials: false` (o reflejar el origen) evita que otro cliente vuelva a caer en esto.
 - **Serialización del primer lote**: hasta conocer el `sessionId`, el SDK no manda un segundo lote en paralelo (evita crear dos registros para la misma sesión). Cuanto antes responda el primer POST, antes fluyen los siguientes.
 - **Atributos de usuario en `metadata`** pueden variar entre lotes si el host llama a `setUserAttributes()` varias veces — el valor del último lote es el más reciente.
 - **`mini_service` en eventos**: cualquier evento emitido mientras hay un mini-service activo incluirá `mini_service: "nombre"` en sus parámetros.
@@ -406,7 +412,7 @@ acumulado y por último `deepdots_session_end` con su `reason`.
 1. `completed: true` **cierra el registro** identificado por ese `sessionId`. No llegarán más eventos con él.
 2. El SDK **olvida el `sessionId`** tras cerrar: el lote siguiente llega **sin `sessionId`** y el backend debe **abrir un registro nuevo** (y devolver un `sessionId` nuevo en la respuesta).
 3. `feedback.finished` sigue siendo `false` siempre — `completed` es la única señal de cierre.
-4. El POST de cierre puede ir por `sendBeacon` (cierre de página): su respuesta **no se lee**, así que el `sessionId` que devuelva se descarta.
+4. El POST de cierre de página va por `fetch` con `keepalive` y su respuesta **no se lee** (el documento se está muriendo), así que el `sessionId` que devuelva se descarta.
 
 ### Cuándo se cierra la sesión
 
@@ -417,14 +423,25 @@ acumulado y por último `deepdots_session_end` con su `reason`.
 | `setUserId()` / `init()` con otro `userId` | Todas | Total (lo dispara el host) |
 | `setTrackingEnabled(false)` | Todas | Total |
 | `endSession()` | Todas | Total |
+| Pestaña visible tras 30–50 min oculta (`idle_timeout`) | Web | Total. Tras **50 min o más** la sesión se **descarta sin enviar nada**: el backend ya la cerró por inactividad |
 
 ### ⚠️ El backend necesita igualmente una ventana de inactividad
 
 Hay cierres que **ningún SDK puede detectar**: kill de la app por el usuario o por el SO
 (no hay callback ni en iOS ni en Android), crash del proceso, pérdida de conexión, apagón.
 En esos casos el registro se queda **abierto sin `completed: true`**. El backend debe cerrarlo
-por inactividad (p. ej. sin eventos durante X minutos). `completed: true` es una señal
-**oportunista** que permite cerrar antes y con datos completos, no una garantía.
+por inactividad. `completed: true` es una señal **oportunista** que permite cerrar antes y
+con datos completos, no una garantía.
+
+La ventana actual es de **60 min sin ningún lote** (Run_Jobs `incomplete-surveys`,
+`IDLE_MINUTES`), medida por **sesión**: una sesión que sigue enviando lotes no se cierra. Tres
+valores del SDK dependen de ella y deben mantenerse en sincronía (`deepdots-popups.ts`):
+
+| Constante | Valor | Por qué |
+|---|---|---|
+| `ANALYTICS_HEARTBEAT_MS` | 5 min | Muy por debajo de la ventana: una sesión visible nunca parece abandonada |
+| `ANALYTICS_SESSION_TIMEOUT_MS` | 30 min | Una pestaña que vuelve tras más tiempo oculta empieza sesión nueva |
+| `ANALYTICS_SERVER_IDLE_MS` | 60 min | La ventana del backend; se descarta (sin POST) a partir de 50 min oculta, con 10 min de margen, para no reabrir una sesión que el backend ya montó |
 
 ### Impacto en el conteo de sesiones
 
