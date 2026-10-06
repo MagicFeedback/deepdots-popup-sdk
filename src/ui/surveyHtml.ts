@@ -544,10 +544,15 @@ ${REVEAL_JS}
         // textContent, así que el mensaje de la plataforma (HTML con imagen) no se vería, y su
         // fallback es un literal genérico que ignora style.successMessage.
         addSuccessScreen:false,
+        // Surveys multi-idioma: native pide a la API este idioma (el del init o el del
+        // dispositivo); si el survey no lo tiene, la API sirve el idioma por defecto.
+        lang:${initLangJson}||undefined,
         onLoadedEvent:function(args){
-          // Idioma del survey: manda sobre el del init para que el chrome no se quede en
-          // inglés delante de un survey traducido.
-          var langs=args && args.formData ? args.formData.lang : null;
+          // Idioma en el que native muestra el survey: manda sobre el del init para que el
+          // chrome no se quede en inglés delante de un survey traducido. Native < 2.3 no lo
+          // envía: entonces el primero de formData.lang (el idioma por defecto).
+          var shown=args && typeof args.lang==='string' && args.lang.trim() ? args.lang : null;
+          var langs=shown ? [shown] : (args && args.formData ? args.formData.lang : null);
           if(langs && langs.length){
             for(var li=0;li<langs.length;li++){
               if(typeof langs[li]==='string' && langs[li].trim()){ ddApplyLabels(langs[li]); break; }
