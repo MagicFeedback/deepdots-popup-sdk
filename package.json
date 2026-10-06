@@ -33,7 +33,9 @@
     "e2e": "playwright test",
     "e2e:report": "playwright show-report",
     "prepublishOnly": "npm run build && npm run check:layout",
-    "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public"
+    "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public",
+    "release:prepare": "node scripts/release.mjs prepare",
+    "release:tag": "node scripts/release.mjs tag"
   },
   "keywords": [
     "survey",
