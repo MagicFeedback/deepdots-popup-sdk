@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
   entry of `formData.lang`, the survey's default language.
 
+### Fixed
+
+- **Events fired before the popups load are no longer lost.** `init()` fetches the popup
+  definitions asynchronously, so a `triggerEvent('app_opened')` (or `triggerSurvey`) called
+  right after it ran against an empty list and was dropped with "No event popup definitions
+  found", even when the popup arrived milliseconds later. While that fetch is in flight, these
+  calls are now kept (up to 20; past that the oldest is dropped) and replayed in order once the
+  definitions load, through the normal evaluation: segments, `excludedPaths`, cooldowns and
+  conditions apply with the state at that moment. If the fetch fails they are discarded and
+  nothing is kept from then on. Without an `apiKey` there is no fetch and nothing is kept.
+  Same behaviour as the native SDK.
+
 ## [1.9.0] — 2026-10-06
 
 ### Added

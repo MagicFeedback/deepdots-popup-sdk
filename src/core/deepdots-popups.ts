@@ -64,6 +64,13 @@ const ANALYTICS_SESSION_DISCARD_MS = ANALYTICS_SERVER_IDLE_MS - 10 * 60_000;
 const RESERVED_EVENT_PREFIX = 'deepdots_';
 /** Prefijo que se antepone a los eventos custom del host para poder identificarlos frente a los reservados. */
 const CUSTOM_EVENT_PREFIX = 'deepdots_event_';
+/** Techo del buffer de disparos recibidos mientras se cargan las definiciones (descarta los más viejos). */
+export const MAX_PENDING_TRIGGERS = 20;
+
+/** Disparo del host recibido antes de que lleguen las definiciones de popups. */
+type PendingTrigger =
+    | { kind: 'event'; name: string }
+    | { kind: 'survey'; surveyId: string; popupId?: string };
 
 interface DeferredExitPopup {
     id: string;
@@ -100,6 +107,14 @@ export class DeepdotsPopups {
     private popupContainer: HTMLElement | null = null; // deprecated: mantenido para compatibilidad interna
     private popupDefinitions: NormalizedPopupDefinition[] = [];
     private popupsLoaded = false;
+    /**
+     * `true` mientras el `GET /sdk/{apiKey}/popups` de `init()` está en vuelo. En esa ventana los
+     * disparos del host (`triggerEvent`, `triggerSurvey`) no tienen contra qué evaluarse, así que
+     * se guardan en `pendingTriggers` y se reproducen al cargar. Click, scroll, time y exit no
+     * hacen falta: son listeners que `autoLaunch` instala ya con las definiciones cargadas.
+     */
+    private awaitingPopups = false;
+    private pendingTriggers: PendingTrigger[] = [];
     private pendingAutoLaunch = false;
 
     // Estado que alimenta las reglas de redisplay. Copia de trabajo en memoria; la fuente
@@ -303,9 +318,12 @@ export class DeepdotsPopups {
         if (this.renderer.init) this.renderer.init();
         this.setupPopupContainer();
 
-        // Los popups SIEMPRE se reciben de la API (no se definen en init).
+        // Los popups SIEMPRE se reciben de la API (no se definen en init). Sin apiKey no hay
+        // GET que esperar, así que tampoco se guardan disparos.
+        this.awaitingPopups = Boolean(this.config.apiKey && this.baseUrl);
         this.fetchPopupsFromServer().then((defs) => {
-            this.popupDefinitions = this.validatePopupDefinitions(defs);
+            if (!defs) this.dropPendingTriggers();
+            this.popupDefinitions = this.validatePopupDefinitions(defs ?? []);
             this.popupsLoaded = true;
             this.log('Popups loaded from API', this.popupDefinitions);
             // Con al menos un popup que pueda abrirse, el renderer se trae ya lo que costará la
@@ -317,6 +335,7 @@ export class DeepdotsPopups {
             if (this.pendingAutoLaunch) {
                 this.startTriggers();
             }
+            this.replayPendingTriggers();
         });
     }
 
@@ -813,6 +832,7 @@ export class DeepdotsPopups {
 
     /** Lógica para evaluar condiciones antes de mostrar una encuesta */
     triggerSurvey(surveyId: string, popupId?: string): void {
+        if (this.bufferIfAwaitingPopups({ kind: 'survey', surveyId, popupId })) return;
         const def = this.findPopupDefinition(surveyId, popupId);
         if (!def) {
             this.debug('No popup definition for trigger', { surveyId, popupId });
@@ -835,7 +855,11 @@ export class DeepdotsPopups {
             this.debug('Ignoring empty event trigger name');
             return;
         }
+        if (this.bufferIfAwaitingPopups({ kind: 'event', name: normalized })) return;
+        this.evaluateEvent(normalized);
+    }
 
+    private evaluateEvent(normalized: string): void {
         const candidates = this.popupDefinitions.filter((def) => {
             return def.triggers.some((trigger) => {
                 const triggerValue = String(trigger.value ?? '').trim();
@@ -855,6 +879,43 @@ export class DeepdotsPopups {
         }
 
         this.showDefinition(matched);
+    }
+
+    /**
+     * Guarda `trigger` si las definiciones aún no han llegado. Devuelve `true` si lo guardó (el
+     * llamador no debe evaluarlo ahora) y `false` si no hay carga en vuelo (se evalúa ya, como
+     * siempre: tras cargar, tras un fallo o sin apiKey).
+     */
+    private bufferIfAwaitingPopups(trigger: PendingTrigger): boolean {
+        if (!this.awaitingPopups) return false;
+        if (this.pendingTriggers.length >= MAX_PENDING_TRIGGERS) {
+            const dropped = this.pendingTriggers.shift();
+            this.debug('Pending trigger buffer full; dropped oldest', dropped);
+        }
+        this.pendingTriggers.push(trigger);
+        this.debug('Popups not loaded yet; trigger buffered', trigger);
+        return true;
+    }
+
+    /** La carga falló: sin definiciones no hay nada que reproducir, se descarta todo. */
+    private dropPendingTriggers(): void {
+        const dropped = this.pendingTriggers.length;
+        this.awaitingPopups = false;
+        this.pendingTriggers = [];
+        if (dropped > 0) this.debug('Popups failed to load; dropped pending triggers', dropped);
+    }
+
+    /** Reproduce en orden por la evaluación normal (segmentos, cooldowns y condiciones de AHORA). */
+    private replayPendingTriggers(): void {
+        this.awaitingPopups = false;
+        const replay = this.pendingTriggers;
+        this.pendingTriggers = [];
+        if (!replay.length) return;
+        this.debug('Replaying triggers received before popups loaded', replay.length);
+        replay.forEach((trigger) => {
+            if (trigger.kind === 'event') this.evaluateEvent(trigger.name);
+            else this.triggerSurvey(trigger.surveyId, trigger.popupId);
+        });
     }
 
     private showDefinition(def: PopupDefinition): void {
@@ -1184,8 +1245,8 @@ export class DeepdotsPopups {
         }
     }
 
-    /** Fetch al servidor para obtener popups */
-    private async fetchPopupsFromServer(): Promise<unknown[]> {
+    /** Fetch al servidor para obtener popups. `null` si la carga falló (red, no-2xx, payload inválido). */
+    private async fetchPopupsFromServer(): Promise<unknown[] | null> {
         const apiKey = this.config?.apiKey;
         const baseUrl = this.baseUrl;
         // El backend aplica las reglas de redisplay AQUI: si este userId ya tiene un
@@ -1206,19 +1267,19 @@ export class DeepdotsPopups {
             const response = await fetch(endpoint);
             if (!response.ok) {
                 this.log('Failed to fetch popups', response.status, response.statusText);
-                return [];
+                return null;
             }
             const raw = await response.text();
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) {
                 this.log('Unexpected popups payload', parsed);
-                return [];
+                return null;
             }
             this.debug('Fetched popups payload', parsed);
             return parsed;
         } catch (error) {
             this.log('Error fetching popups', error);
-            return [];
+            return null;
         }
     }
 
