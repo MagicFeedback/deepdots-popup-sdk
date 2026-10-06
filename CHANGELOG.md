@@ -20,11 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A session closed while its first batch was still in flight no longer comes back.** On
-  `page_hide` the closing batch does not wait for the first one, and when the first one's
-  response arrived afterwards the SDK cached its `sessionId` again: the closed session looked
-  open, and after a return from the bfcache the next session wrote into that old record. That
-  response is now ignored.
+- **A closed session no longer comes back through a late response.** When a batch was still
+  in flight as the session closed, its response arrived afterwards and the SDK cached the closed
+  session's `sessionId` again, so the next session wrote into the closed record and the API built
+  a second feedback for it. In React Native on iOS this happened on every quick return to the
+  app: AppState `inactive` sends a regular batch and `background` closes the session a few ms
+  later, and iOS suspends the app before the first response arrives. It also happened on the web
+  after a return from the bfcache, when the page hid while its first batch was in flight.
+  Responses from a session that is already closed are now ignored.
 
 - **Survey options no longer look selected on touch screens before the user taps them.** WebKit
   keeps `:hover` stuck on the last point touched, so the option of the next page that landed there
