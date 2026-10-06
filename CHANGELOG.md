@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one is. A host can hand it to its backend to find that feedback and add data to it. Until now
   the SDK kept it internal, so nothing could link a session to its feedback.
 
+### Fixed
+
+- **A session closed while its first batch was still in flight no longer comes back.** On
+  `page_hide` the closing batch does not wait for the first one, and when the first one's
+  response arrived afterwards the SDK cached its `sessionId` again: the closed session looked
+  open, and after a return from the bfcache the next session wrote into that old record. That
+  response is now ignored.
+
 ## [1.8.5] — 2026-09-30
 
 ### Added

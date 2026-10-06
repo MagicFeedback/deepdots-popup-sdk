@@ -21,6 +21,7 @@ export interface DeepdotsLogger {
  * A session of the analytics channel as the Deepdots API sees it. Every session becomes ONE
  * feedback, and `sessionId` is what the API stores as `sdkSessionId` on it: the value to look
  * that feedback up with (`GET /feedbacks?filter={"where":{"sdkSessionId":"<sessionId>"}}`).
+ * A session completed twice yields two feedbacks with the same id: take the latest `createdAt`.
  *  - `open`: the API acknowledged the session's first batch; its events keep accumulating.
  *  - `closed`: the API acknowledged the session's closing batch (`completed: true`); the
  *    feedback is created from it within seconds.
@@ -70,9 +71,10 @@ export interface DeepdotsInitParams {
      * id the Deepdots API stores as `sdkSessionId` on the feedback the session becomes: send it
      * to your backend to attach data to that feedback later. A session whose only batch is the
      * closing one reports just `closed`. `closed` does not come when the page unloads before the
-     * closing request returns, nor for a session dropped after 30 min hidden (the API closes that
-     * one itself, later): their id already came with `open`. Same value as `getFeedbackSessionId()`
-     * while the session is open.
+     * closing request returns, for a session dropped after 30 min hidden, nor when the closing
+     * request fails (the API closes those itself, later): their id already came with `open`. Key
+     * by `sessionId`, not by order: the next session's `open` can arrive before the previous
+     * one's `closed`. Same value as `getFeedbackSessionId()` while the session is open.
      */
     onFeedbackSession?: (session: FeedbackSession) => void;
     /**

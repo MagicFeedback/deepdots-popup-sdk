@@ -194,10 +194,17 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
   let feedbackSessionId: string | undefined;
   /** Primer POST (aún sin sessionId) en vuelo: los siguientes lotes lo esperan. */
   let firstPostInFlight: Promise<void> | null = null;
+  /**
+   * Sube cada vez que se cierra u olvida una sesión. Una respuesta que llega con otra
+   * generación es de una sesión ya cerrada (p. ej. el primer POST seguía en vuelo en el
+   * `page_hide`) y no puede volver a cachear su sessionId ni avisarlo como abierto.
+   */
+  let generation = 0;
 
   const url = `${options.baseUrl}/sdk/feedback`;
 
   const post = async (body: AnalyticsFeedbackBody, final: boolean, sessionEnd = false): Promise<void> => {
+    const postGeneration = generation;
     const json = JSON.stringify(body);
     const small = json.length <= KEEPALIVE_MAX_BYTES;
 
@@ -257,6 +264,10 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
 
     try {
       const data = (await res.json()) as { sessionId?: string };
+      if (postGeneration !== generation) {
+        options.log?.('[DeepdotsAnalytics] sessionId of a closed session ignored:', data?.sessionId);
+        return;
+      }
       if (data?.sessionId && data.sessionId !== feedbackSessionId) {
         feedbackSessionId = data.sessionId;
         options.log?.('[DeepdotsAnalytics] feedbackSessionId cached:', feedbackSessionId);
@@ -272,6 +283,7 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       // Sesión cerrada por el backend: no se envía nada, solo se olvida el registro.
       feedbackSessionId = undefined;
       firstPostInFlight = null;
+      generation++;
       options.onSessionReset?.();
       return;
     }
@@ -294,6 +306,7 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       // lote lo OMITA y el backend abra uno nuevo (sesión nueva, o usuario nuevo).
       feedbackSessionId = undefined;
       firstPostInFlight = null;
+      generation++;
       options.onSessionReset?.();
     } else if (!feedbackSessionId) {
       // nunca rechaza: es solo una barrera de orden, el fallo lo propaga `sent`

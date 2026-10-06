@@ -292,7 +292,9 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 Every analytics session becomes one feedback in Deepdots, and the API stores the session's id
 on it as `sdkSessionId`. Send that id to your backend and it can find the feedback
 (`GET /feedbacks?filter={"where":{"sdkSessionId":"<id>"}}`) and add data to it later, such as
-the push deliveries the app never sees.
+the push deliveries the app never sees. The lookup can return more than one feedback: a session
+can be completed twice (the API closes it for inactivity and the app posts to it again later),
+and both feedbacks carry the same id. Sort by `createdAt` and take the latest.
 
 ```ts
 popups.init({
@@ -308,9 +310,13 @@ popups.init({
 - `open` comes when the API accepts the session's first batch, `closed` when it accepts the
   closing one (`completed: true`). A session whose only batch is the closing one reports just
   `closed`.
-- `closed` does not come when the page unloads before the closing request returns, nor for a
-  session dropped after 30 minutes hidden, which the API closes itself later. Both ids already
-  came with `open`.
+- `closed` does not come when the page unloads before the closing request returns, for a
+  session dropped after 30 minutes hidden, nor when the closing request fails (network error,
+  5xx): its events are re-sent with the next session and the API closes the old record itself,
+  later. In all three cases the id already came with `open`.
+- Key what you store by `sessionId`, not by arrival order: the closing request and the next
+  session's first one go out in parallel, so the new session's `open` can arrive before the
+  previous one's `closed`.
 - `getFeedbackSessionId()` returns the open session's id, or `null` before its first batch is
   accepted and after it closes.
 - This is not `getSessionId()`, the SDK's own session id. That one travels in the metadata as

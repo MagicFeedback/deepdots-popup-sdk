@@ -446,6 +446,33 @@ describe('createFeedbackSink', () => {
       expect(onSessionClosed).toHaveBeenCalledWith('fbk-9');
     });
 
+    it('ignora la respuesta del primer lote si la sesión se cerró mientras estaba en vuelo', async () => {
+      // page_hide con el primer POST aún sin respuesta: el cierre (final) no lo espera.
+      let resolveFirst!: (r: unknown) => void;
+      const fetchImpl = vi
+        .fn()
+        .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }))
+        .mockResolvedValue({ ok: true, json: async () => ({}) });
+      const onSessionId = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        onSessionId,
+      });
+
+      const first = sink(envelope());
+      await sink(envelope(), { final: true, sessionEnd: true });
+      resolveFirst({ ok: true, json: async () => ({ sessionId: 'fbk-stale' }) });
+      await first;
+
+      // Ni se avisa como abierto ni se cachea: el lote siguiente (sesión nueva) va sin sessionId.
+      expect(onSessionId).not.toHaveBeenCalled();
+      await sink(envelope());
+      const lastBody = JSON.parse(fetchImpl.mock.calls[2][1].body);
+      expect(lastBody).not.toHaveProperty('sessionId');
+    });
+
     it('no avisa onSessionClosed si el backend rechaza el lote de cierre', async () => {
       const onSessionClosed = vi.fn();
       const sink = createFeedbackSink({
