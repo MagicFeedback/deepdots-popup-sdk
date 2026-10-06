@@ -12,7 +12,9 @@
  *     repintaría su web.
  *  4. El grupo .magicfeedback-radio se cualifica como div.magicfeedback-radio (la clase acaba
  *     también en el <input> del boolean).
- *  5. Al final, un bloque de reglas propias del popup (fuente en los controles y padding del
+ *  5. Todo :hover va dentro de @media (hover: hover): en táctil WebKit deja el hover pegado
+ *     en el último punto tocado y la opción de la página siguiente parecía seleccionada.
+ *  6. Al final, un bloque de reglas propias del popup (fuente en los controles y padding del
  *     radio nativo).
  *
  * Las variables --mf-* se dejan en :root a propósito: el modal del priority-list se portea a
@@ -250,9 +252,11 @@
     text-underline-offset: 2px;
 }
 
-.magicfeedback-info-message a:hover,
-.magicfeedback-start-message a:hover {
-    color: var(--mf-primary-hover);
+@media (hover: hover) {
+    .magicfeedback-info-message a:hover,
+    .magicfeedback-start-message a:hover {
+        color: var(--mf-primary-hover);
+    }
 }
 
 .magicfeedback-info-message ul,
@@ -478,10 +482,12 @@ div.magicfeedback-radio {
     transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-checkbox-container:hover,
-.magicfeedback-radio-container:hover {
-    background-color: var(--mf-bg-hover);
-    border-color: var(--mf-primary);
+@media (hover: hover) {
+    .magicfeedback-checkbox-container:hover,
+    .magicfeedback-radio-container:hover {
+        background-color: var(--mf-bg-hover);
+        border-color: var(--mf-primary);
+    }
 }
 
 .magicfeedback-checkbox-container:has(input:checked),
@@ -548,9 +554,11 @@ div.magicfeedback-radio {
     height: inherit;
 }
 
-.magicfeedback-boolean-option label:hover {
-    background-color: var(--mf-bg-hover);
-    border-color: var(--mf-primary);
+@media (hover: hover) {
+    .magicfeedback-boolean-option label:hover {
+        background-color: var(--mf-bg-hover);
+        border-color: var(--mf-primary);
+    }
 }
 
 .magicfeedback-boolean-option input[type="radio"]:checked + label {
@@ -621,9 +629,11 @@ div.magicfeedback-radio {
     border: 2px solid transparent;
 }
 
-.magicfeedback-rating-option-label-container img:hover {
-    transform: scale(1.1);
-    border-color: var(--mf-primary);
+@media (hover: hover) {
+    .magicfeedback-rating-option-label-container img:hover {
+        transform: scale(1.1);
+        border-color: var(--mf-primary);
+    }
 }
 
 .magicfeedback-rating-option-label-container input[type="radio"]:checked + img {
@@ -775,9 +785,11 @@ div.magicfeedback-radio {
     font-size: 0.8rem;
 }
 
-.magicfeedback-rating-number-option-row .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value,
-.magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
-    background: var(--mf-primary-light);
+@media (hover: hover) {
+    .magicfeedback-rating-number-option-row .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value,
+    .magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
+        background: var(--mf-primary-light);
+    }
 }
 
 .magicfeedback-rating-number-option-row .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
@@ -814,8 +826,10 @@ div.magicfeedback-radio {
     font-size: var(--mf-font-size-sm);
 }
 
-.magicfeedback-rating-number-option--extra .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
-    background: var(--mf-primary-light);
+@media (hover: hover) {
+    .magicfeedback-rating-number-option--extra .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
+        background: var(--mf-primary-light);
+    }
 }
 
 .magicfeedback-rating-number-option--extra .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
@@ -848,9 +862,11 @@ div.magicfeedback-radio {
     color: var(--mf-primary);
 }
 
-.magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value,
-.magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
-    background: var(--mf-primary-light);
+@media (hover: hover) {
+    .magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value,
+    .magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-option-label-container:hover .magicfeedback-rating-number-value {
+        background: var(--mf-primary-light);
+    }
 }
 
 .magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
@@ -904,10 +920,12 @@ div.magicfeedback-radio {
     transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-rating-star-option:not(:checked) > .rating__star:hover,
-.magicfeedback-rating-star-option:not(:checked) > .rating__star:hover ~ span {
-    color: #fbbf24;
-    transform: scale(1.1);
+@media (hover: hover) {
+    .magicfeedback-rating-star-option:not(:checked) > .rating__star:hover,
+    .magicfeedback-rating-star-option:not(:checked) > .rating__star:hover ~ span {
+        color: #fbbf24;
+        transform: scale(1.1);
+    }
 }
 
 .magicfeedback-rating-star-selected {
@@ -948,9 +966,11 @@ div.magicfeedback-radio {
     transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-image-option-label-container:hover img {
-    border-color: var(--mf-primary);
-    box-shadow: var(--mf-shadow-md);
+@media (hover: hover) {
+    .magicfeedback-image-option-label-container:hover img {
+        border-color: var(--mf-primary);
+        box-shadow: var(--mf-shadow-md);
+    }
 }
 
 .magicfeedback-image-option-label-container input:checked + img {
@@ -991,9 +1011,11 @@ div.magicfeedback-radio {
     background-color: var(--mf-bg-secondary);
 }
 
-.magicfeedback-multi-question-matrix-row-tr:hover {
-    background-color: var(--mf-bg-hover);
-    box-shadow: var(--mf-shadow-sm);
+@media (hover: hover) {
+    .magicfeedback-multi-question-matrix-row-tr:hover {
+        background-color: var(--mf-bg-hover);
+        box-shadow: var(--mf-shadow-sm);
+    }
 }
 
 .magicfeedback-multi-question-matrix-table td {
@@ -1029,9 +1051,11 @@ div.magicfeedback-radio {
     transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-priority-list-item:hover {
-    box-shadow: var(--mf-shadow-sm);
-    border-color: var(--mf-primary);
+@media (hover: hover) {
+    .magicfeedback-priority-list-item:hover {
+        box-shadow: var(--mf-shadow-sm);
+        border-color: var(--mf-primary);
+    }
 }
 
 .magicfeedback-priority-list-item-label {
@@ -1052,10 +1076,12 @@ div.magicfeedback-radio {
     user-select: none;
 }
 
-.magicfeedback-priority-list-arrow-up:hover,
-.magicfeedback-priority-list-arrow-down:hover {
-    color: var(--mf-primary);
-    transform: scale(1.2);
+@media (hover: hover) {
+    .magicfeedback-priority-list-arrow-up:hover,
+    .magicfeedback-priority-list-arrow-down:hover {
+        color: var(--mf-primary);
+        transform: scale(1.2);
+    }
 }
 
 /* ========================================
@@ -1162,10 +1188,12 @@ div.magicfeedback-radio {
     box-shadow: var(--mf-shadow-md);
 }
 
-.magicfeedback-submit:hover {
-    background-color: var(--mf-primary-hover);
-    box-shadow: var(--mf-shadow-lg);
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .magicfeedback-submit:hover {
+        background-color: var(--mf-primary-hover);
+        box-shadow: var(--mf-shadow-lg);
+        transform: translateY(-2px);
+    }
 }
 
 .magicfeedback-submit:active {
@@ -1191,9 +1219,11 @@ div.magicfeedback-radio {
     transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-back:hover {
-    border-color: var(--mf-primary);
-    background-color: var(--mf-bg-hover);
+@media (hover: hover) {
+    .magicfeedback-back:hover {
+        border-color: var(--mf-primary);
+        background-color: var(--mf-bg-hover);
+    }
 }
 
 /* ========================================
@@ -1213,8 +1243,10 @@ div.magicfeedback-radio {
     transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-skip-container:hover {
-    color: var(--mf-primary);
+@media (hover: hover) {
+    .magicfeedback-skip-container:hover {
+        color: var(--mf-primary);
+    }
 }
 
 .magicfeedback-skip-container input[type="checkbox"] {
@@ -1355,9 +1387,11 @@ div.magicfeedback-radio {
     box-shadow: var(--mf-shadow-sm);
 }
 
-.magicfeedback-button:hover {
-    background: var(--mf-bg-hover);
-    border-color: var(--mf-primary);
+@media (hover: hover) {
+    .magicfeedback-button:hover {
+        background: var(--mf-bg-hover);
+        border-color: var(--mf-primary);
+    }
 }
 
 .magicfeedback-button:active {
@@ -1371,8 +1405,10 @@ div.magicfeedback-radio {
     box-shadow: var(--mf-shadow-md);
 }
 
-.magicfeedback-button-primary:hover {
-    background: var(--mf-primary-hover);
+@media (hover: hover) {
+    .magicfeedback-button-primary:hover {
+        background: var(--mf-primary-hover);
+    }
 }
 
 .magicfeedback-button-primary:active {
@@ -1398,8 +1434,10 @@ div.magicfeedback-radio {
     box-shadow: var(--mf-shadow-md);
 }
 
-.magicfeedback-start-message-button:hover {
-    background: var(--mf-primary-hover);
+@media (hover: hover) {
+    .magicfeedback-start-message-button:hover {
+        background: var(--mf-primary-hover);
+    }
 }
 
 /* ========================================
@@ -1535,10 +1573,16 @@ div.magicfeedback-radio {
     color: #666;
 }
 
-.magicfeedback-modal-close:hover,
 .magicfeedback-modal-close:focus {
     color: #000;
     outline: none;
+}
+
+@media (hover: hover) {
+    .magicfeedback-modal-close:hover {
+        color: #000;
+        outline: none;
+    }
 }
 
 /* ========================================
@@ -1584,9 +1628,11 @@ div.magicfeedback-radio {
     transition: var(--mf-transition);
 }
 
-.magicfeedback-upload-dropzone:hover {
-    border-color: var(--mf-primary);
-    background-color: var(--mf-bg-hover);
+@media (hover: hover) {
+    .magicfeedback-upload-dropzone:hover {
+        border-color: var(--mf-primary);
+        background-color: var(--mf-bg-hover);
+    }
 }
 
 .magicfeedback-upload-dropzone:focus-within {
@@ -1724,11 +1770,18 @@ div.magicfeedback-radio {
     transition: var(--mf-transition-fast);
 }
 
-.magicfeedback-upload-remove:hover,
 .magicfeedback-upload-remove:focus-visible {
     color: var(--mf-error);
     background-color: var(--mf-primary-light);
     outline: none;
+}
+
+@media (hover: hover) {
+    .magicfeedback-upload-remove:hover {
+        color: var(--mf-error);
+        background-color: var(--mf-primary-light);
+        outline: none;
+    }
 }
 
 .magicfeedback-upload-remove svg {

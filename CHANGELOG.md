@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   open, and after a return from the bfcache the next session wrote into that old record. That
   response is now ignored.
 
+- **Survey options no longer look selected on touch screens before the user taps them.** WebKit
+  keeps `:hover` stuck on the last point touched, so the option of the next page that landed there
+  showed the brand border and grey fill, as if chosen. Every `:hover` rule of the vendored survey
+  CSS now sits behind `@media (hover: hover)` (mouse and trackpad keep it); groups that mixed
+  `:hover` with `:focus`/`:focus-visible` were split so keyboard focus still shows on touch
+  devices. Affects the DOM popup on mobile web, the React Native WebView and, once its pinned
+  stylesheet version is bumped, the native SDK.
+
 ## [1.8.5] — 2026-09-30
 
 ### Added
