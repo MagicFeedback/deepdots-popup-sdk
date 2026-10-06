@@ -150,6 +150,12 @@ export interface FeedbackSinkOptions {
   onSessionId?: (id: string) => void;
   /** Callback invocado al cerrar la sesión (`completed:true`): el sessionId cacheado se olvida. */
   onSessionReset?: () => void;
+  /**
+   * Callback invocado cuando el backend acepta el lote de cierre, con el sessionId del
+   * registro cerrado: el que llevaba el lote o, en una sesión de un solo lote, el que
+   * devuelve la respuesta. Ese registro se convierte en Feedback en segundos.
+   */
+  onSessionClosed?: (id: string) => void;
 }
 
 /** Límite práctico de `fetch({keepalive:true})` (~64KB en Chrome). */
@@ -188,10 +194,17 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
   let feedbackSessionId: string | undefined;
   /** Primer POST (aún sin sessionId) en vuelo: los siguientes lotes lo esperan. */
   let firstPostInFlight: Promise<void> | null = null;
+  /**
+   * Sube cada vez que se cierra u olvida una sesión. Una respuesta que llega con otra
+   * generación es de una sesión ya cerrada (p. ej. el primer POST seguía en vuelo en el
+   * `page_hide`) y no puede volver a cachear su sessionId ni avisarlo como abierto.
+   */
+  let generation = 0;
 
   const url = `${options.baseUrl}/sdk/feedback`;
 
   const post = async (body: AnalyticsFeedbackBody, final: boolean, sessionEnd = false): Promise<void> => {
+    const postGeneration = generation;
     const json = JSON.stringify(body);
     const small = json.length <= KEEPALIVE_MAX_BYTES;
 
@@ -230,11 +243,31 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
     }
 
     // El POST de cierre devuelve el sessionId del registro que acabamos de cerrar:
-    // NO se re-cachea (si no, el lote siguiente volvería a apuntar al registro cerrado).
-    if (sessionEnd) return;
+    // NO se re-cachea (si no, el lote siguiente volvería a apuntar al registro cerrado),
+    // pero se avisa por onSessionClosed, porque ese registro ya va a ser un Feedback.
+    if (sessionEnd) {
+      let closedId = body.sessionId;
+      try {
+        const data = (await res.json()) as { sessionId?: string };
+        closedId = data?.sessionId ?? closedId;
+      } catch {
+        /* respuesta sin JSON: vale el sessionId que llevaba el lote */
+      }
+      try {
+        if (closedId) options.onSessionClosed?.(closedId);
+      } catch {
+        // Un fallo del callback no puede convertir el lote entregado en uno fallido:
+        // el manager lo re-encolaría y el cierre se enviaría dos veces.
+      }
+      return;
+    }
 
     try {
       const data = (await res.json()) as { sessionId?: string };
+      if (postGeneration !== generation) {
+        options.log?.('[DeepdotsAnalytics] sessionId of a closed session ignored:', data?.sessionId);
+        return;
+      }
       if (data?.sessionId && data.sessionId !== feedbackSessionId) {
         feedbackSessionId = data.sessionId;
         options.log?.('[DeepdotsAnalytics] feedbackSessionId cached:', feedbackSessionId);
@@ -250,6 +283,7 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       // Sesión cerrada por el backend: no se envía nada, solo se olvida el registro.
       feedbackSessionId = undefined;
       firstPostInFlight = null;
+      generation++;
       options.onSessionReset?.();
       return;
     }
@@ -272,6 +306,7 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
       // lote lo OMITA y el backend abra uno nuevo (sesión nueva, o usuario nuevo).
       feedbackSessionId = undefined;
       firstPostInFlight = null;
+      generation++;
       options.onSessionReset?.();
     } else if (!feedbackSessionId) {
       // nunca rechaza: es solo una barrera de orden, el fallo lo propaga `sent`

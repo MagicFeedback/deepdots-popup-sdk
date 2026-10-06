@@ -11,6 +11,7 @@ export type {
   DeepdotsConfig,
   DeepdotsInitParams,
   DeepdotsLogger,
+  FeedbackSession,
   TriggerConfig,
   DeepdotsEvent,
   DeepdotsEventType,

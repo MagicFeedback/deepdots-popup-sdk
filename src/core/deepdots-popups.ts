@@ -6,6 +6,7 @@ import {
     EventListener,
     DeepdotsInitParams,
     DeepdotsLogger,
+    FeedbackSession,
     PopupDefinition,
     PopupTriggerCondition,
     PopupActions,
@@ -126,6 +127,8 @@ export class DeepdotsPopups {
     private analytics: AnalyticsManager | null = null;
     /** feedbackSessionId cacheado del canal de analytics (devuelto por POST /sdk/feedback). */
     private analyticsFeedbackSessionId: string | undefined = undefined;
+    /** `init({ onFeedbackSession })`: avisa al host al abrir y cerrar cada registro. */
+    private onFeedbackSession: DeepdotsInitParams['onFeedbackSession'] = undefined;
     /** Timer del flush periódico de analytics (cada ANALYTICS_FLUSH_INTERVAL_MS). */
     private analyticsFlushTimer: ReturnType<typeof setInterval> | undefined = undefined;
     /** Crash & error reporting (#14–17). Null hasta init(). */
@@ -188,6 +191,7 @@ export class DeepdotsPopups {
         this.renderChrome = config.renderChrome ?? true;
         this.showProgressBar = config.showProgressBar;
         this.surveyCss = config.surveyCss;
+        this.onFeedbackSession = config.onFeedbackSession;
 
         this.config = {
             apiKey: config.apiKey || undefined,
@@ -232,7 +236,11 @@ export class DeepdotsPopups {
                   baseUrl: this.baseUrl,
                   keys: config.analytics,
                   log: (...a) => this.log(...a),
-                  onSessionId: (id) => { this.analyticsFeedbackSessionId = id; },
+                  onSessionId: (id) => {
+                      this.analyticsFeedbackSessionId = id;
+                      this.notifyFeedbackSession(id, 'open');
+                  },
+                  onSessionClosed: (id) => this.notifyFeedbackSession(id, 'closed'),
                   onSessionReset: () => { this.analyticsFeedbackSessionId = undefined; },
               })
             : createDryRunSink((...a) => { if (this.config?.debug) this.logger.log(...a); });
@@ -320,6 +328,25 @@ export class DeepdotsPopups {
     /** Session id de navegación actual. Null si tracking off. */
     getSessionId(): string | null {
         return this.tracking?.getSessionId() ?? null;
+    }
+
+    /**
+     * Id del registro de analytics abierto: el `sessionId` que devolvió `POST /sdk/feedback`,
+     * que la API guarda como `sdkSessionId` en el Feedback en que se convierte la sesión. No es
+     * `getSessionId()`. Null hasta que el backend acepta el primer lote y de nuevo al cerrar la
+     * sesión: para saber también qué registro se cerró, usa `init({ onFeedbackSession })`.
+     */
+    getFeedbackSessionId(): string | null {
+        return this.analyticsFeedbackSessionId ?? null;
+    }
+
+    /** Avisa al host del registro abierto o cerrado; un fallo del host no corta el envío. */
+    private notifyFeedbackSession(sessionId: string, status: FeedbackSession['status']): void {
+        try {
+            this.onFeedbackSession?.({ sessionId, status });
+        } catch (error) {
+            this.log('analytics · onFeedbackSession threw:', error);
+        }
     }
 
     /** Activa/desactiva el tracking (identidad + sesión + analytics). Kill-switch del contrato §7bis. */

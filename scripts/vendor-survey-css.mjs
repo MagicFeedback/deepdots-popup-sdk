@@ -77,6 +77,68 @@ replaceOnce(
     'grupo .magicfeedback-radio',
 );
 
+// 5. Todo `:hover` detrás de `@media (hover: hover)`. En táctil WebKit deja el hover "pegado" en
+//    el último punto tocado; en el WebView (RN/KMP) el botón Send es nativo, así que ese punto
+//    suele ser una opción o el textarea de la página anterior, y la opción de la página nueva
+//    que cae ahí sale con borde de marca y fondo gris, como si estuviera seleccionada.
+//    Los grupos que mezclan `:hover` con otros selectores (`:focus`, `:focus-visible`) se
+//    parten: lo que no es hover se queda fuera, para no perder el foco de teclado en táctil.
+//    Si el paquete empieza a acotarlos él mismo, esto no encuentra nada y falla: quitar el paso.
+function gateHover(source) {
+    let out = '';
+    let depth = 0;
+    let start = 0; // inicio del preludio de la regla en curso (nivel superior)
+    let gated = 0;
+    for (let i = 0; i < source.length; i++) {
+        if (source.startsWith('/*', i)) {
+            const end = source.indexOf('*/', i + 2);
+            i = end === -1 ? source.length : end + 1;
+            continue;
+        }
+        const c = source[i];
+        if (c === '{') {
+            if (depth === 0) {
+                // Busca el cierre de esta regla (las de hover no tienen bloques anidados).
+                const close = source.indexOf('}', i);
+                const preludeRaw = source.slice(start, i);
+                // Los comentarios que preceden a la regla se conservan tal cual, fuera del selector.
+                const commentEnd = preludeRaw.lastIndexOf('*/') + 2;
+                const selectorRaw = commentEnd > 1 ? preludeRaw.slice(commentEnd) : preludeRaw;
+                const lead = (commentEnd > 1 ? preludeRaw.slice(0, commentEnd) : '') + selectorRaw.match(/^\s*/)[0];
+                const prelude = selectorRaw.trim();
+                if (!prelude.startsWith('@') && prelude.includes(':hover') && source.slice(i + 1, close).indexOf('{') === -1) {
+                    const parts = prelude.split(/,\s*\n?/).map((p) => p.trim()).filter(Boolean);
+                    const hoverParts = parts.filter((p) => p.includes(':hover'));
+                    const otherParts = parts.filter((p) => !p.includes(':hover'));
+                    const body = source.slice(i + 1, close).replace(/^\n?/, '').replace(/\s*$/, '');
+                    let rewritten = lead;
+                    if (otherParts.length) rewritten += `${otherParts.join(',\n')} {\n${body}\n}\n\n`;
+                    const indented = body.split('\n').map((l) => (l ? `    ${l}` : l)).join('\n');
+                    rewritten += `@media (hover: hover) {\n    ${hoverParts.join(',\n    ')} {\n${indented}\n    }\n}`;
+                    out += rewritten;
+                    gated++;
+                    i = close;
+                    start = close + 1;
+                    continue;
+                }
+                out += source.slice(start, i + 1);
+                start = i + 1;
+            }
+            depth++;
+        } else if (c === '}') {
+            depth--;
+            if (depth === 0) {
+                out += source.slice(start, i + 1);
+                start = i + 1;
+            }
+        }
+    }
+    out += source.slice(start);
+    if (gated === 0) throw new Error('vendor-survey-css: no encuentro reglas :hover sin acotar; si el paquete ya las acota, quita el paso 5.');
+    return out;
+}
+css = gateHover(css);
+
 const header = `/**
  * NO EDITAR A MANO — generado por scripts/vendor-survey-css.mjs
  *
@@ -91,7 +153,9 @@ const header = `/**
  *     repintaría su web.
  *  4. El grupo .magicfeedback-radio se cualifica como div.magicfeedback-radio (la clase acaba
  *     también en el <input> del boolean).
- *  5. Al final, un bloque de reglas propias del popup (fuente en los controles y padding del
+ *  5. Todo :hover va dentro de @media (hover: hover): en táctil WebKit deja el hover pegado
+ *     en el último punto tocado y la opción de la página siguiente parecía seleccionada.
+ *  6. Al final, un bloque de reglas propias del popup (fuente en los controles y padding del
  *     radio nativo).
  *
  * Las variables --mf-* se dejan en :root a propósito: el modal del priority-list se portea a
