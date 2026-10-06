@@ -237,6 +237,8 @@ Example:
 popups.triggerEvent('search');
 ```
 
+It can be called right after `init()`: if the popup definitions are still loading, the event is kept and evaluated as soon as they arrive (the same applies to `triggerSurvey`).
+
 ### `triggerSurvey(surveyId, popupId?)`
 
 Opens a specific survey directly, bypassing trigger evaluation.
