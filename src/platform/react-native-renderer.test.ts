@@ -56,6 +56,7 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
     (popups as any).showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
 
     renderer.handleMessage(JSON.stringify({ name: 'loaded' }));
+    renderer.handleMessage(JSON.stringify({ name: 'before_submit' }));
     renderer.handleMessage(JSON.stringify({ name: 'after_submit' })); // no debe duplicar PARTIAL
     expect(clicked).toHaveBeenCalledTimes(1);
     expect(clicked).toHaveBeenCalledWith(
@@ -70,6 +71,49 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
 
     renderer.handleMessage(JSON.stringify({ name: 'popup_close' }));
     expect(hidden).toBe(1);
+  });
+
+  /** Acceso tipado a lo interno que estos tests necesitan, sin `any`. */
+  type Internals = {
+    showDefinition: (d: unknown) => void;
+    postPopupEvent: (status: string, popupId: string, userId?: string) => Promise<void>;
+    surveyToPopupId: Map<string, string>;
+    surveyProgress: Map<string, { status: string }>;
+  };
+  const internals = (sdk: DeepdotsPopups) => sdk as unknown as Internals;
+  const RN_DEF = { id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' };
+
+  it('cargar el survey NO es interacción: ni popup_clicked ni PARTIAL en backend', () => {
+    const clicked = vi.fn();
+    popups.on('popup_clicked', clicked);
+    const sdk = internals(popups);
+    const post = vi.spyOn(sdk, 'postPopupEvent').mockResolvedValue(undefined);
+    sdk.surveyToPopupId.set('survey-rn', 'popup-rn');
+    sdk.showDefinition(RN_DEF);
+    post.mockClear(); // fuera el SHOWED de la apertura
+
+    renderer.handleMessage(JSON.stringify({ name: 'loaded' }));
+
+    expect(clicked).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(sdk.surveyProgress.get('survey-rn')?.status).not.toBe('PARTIAL');
+
+    // La primera interacción real sí lo marca, y llega al backend.
+    renderer.handleMessage(JSON.stringify({ name: 'before_submit' }));
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][0]).toBe('PARTIAL');
+  });
+
+  it('la primera interacción real marca PARTIAL una sola vez (también si es un back)', () => {
+    const clicked = vi.fn();
+    popups.on('popup_clicked', clicked);
+    internals(popups).showDefinition(RN_DEF);
+
+    renderer.handleMessage(JSON.stringify({ name: 'loaded' }));
+    renderer.handleMessage(JSON.stringify({ name: 'back' }));
+    renderer.handleMessage(JSON.stringify({ name: 'before_submit' }));
+    expect(clicked).toHaveBeenCalledTimes(1);
+    expect(clicked).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: 'partial' }) }));
   });
 
   it('cierra el popup ante un mensaje popup_close', () => {

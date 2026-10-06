@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Web: `popup_clicked` is now user interaction only**, as in the native SDK. The DOM popup
+  no longer emits it for things nobody did: `action: 'loaded'` (the survey finished loading),
+  `'before_submit'`, `'validation_error_required'` and `'submit_error'`. One tap on Back now
+  emits one `back` instead of two. Hosts that listened for `loaded` or the error actions to
+  drive their own UI need another signal; the submit error text is still logged through the
+  SDK logger. Nothing changes for the backend: none of these posted a popup status.
+
 ### Added
 
 - **Multi-language surveys.** The popup now passes the language resolved at `init` (the
@@ -16,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The popup chrome (buttons, progress, aria-labels) follows the language native reports in
   `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
   entry of `formData.lang`, the survey's default language.
+
+### Fixed
+
+- **React Native: loading the survey no longer marks the popup as `PARTIAL`.**
+  `ReactNativePopupRenderer.handleMessage` counted the WebView's `loaded` message as the first
+  interaction, so every popup that opened posted `PARTIAL` to `POST /sdk/popups` (inflating
+  "started" in the dashboards) and fired a `popup_clicked` to host listeners with nobody
+  touching it. Now only a real interaction (sending an answer, or going back) does, once per
+  popup.
 
 ## [1.9.0] — 2026-10-06
 
