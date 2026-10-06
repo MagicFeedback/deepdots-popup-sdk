@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The id of the feedback a session becomes is readable.** `getFeedbackSessionId()` returns
+  the `sessionId` that `POST /sdk/feedback` returned for the open session, which the API stores
+  as `sdkSessionId` on its feedback, and `init({ onFeedbackSession })` reports it with
+  `status: 'open'` when the session's first batch is accepted and `'closed'` when the closing
+  one is. A host can hand it to its backend to find that feedback and add data to it. Until now
+  the SDK kept it internal, so nothing could link a session to its feedback.
+
 ## [1.8.5] — 2026-09-30
 
 ### Added

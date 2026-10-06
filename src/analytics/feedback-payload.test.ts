@@ -404,5 +404,62 @@ describe('createFeedbackSink', () => {
 
       expect(onSessionReset).toHaveBeenCalledOnce();
     });
+
+    it('avisa por onSessionClosed con el sessionId del registro que cierra', async () => {
+      const onSessionClosed = vi.fn();
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) })
+        // Respuesta de cierre sin JSON útil: vale el sessionId que llevaba el lote.
+        .mockResolvedValue({ ok: true, json: async () => ({}) });
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        onSessionClosed,
+      });
+
+      await sink(envelope()); // abre fbk-1
+      expect(onSessionClosed).not.toHaveBeenCalled();
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(onSessionClosed).toHaveBeenCalledOnce();
+      expect(onSessionClosed).toHaveBeenCalledWith('fbk-1');
+    });
+
+    it('en una sesión de un solo lote, onSessionClosed recibe el sessionId que devuelve el cierre', async () => {
+      const onSessionId = vi.fn();
+      const onSessionClosed = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-9' }) }) as unknown as typeof fetch,
+        onSessionId,
+        onSessionClosed,
+      });
+
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(onSessionId).not.toHaveBeenCalled(); // el cierre no se re-cachea
+      expect(onSessionClosed).toHaveBeenCalledWith('fbk-9');
+    });
+
+    it('no avisa onSessionClosed si el backend rechaza el lote de cierre', async () => {
+      const onSessionClosed = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue({ ok: false, status: 406, text: async () => 'Contact not found' }) as unknown as typeof fetch,
+        onSessionClosed,
+      });
+
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(onSessionClosed).not.toHaveBeenCalled();
+    });
   });
 });

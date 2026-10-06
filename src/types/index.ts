@@ -17,6 +17,19 @@ export interface DeepdotsLogger {
     info?: (...args: unknown[]) => void;
 }
 
+/**
+ * A session of the analytics channel as the Deepdots API sees it. Every session becomes ONE
+ * feedback, and `sessionId` is what the API stores as `sdkSessionId` on it: the value to look
+ * that feedback up with (`GET /feedbacks?filter={"where":{"sdkSessionId":"<sessionId>"}}`).
+ *  - `open`: the API acknowledged the session's first batch; its events keep accumulating.
+ *  - `closed`: the API acknowledged the session's closing batch (`completed: true`); the
+ *    feedback is created from it within seconds.
+ */
+export interface FeedbackSession {
+    sessionId: string;
+    status: 'open' | 'closed';
+}
+
 export interface DeepdotsInitParams {
     /** API key for authentication */
     apiKey?: string;
@@ -52,6 +65,16 @@ export interface DeepdotsInitParams {
      * logged when `debug` is true.
      */
     analytics?: AnalyticsKeys;
+    /**
+     * Called when the analytics channel opens or closes a session (needs `analytics`), with the
+     * id the Deepdots API stores as `sdkSessionId` on the feedback the session becomes: send it
+     * to your backend to attach data to that feedback later. A session whose only batch is the
+     * closing one reports just `closed`. `closed` does not come when the page unloads before the
+     * closing request returns, nor for a session dropped after 30 min hidden (the API closes that
+     * one itself, later): their id already came with `open`. Same value as `getFeedbackSessionId()`
+     * while the session is open.
+     */
+    onFeedbackSession?: (session: FeedbackSession) => void;
     /**
      * IP geolocation (country/city) added to analytics. Default `true`. The lookup calls
      * third-party services (ipapi.co, then ipwho.is, then ipinfo.io as fallbacks, 3 s timeout

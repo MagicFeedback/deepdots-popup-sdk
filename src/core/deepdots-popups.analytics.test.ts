@@ -473,6 +473,61 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
       vi.unstubAllGlobals();
     });
 
+    it('getFeedbackSessionId() expone el sessionId del registro abierto y lo olvida al cerrar', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-42' }) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk();
+      expect(sdk.getFeedbackSessionId()).toBeNull();
+
+      sdk.track('cta_click');
+      sdk.flushAnalytics();
+      await vi.waitFor(() => expect(sdk.getFeedbackSessionId()).toBe('fbk-42'));
+
+      sdk.endSession();
+      expect(sdk.getFeedbackSessionId()).toBeNull();
+      vi.unstubAllGlobals();
+    });
+
+    it('onFeedbackSession avisa al abrir y al cerrar el registro, con el mismo sessionId', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-42' }) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const onFeedbackSession = vi.fn();
+      const sdk = initSdk({ onFeedbackSession });
+
+      sdk.track('cta_click');
+      sdk.flushAnalytics();
+      await vi.waitFor(() =>
+        expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: 'fbk-42', status: 'open' }),
+      );
+
+      sdk.endSession();
+      await vi.waitFor(() =>
+        expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: 'fbk-42', status: 'closed' }),
+      );
+      expect(onFeedbackSession).toHaveBeenCalledTimes(2);
+      vi.unstubAllGlobals();
+    });
+
+    it('un onFeedbackSession que lanza no corta el envío', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-42' }) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk({
+        onFeedbackSession: () => {
+          throw new Error('bug del host');
+        },
+      });
+
+      sdk.track('a');
+      sdk.flushAnalytics();
+      await vi.waitFor(() => expect(sdk.getFeedbackSessionId()).toBe('fbk-42'));
+      sdk.track('b');
+      sdk.flushAnalytics();
+
+      await vi.waitFor(() => expect(bodies(fetchSpy)).toHaveLength(2));
+      expect(bodies(fetchSpy)[1].sessionId).toBe('fbk-42');
+      vi.unstubAllGlobals();
+    });
+
     it('onBackground cierra la sesión (background) y onForeground abre otra', () => {
       const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
       vi.stubGlobal('fetch', fetchSpy);
