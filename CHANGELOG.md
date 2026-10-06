@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Web: `popup_clicked` is now user interaction only**, as in the native SDK. The DOM popup
+  no longer emits it for things nobody did: `action: 'loaded'` (the survey finished loading),
+  `'before_submit'`, `'validation_error_required'` and `'submit_error'`. One tap on Back now
+  emits one `back` instead of two. Hosts that listened for `loaded` or the error actions to
+  drive their own UI need another signal; the submit error text is still logged through the
+  SDK logger. Nothing changes for the backend: none of these posted a popup status.
+
 ### Added
 
 - **Multi-language surveys.** The popup now passes the language resolved at `init` (the

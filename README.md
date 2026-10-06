@@ -500,7 +500,7 @@ interface DeepdotsEvent {
 - `action`
 - `userId`
 
-`popup_clicked` is a general interaction event. Depending on the flow, `data.action` can contain values such as `loaded`, `start_survey`, `manual_send`, `back`, `complete`, or `close_icon`.
+`popup_clicked` means the user did something in the popup. On the web, `data.action` is one of `start_survey`, `manual_send`, `back`, `complete`, `close_icon`, or `partial` (the user answered a page and moved on; this one also marks the popup as `PARTIAL` in the backend). Loading the survey, the start of a submit, and validation or submit errors are not interactions and do not emit it. In React Native the bridge emits it once per popup, with `action: 'partial'`, on the first real interaction (sending an answer or going back).
 
 ## Important Behavior Notes
 
