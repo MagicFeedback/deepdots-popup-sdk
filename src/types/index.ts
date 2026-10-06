@@ -21,7 +21,7 @@ export interface DeepdotsLogger {
  * A session of the analytics channel as the Deepdots API sees it. Every session becomes ONE
  * feedback, and `sessionId` is what the API stores as `sdkSessionId` on it: the value to look
  * that feedback up with (`GET /feedbacks?filter={"where":{"sdkSessionId":"<sessionId>"}}`).
- * A session completed twice yields two feedbacks with the same id: take the latest `createdAt`.
+ * A session that closes again keeps that one feedback: the API updates it.
  *  - `open`: the API acknowledged the session's first batch; its events keep accumulating.
  *  - `closed`: the API acknowledged the session's closing batch (`completed: true`); the
  *    feedback is created from it within seconds.

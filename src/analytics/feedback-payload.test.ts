@@ -473,6 +473,38 @@ describe('createFeedbackSink', () => {
       expect(lastBody).not.toHaveProperty('sessionId');
     });
 
+    it('la sesión siguiente no hereda el id viejo si un lote normal seguía en vuelo al cerrar', async () => {
+      // RN iOS: AppState 'inactive' hace un flush normal y 'background' cierra milisegundos
+      // después. iOS suspende la app y la respuesta del primero llega al volver, ya cerrada la
+      // sesión. Visto en producción (MOM): la sesión nueva escribía en el registro cerrado.
+      let resolveInactive!: (r: unknown) => void;
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) })
+        .mockImplementationOnce(() => new Promise((r) => { resolveInactive = r; }))
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) }) // cierre
+        .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-new' }) });
+      const onSessionId = vi.fn();
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        onSessionId,
+      });
+
+      await sink(envelope()); // sesión abierta en fbk-old
+      const inactive = sink(envelope()); // flush de 'inactive', sin respuesta todavía
+      await sink(envelope(), { sessionEnd: true }); // 'background' → cierre
+      resolveInactive({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) });
+      await inactive;
+
+      await sink(envelope()); // primer lote de la sesión nueva
+      const nextBody = JSON.parse(fetchImpl.mock.calls[3][1].body);
+      expect(nextBody).not.toHaveProperty('sessionId');
+      // fbk-old no se vuelve a dar por abierto tras el cierre
+      expect(onSessionId.mock.calls).toEqual([['fbk-old'], ['fbk-new']]);
+    });
+
     it('no avisa onSessionClosed si el backend rechaza el lote de cierre', async () => {
       const onSessionClosed = vi.fn();
       const sink = createFeedbackSink({
