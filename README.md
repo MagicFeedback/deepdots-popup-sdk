@@ -292,9 +292,9 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 Every analytics session becomes one feedback in Deepdots, and the API stores the session's id
 on it as `sdkSessionId`. Send that id to your backend and it can find the feedback
 (`GET /feedbacks?filter={"where":{"sdkSessionId":"<id>"}}`) and add data to it later, such as
-the push deliveries the app never sees. The lookup can return more than one feedback: a session
-can be completed twice (the API closes it for inactivity and the app posts to it again later),
-and both feedbacks carry the same id. Sort by `createdAt` and take the latest.
+the push deliveries the app never sees. A session keeps that one feedback even when it closes
+again (the app retries a closing batch whose response it lost, or a late batch lands after the
+close): the API updates the feedback instead of creating another one.
 
 ```ts
 popups.init({
