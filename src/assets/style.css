@@ -1,7 +1,7 @@
 /**
  * NO EDITAR A MANO — generado por scripts/vendor-survey-css.mjs
  *
- * Copia de @magicfeedback/native@2.2.22 → dist/styles/magicfeedback-default.css
+ * Copia de @magicfeedback/native@2.2.31 → dist/styles/magicfeedback-default.css
  * (la hoja canónica del paquete, la que apunta su campo "style"), con estos cambios locales:
  *
  *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
@@ -985,6 +985,9 @@ div.magicfeedback-radio {
     width: 100%;
     overflow-x: auto;
     border-radius: var(--mf-radius-md);
+    /* the layout follows the space the survey gets (a pop-in, a sidebar),
+       not the size of the window */
+    container-type: inline-size;
 }
 
 .magicfeedback-multi-question-matrix-table {
@@ -1034,6 +1037,296 @@ div.magicfeedback-radio {
     height: 20px;
     cursor: pointer;
     accent-color: var(--mf-primary);
+}
+
+.magicfeedback-multi-question-matrix-question {
+    min-width: 200px;
+    padding: 10px;
+}
+
+/* the column header names the option in a table; the per-cell label is for
+   screen readers until the rows stack */
+.magicfeedback-multi-question-matrix-option-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+/* narrow container: every row becomes its own question with the options
+   stacked underneath, instead of a table cut off at the side */
+@container (max-width: 599px) {
+    .magicfeedback-multi-question-matrix-table,
+    .magicfeedback-multi-question-matrix-table tbody,
+    .magicfeedback-multi-question-matrix-table tr,
+    .magicfeedback-multi-question-matrix-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .magicfeedback-multi-question-matrix-table thead {
+        display: none;
+    }
+
+    .magicfeedback-multi-question-matrix-row-tr,
+    .magicfeedback-multi-question-matrix-row-tr:nth-child(even) {
+        margin-bottom: var(--mf-space-lg);
+        background: transparent;
+        box-shadow: none;
+    }
+
+    @media (hover: hover) {
+        .magicfeedback-multi-question-matrix-row-tr:hover {
+            margin-bottom: var(--mf-space-lg);
+            background: transparent;
+            box-shadow: none;
+        }
+    }
+
+    .magicfeedback-multi-question-matrix-table td.magicfeedback-multi-question-matrix-question {
+        min-width: 0;
+        padding: 0 0 var(--mf-space-sm);
+        text-align: start;
+    }
+
+    .magicfeedback-multi-question-matrix-question .magicfeedback-multi-question-matrix-label {
+        font-weight: 600;
+    }
+
+    .magicfeedback-multi-question-matrix-table td.magicfeedback-multi-question-matrix-option {
+        display: flex;
+        align-items: center;
+        gap: var(--mf-space-sm);
+        margin-bottom: var(--mf-space-sm);
+        padding: 0 var(--mf-space-md);
+        text-align: start;
+        background: var(--mf-bg-secondary);
+        border: 2px solid var(--mf-border);
+        border-radius: var(--mf-radius-md);
+        cursor: pointer;
+        transition: var(--mf-transition-fast);
+    }
+
+    @media (hover: hover) {
+        .magicfeedback-multi-question-matrix-option:hover {
+            border-color: var(--mf-primary-border);
+        }
+    }
+
+    .magicfeedback-multi-question-matrix-option:has(input:checked) {
+        border-color: var(--mf-primary);
+        background: var(--mf-primary-light);
+    }
+
+    .magicfeedback-multi-question-matrix-table .magicfeedback-multi-question-matrix-option input[type="radio"] {
+        flex-shrink: 0;
+    }
+
+    /* the whole card is the click target */
+    .magicfeedback-multi-question-matrix-option-label {
+        position: static;
+        flex: 1;
+        width: auto;
+        height: auto;
+        padding: var(--mf-space-md) 0;
+        overflow: visible;
+        clip: auto;
+        white-space: normal;
+        font-size: var(--mf-font-size-base);
+        color: var(--mf-text-primary);
+        cursor: pointer;
+    }
+}
+
+/* ========================================
+   MAXDIFF (BEST–WORST)
+   ======================================== */
+.magicfeedback-max-diff {
+    /* "least" gets its own hue, apart from the brand color "most" uses; dark
+       enough to read as header text and to hold the white center dot */
+    --mf-max-diff-worst: #b45309;
+    width: 100%;
+}
+
+.magicfeedback-max-diff-container {
+    width: 100%;
+    /* the layout follows the space the survey gets (a pop-in, a sidebar),
+       not the size of the window */
+    container-type: inline-size;
+}
+
+.magicfeedback-max-diff-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--mf-space-md);
+    margin-bottom: var(--mf-space-lg);
+}
+
+.magicfeedback-max-diff-progress-label {
+    font-size: 0.8125rem;
+    font-weight: var(--mf-font-weight-bold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--mf-text-secondary);
+}
+
+.magicfeedback-max-diff-progress-track {
+    flex: 1;
+    height: 6px;
+    overflow: hidden;
+    border-radius: var(--mf-radius-full);
+    background: var(--mf-border);
+}
+
+.magicfeedback-max-diff-progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--mf-radius-full);
+    background: var(--mf-primary);
+}
+
+.magicfeedback-max-diff-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.magicfeedback-max-diff-head,
+.magicfeedback-max-diff-head-spacer {
+    border-bottom: 1px solid var(--mf-border);
+}
+
+.magicfeedback-max-diff-head {
+    width: 11rem;
+    padding: 0 var(--mf-space-sm) var(--mf-space-sm);
+    font-size: 0.8125rem;
+    font-weight: var(--mf-font-weight-extrabold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: center;
+    vertical-align: bottom;
+}
+
+.magicfeedback-max-diff-head-best {
+    color: var(--mf-primary);
+}
+
+.magicfeedback-max-diff-head-worst {
+    color: var(--mf-max-diff-worst);
+}
+
+.magicfeedback-max-diff-head-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.magicfeedback-max-diff-row {
+    transition: background-color 0.15s ease;
+}
+
+.magicfeedback-max-diff-row > * {
+    border-bottom: 1px solid var(--mf-border);
+}
+
+.magicfeedback-max-diff-row:has(.magicfeedback-max-diff-best:checked) {
+    background-color: color-mix(in srgb, var(--mf-primary) 8%, transparent);
+}
+
+.magicfeedback-max-diff-row:has(.magicfeedback-max-diff-worst:checked) {
+    background-color: color-mix(in srgb, var(--mf-max-diff-worst) 8%, transparent);
+}
+
+.magicfeedback-max-diff-item {
+    padding: var(--mf-space-md) var(--mf-space-sm);
+    font-size: 1.0625rem;
+    font-weight: var(--mf-font-weight-semibold);
+    line-height: 1.4;
+    text-align: center;
+    color: var(--mf-text-primary);
+}
+
+.magicfeedback-max-diff-row:has(input:checked) .magicfeedback-max-diff-item {
+    font-weight: var(--mf-font-weight-extrabold);
+}
+
+.magicfeedback-max-diff-cell {
+    padding: 0;
+}
+
+/* the whole cell is the click target */
+.magicfeedback-max-diff-pick {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+    cursor: pointer;
+}
+
+.magicfeedback-max-diff-input {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    border: 2px solid color-mix(in srgb, var(--mf-text-secondary) 80%, white);
+    border-radius: var(--mf-radius-full);
+    background: var(--mf-bg-secondary);
+    cursor: pointer;
+    transition: var(--mf-transition-fast);
+}
+
+@media (hover: hover) {
+    .magicfeedback-max-diff-pick:hover .magicfeedback-max-diff-input {
+        transform: scale(1.08);
+    }
+}
+
+.magicfeedback-max-diff-best:checked {
+    border-color: var(--mf-primary);
+    background: radial-gradient(circle, #FFFFFF 0 4px, var(--mf-primary) 4.5px);
+}
+
+.magicfeedback-max-diff-worst:checked {
+    border-color: var(--mf-max-diff-worst);
+    background: radial-gradient(circle, #FFFFFF 0 4px, var(--mf-max-diff-worst) 4.5px);
+}
+
+.magicfeedback-max-diff-input:focus-visible {
+    outline: 3px solid var(--mf-primary-border);
+    outline-offset: 3px;
+}
+
+/* narrow container: same table, slimmer pick columns and the header icon
+   stacked over its label */
+@container (max-width: 599px) {
+    .magicfeedback-max-diff-head {
+        width: 4.75rem;
+        padding-inline: 2px;
+        font-size: 0.6875rem;
+    }
+
+    .magicfeedback-max-diff-head-label {
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .magicfeedback-max-diff-item {
+        padding-inline: 4px;
+        font-size: var(--mf-font-size-base);
+    }
+
+    .magicfeedback-max-diff-pick {
+        min-height: 68px;
+    }
+
+    .magicfeedback-max-diff-input {
+        width: 28px;
+        height: 28px;
+    }
 }
 
 /* ========================================
@@ -1224,6 +1517,15 @@ div.magicfeedback-radio {
         border-color: var(--mf-primary);
         background-color: var(--mf-bg-hover);
     }
+}
+
+/* hidden on the first page; keep the submit button on the right */
+.magicfeedback-back[hidden] {
+    display: none;
+}
+
+.magicfeedback-action-container .magicfeedback-submit {
+    margin-left: auto;
 }
 
 /* ========================================
