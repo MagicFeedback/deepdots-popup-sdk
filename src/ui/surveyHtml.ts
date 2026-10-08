@@ -5,7 +5,6 @@ import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolv
 import { REVEAL_TIMEOUT_MS } from './reveal';
 import { PRIMARY_COLOR_JS } from './surveyPalette';
 import { BUSY_JS } from './busy';
-import { AUTOFOCUS_JS } from './autofocus';
 import magicfeedbackCss from '../assets/style.css';
 
 /**
@@ -502,15 +501,18 @@ ${customCss}
 
 ${PRIMARY_COLOR_JS}
 ${BUSY_JS}
-${AUTOFOCUS_JS}
 ${REVEAL_JS}
-  // Foco de apertura: necesita el popup revelado y el survey cargado, que llegan en cualquier
-  // orden. Con puntero táctil no hace nada (ver ui/autofocus.ts).
+  // Foco en la primera pregunta si es de escribir. Al navegar lo pone @magicfeedback/native
+  // (autofocus:'navigation'); la apertura la decide el popup, que es quien sabe cuándo se revela.
+  // Necesita el popup revelado y el survey cargado, que llegan en cualquier orden, y solo con
+  // ratón o trackpad: en táctil sacaría el teclado sin que el usuario haya tocado nada.
   var ddRevealed=false, ddSurveyLoaded=false, ddOpenFocusDone=false;
   function ddAutofocusOnOpen(){
     if(ddOpenFocusDone || !ddRevealed || !ddSurveyLoaded){ return; }
     ddOpenFocusDone=true;
-    ddAutofocusFirstTextQuestion(formWrapper, 'open');
+    var fine=typeof window.matchMedia==='function' && window.matchMedia('(pointer: fine)').matches;
+    var f=window.DeepdotsForm;
+    if(fine && f && typeof f.focusFirstQuestion==='function'){ f.focusFirstQuestion(); }
   }
   // El popup se enseña cuando el survey está pintado; \`ready\` deja al host abrir su propio
   // Modal en ese momento en vez de montar un WebView en blanco.
@@ -559,6 +561,9 @@ ${REVEAL_JS}
         // Surveys multi-idioma: native pide a la API este idioma (el del init o el del
         // dispositivo); si el survey no lo tiene, la API sirve el idioma por defecto.
         lang:${initLangJson}||undefined,
+        // Foco en la primera pregunta de escribir tras Start, Siguiente o Atrás. Las versiones
+        // de native sin esta opción la ignoran.
+        autofocus:'navigation',
         onLoadedEvent:function(args){
           // Idioma en el que native muestra el survey: manda sobre el del init para que el
           // chrome no se quede en inglés delante de un survey traducido. Native < 2.3 no lo
@@ -618,9 +623,8 @@ ${REVEAL_JS}
           updateProgress({ progress:form.progress, total:form.total, completed:false, followup:false });
           emitJSON('loaded');
           setLoading(false);
-          // La primera carga es la apertura; las siguientes llegan tras pulsar Start.
+          // La primera carga es la apertura; las siguientes (tras Start) las enfoca native.
           if(!ddSurveyLoaded){ ddSurveyLoaded=true; ddAutofocusOnOpen(); }
-          else { ddAutofocusFirstTextQuestion(formWrapper, 'navigation'); }
         },
         beforeSubmitEvent:function(){
           setLoading(true);
@@ -655,7 +659,6 @@ ${REVEAL_JS}
           updateNavButtons();
           updateProgress(p);
           emitJSON('after_submit', p);
-          ddAutofocusFirstTextQuestion(formWrapper, 'navigation');
         },
         onBackEvent:function(p){
           // Con error ("No page found") no hubo navegación: la profundidad no se toca.
@@ -664,7 +667,6 @@ ${REVEAL_JS}
           // onBackEvent no trae \`total\`: se lee del form, que es su dueño.
           updateProgress({ progress:p&&p.progress, total:form.total, completed:false, followup:p&&p.followup });
           emitJSON('back', p);
-          if(!(p&&p.error)){ ddAutofocusFirstTextQuestion(formWrapper, 'navigation'); }
         }
       }).catch(function(e){ setLoading(false); emit('error:init'); });
     }catch(e){ setLoading(false); emit('error:exception'); }
