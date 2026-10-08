@@ -145,6 +145,13 @@ function ensureFontFace(family: string, url: string) {
     if (el.textContent !== css) el.textContent = css;
 }
 
+/** Ratón o trackpad. Un iPad sin trackpad cuenta como táctil. */
+function hasFinePointer(): boolean {
+    return typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(pointer: fine)').matches;
+}
+
 /**
  * Renderiza el popup dentro del contenedor dado usando MagicFeedback para la encuesta.
  */
@@ -722,6 +729,20 @@ export async function renderPopup(
     // en silencio y se abre el popup ya montado.
     let revealed = false;
     let revealTimer: ReturnType<typeof setTimeout> | null = null;
+    // Foco en la primera pregunta si es de escribir. Al navegar lo pone @magicfeedback/native
+    // (`autofocus: 'navigation'`); la apertura la decide el popup, porque native no sabe cuándo
+    // se revela y un campo con `visibility:hidden` no acepta foco. Necesita el popup visible y
+    // el survey cargado, que llegan en cualquier orden (el techo de la revelación puede vencer
+    // antes que el survey). Solo con ratón o trackpad: en táctil, enfocar al abrir sacaría el
+    // teclado sin que el usuario haya tocado nada.
+    let surveyLoaded = false;
+    let openFocusDone = false;
+
+    function autofocusOnOpen() {
+        if (openFocusDone || !revealed || !surveyLoaded) return;
+        openFocusDone = true;
+        if (hasFinePointer()) formInstance?.focusFirstQuestion?.();
+    }
 
     function reveal() {
         if (revealed) return;
@@ -736,6 +757,7 @@ export async function renderPopup(
         if (!container.contains(popup)) return;
         container.style.visibility = 'visible';
         container.style.pointerEvents = '';
+        autofocusOnOpen();
     }
 
     /**
@@ -818,6 +840,7 @@ export async function renderPopup(
             beforeSubmitEvent?: () => void;
             afterSubmitEvent?: (args: { error?: string, completed: boolean, progress: number, total: number, followup?: boolean }) => void;
             onBackEvent?: (args: { error?: string, progress: number, total: number, followup: boolean }) => void;
+            autofocus?: 'always' | 'navigation' | false;
         }
 
         const generateOptions: TypedGenerateOptions = {
@@ -830,6 +853,10 @@ export async function renderPopup(
             // Surveys multi-idioma: native pide a la API este idioma (el del init o el del
             // dispositivo) y, si el survey no lo tiene, la API sirve el idioma por defecto.
             lang: options?.language,
+            // Foco en la primera pregunta de escribir tras Start, Siguiente o Atrás. Native lo
+            // aplica después de afterSubmitEvent/onBackEvent, cuando `setLoading(false)` ya ha
+            // quitado el `inert`. La apertura va aparte (ver autofocusOnOpen).
+            autofocus: 'navigation',
         };
         generateOptions.onLoadedEvent = ({formData, lang}) => {
             // Idioma en el que native muestra el survey. Manda sobre el del init para que el
@@ -922,6 +949,11 @@ export async function renderPopup(
             updateProgress({progress: formInstance.progress, total: formInstance.total});
             emit('popup_clicked', surveyId, {action: 'loaded'});
             setLoading(false); // hace visible el formulario y oculta el spinner
+            // La primera carga es la apertura; las siguientes (tras Start) las enfoca native.
+            if (!surveyLoaded) {
+                surveyLoaded = true;
+                autofocusOnOpen();
+            }
         };
         generateOptions.beforeSubmitEvent = () => {
             setLoading(true);
