@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
   entry of `formData.lang`, the survey's default language.
 
+### Changed
+
+- **`@magicfeedback/native` 2.2.31** (from 2.2.22), in the web bundle and as the default CDN
+  version of the React Native WebView. Brings the MaxDiff question type, the 300 ms pause
+  before an option auto-advances (so the pick is seen checked), the ghost tap guard after a
+  page change, the narrow-container layouts of the matrix and the numeric rating, and the
+  `autofocus` option used for the focus on text questions. The survey stylesheet is
+  re-vendored from 2.2.31; the hover rules nested in the matrix's container query are now
+  gated behind `@media (hover: hover)` too, so an option no longer looks selected on touch.
+
 ## [1.9.0] — 2026-10-06
 
 ### Added
