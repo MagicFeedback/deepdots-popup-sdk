@@ -215,6 +215,22 @@ const renderer = new ReactNativePopupRenderer({
 `onReady` is optional: a host that opens its container on `onShow` still never shows the spinner,
 because the HTML reveals itself; the container just appears a few hundred ms before the card.
 
+### Focus on text questions
+
+When the first question of a page is a text field (text, long text, email or number), the SDK
+puts the cursor in it so the user can start typing:
+
+- **When the popup opens:** only on devices with a mouse or trackpad (`pointer: fine`). On touch
+  devices it does nothing, so the keyboard never pops up over a popup the user has not touched.
+- **After Start, Next or Back:** on every device, since the user has just tapped.
+
+Only the first question counts: if the page starts with a rating and the text field comes after
+it, nothing is focused. The SDK never takes the focus away from a field of the host page.
+
+In React Native on iOS, the WebView ignores focus set from JavaScript unless the keyboard is
+allowed to open without a direct tap. `DeepdotsProvider` already does this; if you mount the
+WebView yourself, add `keyboardDisplayRequiresUserAction={false}` to it.
+
 ### `autoLaunch()`
 
 Starts the triggers derived from the popup definitions loaded during `init()`.

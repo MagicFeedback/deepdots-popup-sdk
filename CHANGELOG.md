@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The popup chrome (buttons, progress, aria-labels) follows the language native reports in
   `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
   entry of `formData.lang`, the survey's default language.
+- **Focus on text questions.** When the first question of a page is a text field (text, long
+  text, email or number), the cursor is placed in it: when the popup opens only on devices with
+  a mouse or trackpad, and after Start, Next or Back on every device. A page that starts with any
+  other question type is left alone, and a field of the host page never loses its focus. Web DOM
+  popup and React Native WebView; `DeepdotsProvider` sets `keyboardDisplayRequiresUserAction`
+  to `false` so iOS opens the keyboard for it.
 
 ## [1.9.0] — 2026-10-06
 

@@ -5,6 +5,7 @@ import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolv
 import { REVEAL_TIMEOUT_MS } from './reveal';
 import { PRIMARY_COLOR_JS } from './surveyPalette';
 import { BUSY_JS } from './busy';
+import { AUTOFOCUS_JS } from './autofocus';
 import magicfeedbackCss from '../assets/style.css';
 
 /**
@@ -501,12 +502,23 @@ ${customCss}
 
 ${PRIMARY_COLOR_JS}
 ${BUSY_JS}
+${AUTOFOCUS_JS}
 ${REVEAL_JS}
+  // Foco de apertura: necesita el popup revelado y el survey cargado, que llegan en cualquier
+  // orden. Con puntero táctil no hace nada (ver ui/autofocus.ts).
+  var ddRevealed=false, ddSurveyLoaded=false, ddOpenFocusDone=false;
+  function ddAutofocusOnOpen(){
+    if(ddOpenFocusDone || !ddRevealed || !ddSurveyLoaded){ return; }
+    ddOpenFocusDone=true;
+    ddAutofocusFirstTextQuestion(formWrapper, 'open');
+  }
   // El popup se enseña cuando el survey está pintado; \`ready\` deja al host abrir su propio
   // Modal en ese momento en vez de montar un WebView en blanco.
   var ddReveal=ddCreateReveal(popup, function(){
     document.body.classList.add('dd-ready');
     emitJSON('ready');
+    ddRevealed=true;
+    ddAutofocusOnOpen();
   }, ${REVEAL_TIMEOUT_MS});
 
   function setLoading(isLoading){
@@ -606,6 +618,9 @@ ${REVEAL_JS}
           updateProgress({ progress:form.progress, total:form.total, completed:false, followup:false });
           emitJSON('loaded');
           setLoading(false);
+          // La primera carga es la apertura; las siguientes llegan tras pulsar Start.
+          if(!ddSurveyLoaded){ ddSurveyLoaded=true; ddAutofocusOnOpen(); }
+          else { ddAutofocusFirstTextQuestion(formWrapper, 'navigation'); }
         },
         beforeSubmitEvent:function(){
           setLoading(true);
@@ -640,6 +655,7 @@ ${REVEAL_JS}
           updateNavButtons();
           updateProgress(p);
           emitJSON('after_submit', p);
+          ddAutofocusFirstTextQuestion(formWrapper, 'navigation');
         },
         onBackEvent:function(p){
           // Con error ("No page found") no hubo navegación: la profundidad no se toca.
@@ -648,6 +664,7 @@ ${REVEAL_JS}
           // onBackEvent no trae \`total\`: se lee del form, que es su dueño.
           updateProgress({ progress:p&&p.progress, total:form.total, completed:false, followup:p&&p.followup });
           emitJSON('back', p);
+          if(!(p&&p.error)){ ddAutofocusFirstTextQuestion(formWrapper, 'navigation'); }
         }
       }).catch(function(e){ setLoading(false); emit('error:init'); });
     }catch(e){ setLoading(false); emit('error:exception'); }

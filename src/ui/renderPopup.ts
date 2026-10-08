@@ -5,6 +5,7 @@ import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { insertPopupLogo } from './logo';
 import { applySurveyPrimaryColor } from './surveyPalette';
 import { setSurveyBusy } from './busy';
+import { autofocusFirstTextQuestion } from './autofocus';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS, revealWhenPainted as revealWhenImagesLoaded } from './reveal';
@@ -722,6 +723,17 @@ export async function renderPopup(
     // en silencio y se abre el popup ya montado.
     let revealed = false;
     let revealTimer: ReturnType<typeof setTimeout> | null = null;
+    // Foco de apertura: necesita el popup visible (un campo con `visibility:hidden` no acepta
+    // foco) y el survey cargado, y llegan en cualquier orden (el techo de la revelación puede
+    // vencer antes que el survey).
+    let surveyLoaded = false;
+    let openFocusDone = false;
+
+    function autofocusOnOpen() {
+        if (openFocusDone || !revealed || !surveyLoaded) return;
+        openFocusDone = true;
+        autofocusFirstTextQuestion(formWrapper, 'open');
+    }
 
     function reveal() {
         if (revealed) return;
@@ -736,6 +748,7 @@ export async function renderPopup(
         if (!container.contains(popup)) return;
         container.style.visibility = 'visible';
         container.style.pointerEvents = '';
+        autofocusOnOpen();
     }
 
     /**
@@ -922,6 +935,13 @@ export async function renderPopup(
             updateProgress({progress: formInstance.progress, total: formInstance.total});
             emit('popup_clicked', surveyId, {action: 'loaded'});
             setLoading(false); // hace visible el formulario y oculta el spinner
+            // La primera carga es la apertura; las siguientes llegan tras pulsar Start.
+            if (!surveyLoaded) {
+                surveyLoaded = true;
+                autofocusOnOpen();
+            } else {
+                autofocusFirstTextQuestion(formWrapper, 'navigation');
+            }
         };
         generateOptions.beforeSubmitEvent = () => {
             setLoading(true);
@@ -965,6 +985,7 @@ export async function renderPopup(
             pageDepth++;
             updateNavButtons();
             updateProgress({progress, total, followup});
+            autofocusFirstTextQuestion(formWrapper, 'navigation');
         };
         generateOptions.onBackEvent = ({progress, error, followup}) => {
             emit('popup_clicked', surveyId, {action: 'back'});
@@ -973,6 +994,7 @@ export async function renderPopup(
             updateNavButtons();
             // onBackEvent no trae `total`: se lee del form, que es su dueño.
             updateProgress({progress, total: formInstance.total, followup});
+            if (!error) autofocusFirstTextQuestion(formWrapper, 'navigation');
         };
 
         // Ejecutar generación con opciones tipadas
