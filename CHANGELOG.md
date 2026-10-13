@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SUSPEND_GRACE_MINUTES`), which must be deployed with this version. When the record is not
   known yet at `pagehide`, or there is no `sessionStorage`, the session closes as before.
 
+- **Events fired before the popups load are no longer lost.** `init()` fetches the popup
+  definitions asynchronously, so a `triggerEvent('app_opened')` (or `triggerSurvey`) called
+  right after it ran against an empty list and was dropped with "No event popup definitions
+  found", even when the popup arrived milliseconds later. While that fetch is in flight, these
+  calls are now kept (up to 20; past that the oldest is dropped) and replayed in order once the
+  definitions load, through the normal evaluation: segments, `excludedPaths`, cooldowns and
+  conditions apply with the state at that moment. If the fetch fails they are discarded and
+  nothing is kept from then on. Without an `apiKey` there is no fetch and nothing is kept.
+  Same behaviour as the native SDK.
+
 ## [1.10.0] — 2026-10-08
 
 ### Added
