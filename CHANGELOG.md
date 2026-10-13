@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Reloading the page no longer splits the analytics session in two.** The browser fires
+  `pagehide` on a reload (Cmd+R / F5) or a full-page navigation exactly as when the tab is
+  closed, and the SDK closed the session there: every reload produced two feedbacks (and two
+  messages in the Slack actions). `pagehide` now *suspends* the session — it sends what is
+  pending with a `deepdots_session_suspend` event and no `completed`, and keeps the record id
+  in `sessionStorage`. The next load in the same tab within a minute carries on in that record,
+  with a `deepdots_session_resume` event instead of `deepdots_session_start`. A tab that is
+  really closed is closed by the backend a few minutes later (`incomplete-surveys` job,
+  `SUSPEND_GRACE_MINUTES`), which must be deployed with this version. When the record is not
+  known yet at `pagehide`, or there is no `sessionStorage`, the session closes as before.
+
 ## [1.10.0] — 2026-10-08
 
 ### Added
