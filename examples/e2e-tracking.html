@@ -25,6 +25,8 @@
     // apiKey/userId opcionales vía query para los distintos casos del test
     if (params.get('apiKey')) init.apiKey = params.get('apiKey');
     if (params.get('userId')) init.userId = params.get('userId');
+    // Canal de analytics real (POST /sdk/feedback) solo si el test lo pide; el test lo mockea.
+    if (params.get('analytics')) init.analytics = { publicKey: 'pub-e2e', integration: params.get('analytics') };
 
     sdk.init(init);
 

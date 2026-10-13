@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-10-13
+
+### Added
+
+- **Focus on text questions.** When the first question of a page is a text field (text, long
+  text, email or number), the cursor is placed in it: when the popup opens only on devices with
+  a mouse or trackpad, and after Start, Next or Back on every device. A page that starts with any
+  other question type is left alone, and a field of the host page never loses its focus. The
+  focus comes from `@magicfeedback/native` (`autofocus: 'navigation'` and
+  `focusFirstQuestion()` once the popup is revealed), so it needs the native version that ships
+  that option. Web DOM popup and React Native WebView; `DeepdotsProvider` sets
+  `keyboardDisplayRequiresUserAction` to `false` so iOS opens the keyboard for it.
+
+### Changed
+
+- **Web: `popup_clicked` is now user interaction only**, as in the native SDK. The DOM popup
+  no longer emits it for things nobody did: `action: 'loaded'` (the survey finished loading),
+  `'before_submit'`, `'validation_error_required'` and `'submit_error'`. One tap on Back now
+  emits one `back` instead of two. Hosts that listened for `loaded` or the error actions to
+  drive their own UI need another signal; the submit error text is still logged through the
+  SDK logger. Nothing changes for the backend: none of these posted a popup status.
+
+### Fixed
+
+- **Reloading the page no longer splits the analytics session in two.** The browser fires
+  `pagehide` on a reload (Cmd+R / F5) or a full-page navigation exactly as when the tab is
+  closed, and the SDK closed the session there: every reload produced two feedbacks (and two
+  messages in the Slack actions). `pagehide` now *suspends* the session — it sends what is
+  pending with a `deepdots_session_suspend` event and no `completed`, and keeps the record id
+  in `sessionStorage`. The next load in the same tab within a minute carries on in that record,
+  with a `deepdots_session_resume` event instead of `deepdots_session_start`. A tab that is
+  really closed is closed by the backend a few minutes later (`incomplete-surveys` job,
+  `SUSPEND_GRACE_MINUTES`), which must be deployed with this version. When the record is not
+  known yet at `pagehide`, or there is no `sessionStorage`, the session closes as before.
+
+- **Events fired before the popups load are no longer lost.** `init()` fetches the popup
+  definitions asynchronously, so a `triggerEvent('app_opened')` (or `triggerSurvey`) called
+  right after it ran against an empty list and was dropped with "No event popup definitions
+  found", even when the popup arrived milliseconds later. While that fetch is in flight, these
+  calls are now kept (up to 20; past that the oldest is dropped) and replayed in order once the
+  definitions load, through the normal evaluation: segments, `excludedPaths`, cooldowns and
+  conditions apply with the state at that moment. If the fetch fails they are discarded and
+  nothing is kept from then on. Without an `apiKey` there is no fetch and nothing is kept.
+  Same behaviour as the native SDK.
+
+- **React Native: loading the survey no longer marks the popup as `PARTIAL`.**
+  `ReactNativePopupRenderer.handleMessage` counted the WebView's `loaded` message as the first
+  interaction, so every popup that opened posted `PARTIAL` to `POST /sdk/popups` (inflating
+  "started" in the dashboards) and fired a `popup_clicked` to host listeners with nobody
+  touching it. Now only a real interaction (sending an answer, or going back) does, once per
+  popup.
+
 ## [1.10.0] — 2026-10-08
 
 ### Added

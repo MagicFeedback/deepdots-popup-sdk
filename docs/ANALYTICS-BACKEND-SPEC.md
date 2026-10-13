@@ -232,12 +232,24 @@ Se emite al abrir sesión: en el `init()`, al volver a foreground tras un cierre
 ```
 | `reason` | Cuándo |
 |---|---|
-| `page_hide` | La página web se cierra o se navega fuera (`pagehide`) |
+| `page_hide` | La página web se cierra o se navega fuera (`pagehide`) **sin poder suspenderse** (aún no se conocía el registro o no hay `sessionStorage`). Con el registro conocido, el `pagehide` suspende (ver `deepdots_session_suspend`); este `reason` lo añade también el backend al cerrar una sesión suspendida |
 | `background` | La app pasa a background (RN/nativo) |
 | `user_change` | `setUserId()` o un `init()` con otro `userId` (login/logout) |
 | `tracking_disabled` | `setTrackingEnabled(false)` (consentimiento revocado) |
 | `manual` | El host llamó a `endSession()` |
 | `idle_timeout` | La pestaña vuelve a verse tras más de 30 min oculta (web, desde 1.8.3): se cierra y se abre otra |
+
+#### `deepdots_session_suspend` (web, desde 1.11.0)
+La página se ocultó (`pagehide`: recarga, navegación con carga completa o cierre de la pestaña, que el navegador no distingue). Viaja en el último lote de esa carga, **sin `completed`**: la sesión sigue abierta. Ver §7.
+```json
+{ "timestamp": 1750000090000, "reason": "page_hide" }
+```
+
+#### `deepdots_session_resume` (web, desde 1.11.0)
+La página volvió a cargar en la misma pestaña (o volvió de la bfcache) a menos de 1 min de su `deepdots_session_suspend`, y sigue en el mismo registro. Sustituye al `deepdots_session_start`: no es una sesión nueva. `suspended_ms` = tiempo entre la suspensión y la reanudación.
+```json
+{ "timestamp": 1750000092000, "suspended_ms": 2000 }
+```
 
 #### `deepdots_app_crash`
 Crash o error reportado. Los crashes no capturados se persisten a disco y se reenvían en el siguiente arranque; los `reportError()` del host se emiten en el momento.
@@ -418,12 +430,38 @@ acumulado y por último `deepdots_session_end` con su `reason`.
 
 | Señal | Plataforma | Fiabilidad |
 |---|---|---|
-| `pagehide` | Web | Alta. En Safari iOS puede no dispararse si el SO mata la pestaña |
+| `pagehide` | Web | **Suspende**, no cierra (desde 1.11.0, ver abajo). Cierra con `completed: true` solo si aún no se conocía el registro. En Safari iOS puede no dispararse si el SO mata la pestaña |
 | `AppState → background` | RN / nativo | Alta. `inactive` (llamada entrante, app switcher) **no** cierra: solo hace flush |
 | `setUserId()` / `init()` con otro `userId` | Todas | Total (lo dispara el host) |
 | `setTrackingEnabled(false)` | Todas | Total |
 | `endSession()` | Todas | Total |
 | Pestaña visible tras 30–50 min oculta (`idle_timeout`) | Web | Total. Tras **50 min o más** la sesión se **descarta sin enviar nada**: el backend ya la cerró por inactividad |
+
+### Recargar no parte la sesión (web, desde 1.11.0)
+
+El navegador lanza `pagehide` igual al recargar (Cmd+R / F5) o navegar con carga completa que
+al cerrar la pestaña. Hasta la 1.10.x eso cerraba la sesión y la carga siguiente abría otra:
+cada recarga eran **dos registros** (dos feedbacks, dos mensajes en las actions de Slack).
+
+Ahora el `pagehide` **suspende** la sesión:
+
+1. Manda lo pendiente (page_view de la pantalla, `mini_service_exit`, `user_engagement`) más un
+   `deepdots_session_suspend`, **sin `completed`**, al mismo `sessionId`.
+2. Guarda el `sessionId` en `sessionStorage` (por pestaña: sobrevive a la recarga y muere al
+   cerrar la pestaña).
+3. Si la página vuelve a cargar en esa pestaña **en menos de 1 min**
+   (`ANALYTICS_RESUME_WINDOW_MS`), el SDK sigue en el mismo registro: el primer lote lleva ese
+   `sessionId` y un `deepdots_session_resume` en lugar de `deepdots_session_start`.
+4. Si no vuelve (pestaña cerrada), **el backend cierra la sesión**: Run_Jobs
+   `incomplete-surveys` cierra una sesión cuyo último lote lleva `deepdots_session_suspend` y
+   que lleva `SUSPEND_GRACE_MINUTES` (3 min) sin otro lote, sin esperar a los 60 min de
+   inactividad, y le añade el `deepdots_session_end` con `reason: page_hide`. El feedback
+   llega a los pocos minutos de cerrar la pestaña (lo que tarde el siguiente barrido).
+
+Si en el `pagehide` aún no se conoce el registro (el primer POST sigue en vuelo) o no hay
+`sessionStorage`, se cierra como antes (`completed: true`). La ventana del SDK (1 min) tiene que
+quedar muy por debajo de la del backend (3 min): reanudar una sesión que el backend ya montó la
+partiría en dos feedbacks.
 
 ### ⚠️ El backend necesita igualmente una ventana de inactividad
 
@@ -442,6 +480,7 @@ valores del SDK dependen de ella y deben mantenerse en sincronía (`deepdots-pop
 | `ANALYTICS_HEARTBEAT_MS` | 5 min | Muy por debajo de la ventana: una sesión visible nunca parece abandonada |
 | `ANALYTICS_SESSION_TIMEOUT_MS` | 30 min | Una pestaña que vuelve tras más tiempo oculta empieza sesión nueva |
 | `ANALYTICS_SERVER_IDLE_MS` | 60 min | La ventana del backend; se descarta (sin POST) a partir de 50 min oculta, con 10 min de margen, para no reabrir una sesión que el backend ya montó |
+| `ANALYTICS_RESUME_WINDOW_MS` | 1 min | Una recarga en la misma pestaña sigue en la sesión suspendida; muy por debajo de `SUSPEND_GRACE_MINUTES` (3 min) del backend |
 
 ### Impacto en el conteo de sesiones
 

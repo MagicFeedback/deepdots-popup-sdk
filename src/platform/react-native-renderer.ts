@@ -186,6 +186,9 @@ export class ReactNativePopupRenderer implements PopupRenderer {
         this.emitReady(surveyId);
         break;
       case 'loaded':
+        // Solo avisa de que el survey ha cargado: tampoco es interacción. Antes contaba como
+        // la primera, y cada popup que se abría quedaba como PARTIAL en backend.
+        break;
       case 'before_submit':
       case 'after_submit':
       case 'back':
