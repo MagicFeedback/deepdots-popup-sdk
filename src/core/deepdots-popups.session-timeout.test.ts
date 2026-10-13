@@ -39,6 +39,7 @@ describe('analytics session heartbeat and timeout', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
+    sessionStorage.clear();
     // Cada integración numera sus registros: <integración>:1, y tras un cierre <integración>:2…
     const opened = new Map<string, number>();
     fetchSpy = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
@@ -153,7 +154,8 @@ describe('analytics session heartbeat and timeout', () => {
     expect(after[0].sessionId).toBeUndefined();
   });
 
-  it('closing the tab after a rotation closes the new session, not the old one', async () => {
+  // `pagehide` suspende la sesión en vez de cerrarla (ver deepdots-popups.resume.test.ts).
+  it('leaving the page after a rotation suspends the new session, not the old one', async () => {
     start('int-session-close');
     await vi.advanceTimersByTimeAsync(30_000);
     setVisibility('hidden');
@@ -163,8 +165,9 @@ describe('analytics session heartbeat and timeout', () => {
     window.dispatchEvent(new Event('pagehide'));
     await vi.advanceTimersByTimeAsync(0);
 
-    const closings = bodies('int-session-close').filter((b) => b.completed);
-    expect(closings).toHaveLength(1);
-    expect(closings[0].sessionId).toBe('int-session-close:2');
+    const last = bodies('int-session-close').at(-1)!;
+    expect(last.completed).toBe(false);
+    expect(last.sessionId).toBe('int-session-close:2');
+    expect(eventsOf(last).some((e) => e.name === 'deepdots_session_suspend')).toBe(true);
   });
 });

@@ -24,6 +24,12 @@ import { PopupRenderer, createDefaultRenderer } from '../platform/renderer';
 import { TrackingManager, createDefaultStorage, type KeyValueStorage } from '../tracking/tracking-manager';
 import { AnalyticsManager, createDryRunSink, type AnalyticsEnvelope } from '../analytics/analytics-manager';
 import { createFeedbackSink } from '../analytics/feedback-payload';
+import {
+    clearSuspendedSession,
+    getSessionStorage,
+    takeSuspendedSession,
+    writeSuspendedSession,
+} from '../analytics/suspended-session';
 import { NavigationObserver } from '../tracking/navigation-observer';
 import { collectDeviceInfo } from '../analytics/device-info';
 import { readCachedGeo, writeCachedGeo, fetchGeo } from '../analytics/geo-info';
@@ -60,10 +66,25 @@ const ANALYTICS_SERVER_IDLE_MS = 60 * 60_000;
  * anterior al momento en que se ocultó la pestaña.
  */
 const ANALYTICS_SESSION_DISCARD_MS = ANALYTICS_SERVER_IDLE_MS - 10 * 60_000;
+/**
+ * Una página que vuelve a cargar en la misma pestaña (recarga, navegación con carga completa,
+ * bfcache) dentro de este tiempo tras su `pagehide` SIGUE en la sesión suspendida, en vez de
+ * abrir otra. Muy por debajo del margen con el que el backend cierra una sesión suspendida
+ * (Run_Jobs `incomplete-surveys`, `SUSPEND_GRACE_MINUTES`, 3 min): reanudar una sesión que
+ * el backend ya montó la partiría en dos feedbacks. Mantener en sincronía.
+ */
+const ANALYTICS_RESUME_WINDOW_MS = 60_000;
 /** Namespace reservado para los eventos que emite el propio SDK (page_view, message, mini_service…). */
 const RESERVED_EVENT_PREFIX = 'deepdots_';
 /** Prefijo que se antepone a los eventos custom del host para poder identificarlos frente a los reservados. */
 const CUSTOM_EVENT_PREFIX = 'deepdots_event_';
+/** Techo del buffer de disparos recibidos mientras se cargan las definiciones (descarta los más viejos). */
+export const MAX_PENDING_TRIGGERS = 20;
+
+/** Disparo del host recibido antes de que lleguen las definiciones de popups. */
+type PendingTrigger =
+    | { kind: 'event'; name: string }
+    | { kind: 'survey'; surveyId: string; popupId?: string };
 
 interface DeferredExitPopup {
     id: string;
@@ -100,6 +121,14 @@ export class DeepdotsPopups {
     private popupContainer: HTMLElement | null = null; // deprecated: mantenido para compatibilidad interna
     private popupDefinitions: NormalizedPopupDefinition[] = [];
     private popupsLoaded = false;
+    /**
+     * `true` mientras el `GET /sdk/{apiKey}/popups` de `init()` está en vuelo. En esa ventana los
+     * disparos del host (`triggerEvent`, `triggerSurvey`) no tienen contra qué evaluarse, así que
+     * se guardan en `pendingTriggers` y se reproducen al cargar. Click, scroll, time y exit no
+     * hacen falta: son listeners que `autoLaunch` instala ya con las definiciones cargadas.
+     */
+    private awaitingPopups = false;
+    private pendingTriggers: PendingTrigger[] = [];
     private pendingAutoLaunch = false;
 
     // Estado que alimenta las reglas de redisplay. Copia de trabajo en memoria; la fuente
@@ -155,6 +184,13 @@ export class DeepdotsPopups {
     private lastEngagementAt = 0;
     /** Cuándo se ocultó la pestaña por última vez (ms epoch); null si está visible. */
     private hiddenAt: number | null = null;
+    /**
+     * Sesión suspendida por un `pagehide` (ms epoch y `deepdots_user_id`); null si no hay.
+     * `openSession` la reanuda si sigue a tiempo (ver ANALYTICS_RESUME_WINDOW_MS).
+     */
+    private suspended: { at: number; userId: string | null } | null = null;
+    /** Integración de analytics del init: la sesión suspendida solo la hereda la misma. */
+    private analyticsIntegration: string | undefined = undefined;
     /**
      * Idioma resuelto en init() (explícito > navigator.language > Intl). Única fuente de
      * verdad para el context de analytics Y para la segmentación por idioma de los popups.
@@ -228,6 +264,15 @@ export class DeepdotsPopups {
         }
         this.log('tracking · user_id:', this.tracking.getUserId(), '· new_user:', this.tracking.isNewUser(), '· enabled:', this.tracking.isTrackingEnabled());
 
+        // Recarga en la misma pestaña: la sesión que suspendió el `pagehide` sigue abierta en el
+        // backend. Se recoge aquí para que el sink siga en ese registro desde el primer lote.
+        this.analyticsIntegration = config.analytics?.integration;
+        const resumable = this.readResumableSession();
+        if (resumable) {
+            this.analyticsFeedbackSessionId = resumable.sessionId;
+            this.suspended = { at: resumable.at, userId: resumable.userId };
+        }
+
         // Analytics: se envía como Feedback a la integración (`POST /sdk/feedback`) si se
         // pasan claves en init.analytics; si no, queda en dry-run: no envía nada y el payload
         // solo se pinta con `debug`, para no ensuciar la consola de la web del host en producción.
@@ -236,6 +281,7 @@ export class DeepdotsPopups {
                   baseUrl: this.baseUrl,
                   keys: config.analytics,
                   log: (...a) => this.log(...a),
+                  initialSessionId: resumable?.sessionId,
                   onSessionId: (id) => {
                       this.analyticsFeedbackSessionId = id;
                       this.notifyFeedbackSession(id, 'open');
@@ -287,8 +333,12 @@ export class DeepdotsPopups {
         // No arranca aquí: lo hace `openSession`, y solo con la pestaña visible.
         this.engagement = new EngagementTracker();
         this.setupAnalyticsFlush();
-        // Marca de inicio de sesión (base para Crash-Free Users #14).
+        // Marca de inicio de sesión (base para Crash-Free Users #14), o reanudación de la que
+        // suspendió la carga anterior de esta pestaña.
         this.openSession();
+        if (resumable && this.analyticsFeedbackSessionId === resumable.sessionId) {
+            this.notifyFeedbackSession(resumable.sessionId, 'open');
+        }
         // Drena SIEMPRE la cola (descarta los pendientes si tracking está off, spec §7);
         // solo reenvía como evento cuando el tracking está activo.
         const pendingCrashes = this.crashReporter.drainPendingCrashes();
@@ -303,9 +353,12 @@ export class DeepdotsPopups {
         if (this.renderer.init) this.renderer.init();
         this.setupPopupContainer();
 
-        // Los popups SIEMPRE se reciben de la API (no se definen en init).
+        // Los popups SIEMPRE se reciben de la API (no se definen en init). Sin apiKey no hay
+        // GET que esperar, así que tampoco se guardan disparos.
+        this.awaitingPopups = Boolean(this.config.apiKey && this.baseUrl);
         this.fetchPopupsFromServer().then((defs) => {
-            this.popupDefinitions = this.validatePopupDefinitions(defs);
+            if (!defs) this.dropPendingTriggers();
+            this.popupDefinitions = this.validatePopupDefinitions(defs ?? []);
             this.popupsLoaded = true;
             this.log('Popups loaded from API', this.popupDefinitions);
             // Con al menos un popup que pueda abrirse, el renderer se trae ya lo que costará la
@@ -317,6 +370,7 @@ export class DeepdotsPopups {
             if (this.pendingAutoLaunch) {
                 this.startTriggers();
             }
+            this.replayPendingTriggers();
         });
     }
 
@@ -592,9 +646,16 @@ export class DeepdotsPopups {
     private openSession(): void {
         if (this.sessionOpen) return;
         if (!this.tracking?.isTrackingEnabled()) return;
+        const suspendedMs = this.takeSuspendedSession();
         this.sessionOpen = true;
         this.lastEngagementAt = Date.now();
-        this.track('deepdots_session_start', {});
+        if (suspendedMs === null) {
+            this.track('deepdots_session_start', {});
+        } else {
+            // Misma sesión: sin `session_start`, que contaría una sesión de más.
+            this.track('deepdots_session_resume', { suspended_ms: suspendedMs });
+            this.log('tracking · session resumed after', suspendedMs, 'ms:', this.analyticsFeedbackSessionId);
+        }
         // El cierre anterior dejó sin pantalla al observador: sin esto, la pantalla en la que
         // está el usuario al reabrir (cambio de usuario, vuelta de la bfcache) no contaba.
         this.navObserver?.restart();
@@ -675,6 +736,83 @@ export class DeepdotsPopups {
         this.openSession();
     }
 
+    /**
+     * `pagehide` en web: SUSPENDE la sesión en vez de cerrarla, porque el navegador lo lanza
+     * igual al recargar que al cerrar la pestaña. Vuelca lo pendiente (page_view de la
+     * pantalla, mini-services, engagement) con un `deepdots_session_suspend` y SIN
+     * `completed`, y deja el registro en `sessionStorage` (ver `suspended-session.ts`):
+     *  - si la página vuelve a cargar en esta pestaña, `init()` sigue en el mismo registro;
+     *  - si la pestaña se cerró, el backend lo cierra a los pocos minutos sin otro lote.
+     *
+     * Devuelve false cuando no se puede suspender — aún no se conoce el registro (el primer
+     * POST sigue en vuelo) o no hay `sessionStorage` — y entonces el caller cierra como antes.
+     */
+    private suspendSession(): boolean {
+        if (!this.sessionOpen || !this.tracking?.isTrackingEnabled()) return false;
+        const sessionId = this.analyticsFeedbackSessionId;
+        const integration = this.analyticsIntegration;
+        const storage = getSessionStorage();
+        if (!sessionId || !integration || !storage) return false;
+        const at = Date.now();
+        const userId = this.tracking.getUserId();
+        if (!writeSuspendedSession(storage, { sessionId, integration, userId, at })) return false;
+
+        this.sessionOpen = false;
+        this.suspended = { at, userId };
+        this.navObserver?.stop(); // cierra la pantalla actual → page_view
+        this.navStarted = false;
+        this.analytics?.exitAllMiniServices();
+        this.flushEngagement();
+        this.engagement?.pause(); // como en closeSession: nada de engagement tras el pagehide
+        this.track('deepdots_session_suspend', { reason: 'page_hide' });
+        this.flushAnalytics({ final: true });
+        this.log('tracking · session suspended:', sessionId);
+        return true;
+    }
+
+    /**
+     * Recoge la sesión que dejó suspendida la carga anterior de esta pestaña (ver
+     * `suspendSession`). Solo con analytics configurado y el tracking activo: sin ellos no hay
+     * registro en el que seguir.
+     */
+    private readResumableSession() {
+        const integration = this.analyticsIntegration;
+        const storage = getSessionStorage();
+        if (!integration || !storage || !this.tracking?.isTrackingEnabled()) return null;
+        return takeSuspendedSession(
+            storage,
+            { integration, userId: this.tracking.getUserId() },
+            Date.now(),
+            ANALYTICS_RESUME_WINDOW_MS,
+        );
+    }
+
+    /**
+     * Consume la sesión suspendida al abrir: los ms que estuvo suspendida si se puede seguir en
+     * ella (mismo usuario, dentro de ANALYTICS_RESUME_WINDOW_MS); null si no había o ya no toca.
+     * En ese caso se olvida su registro sin enviar nada: lo cierra el backend, y la sesión que
+     * se abre ahora va a uno nuevo.
+     */
+    private takeSuspendedSession(): number | null {
+        const suspended = this.suspended;
+        if (!suspended) return null;
+        this.suspended = null;
+        const storage = getSessionStorage();
+        if (storage) clearSuspendedSession(storage);
+        const suspendedMs = Math.max(0, Date.now() - suspended.at);
+        if (
+            this.analyticsFeedbackSessionId &&
+            suspendedMs <= ANALYTICS_RESUME_WINDOW_MS &&
+            suspended.userId === (this.tracking?.getUserId() ?? null)
+        ) {
+            return suspendedMs;
+        }
+        this.analytics?.discardSession(this.analyticsIdentity());
+        this.analyticsFeedbackSessionId = undefined;
+        this.tracking?.setSessionId(null);
+        return null;
+    }
+
     /** Olvida la sesión abierta sin enviar nada (ver onDocumentVisible). */
     private discardSession(): void {
         this.sessionOpen = false;
@@ -727,15 +865,18 @@ export class DeepdotsPopups {
         // foreground que no llegaba a `maxBatchSize` no enviaba nada hasta ir a background.
         this.startAnalyticsFlushTimer();
         if (typeof document === 'undefined' || typeof window === 'undefined') return;
-        // al cerrar la página: FIN DE SESIÓN (page_view + mini_service_exit + engagement +
-        // session_end) y último lote con completed:true.
+        // al ocultar la página (recarga, navegación o cierre, indistinguibles aquí): se SUSPENDE
+        // la sesión para que una recarga siga en ella (ver suspendSession). Si no se puede, FIN
+        // DE SESIÓN como antes (page_view + mini_service_exit + engagement + session_end) y
+        // último lote con completed:true.
         window.addEventListener('pagehide', () => {
             clearInterval(this.analyticsFlushTimer);
-            this.closeSession('page_hide');
+            if (!this.suspendSession()) this.closeSession('page_hide');
         });
         // Vuelta desde la bfcache (botón atrás): la página no se recarga, así que `init()` no
-        // vuelve a correr. El `pagehide` cerró la sesión y paró el flush; sin reabrir ambos, la
-        // pestaña no mandaba nada más hasta una recarga.
+        // vuelve a correr. El `pagehide` suspendió (o cerró) la sesión y paró el flush; sin
+        // reabrir ambos, la pestaña no mandaba nada más hasta una recarga. `openSession`
+        // reanuda la suspendida si sigue a tiempo.
         window.addEventListener('pageshow', (event) => {
             if (!(event as PageTransitionEvent).persisted) return;
             this.startAnalyticsFlushTimer();
@@ -813,6 +954,7 @@ export class DeepdotsPopups {
 
     /** Lógica para evaluar condiciones antes de mostrar una encuesta */
     triggerSurvey(surveyId: string, popupId?: string): void {
+        if (this.bufferIfAwaitingPopups({ kind: 'survey', surveyId, popupId })) return;
         const def = this.findPopupDefinition(surveyId, popupId);
         if (!def) {
             this.debug('No popup definition for trigger', { surveyId, popupId });
@@ -835,7 +977,11 @@ export class DeepdotsPopups {
             this.debug('Ignoring empty event trigger name');
             return;
         }
+        if (this.bufferIfAwaitingPopups({ kind: 'event', name: normalized })) return;
+        this.evaluateEvent(normalized);
+    }
 
+    private evaluateEvent(normalized: string): void {
         const candidates = this.popupDefinitions.filter((def) => {
             return def.triggers.some((trigger) => {
                 const triggerValue = String(trigger.value ?? '').trim();
@@ -855,6 +1001,43 @@ export class DeepdotsPopups {
         }
 
         this.showDefinition(matched);
+    }
+
+    /**
+     * Guarda `trigger` si las definiciones aún no han llegado. Devuelve `true` si lo guardó (el
+     * llamador no debe evaluarlo ahora) y `false` si no hay carga en vuelo (se evalúa ya, como
+     * siempre: tras cargar, tras un fallo o sin apiKey).
+     */
+    private bufferIfAwaitingPopups(trigger: PendingTrigger): boolean {
+        if (!this.awaitingPopups) return false;
+        if (this.pendingTriggers.length >= MAX_PENDING_TRIGGERS) {
+            const dropped = this.pendingTriggers.shift();
+            this.debug('Pending trigger buffer full; dropped oldest', dropped);
+        }
+        this.pendingTriggers.push(trigger);
+        this.debug('Popups not loaded yet; trigger buffered', trigger);
+        return true;
+    }
+
+    /** La carga falló: sin definiciones no hay nada que reproducir, se descarta todo. */
+    private dropPendingTriggers(): void {
+        const dropped = this.pendingTriggers.length;
+        this.awaitingPopups = false;
+        this.pendingTriggers = [];
+        if (dropped > 0) this.debug('Popups failed to load; dropped pending triggers', dropped);
+    }
+
+    /** Reproduce en orden por la evaluación normal (segmentos, cooldowns y condiciones de AHORA). */
+    private replayPendingTriggers(): void {
+        this.awaitingPopups = false;
+        const replay = this.pendingTriggers;
+        this.pendingTriggers = [];
+        if (!replay.length) return;
+        this.debug('Replaying triggers received before popups loaded', replay.length);
+        replay.forEach((trigger) => {
+            if (trigger.kind === 'event') this.evaluateEvent(trigger.name);
+            else this.triggerSurvey(trigger.surveyId, trigger.popupId);
+        });
     }
 
     private showDefinition(def: PopupDefinition): void {
@@ -1184,8 +1367,8 @@ export class DeepdotsPopups {
         }
     }
 
-    /** Fetch al servidor para obtener popups */
-    private async fetchPopupsFromServer(): Promise<unknown[]> {
+    /** Fetch al servidor para obtener popups. `null` si la carga falló (red, no-2xx, payload inválido). */
+    private async fetchPopupsFromServer(): Promise<unknown[] | null> {
         const apiKey = this.config?.apiKey;
         const baseUrl = this.baseUrl;
         // El backend aplica las reglas de redisplay AQUI: si este userId ya tiene un
@@ -1206,19 +1389,19 @@ export class DeepdotsPopups {
             const response = await fetch(endpoint);
             if (!response.ok) {
                 this.log('Failed to fetch popups', response.status, response.statusText);
-                return [];
+                return null;
             }
             const raw = await response.text();
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) {
                 this.log('Unexpected popups payload', parsed);
-                return [];
+                return null;
             }
             this.debug('Fetched popups payload', parsed);
             return parsed;
         } catch (error) {
             this.log('Error fetching popups', error);
-            return [];
+            return null;
         }
     }
 

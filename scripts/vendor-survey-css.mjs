@@ -85,9 +85,18 @@ replaceOnce(
 //    parten: lo que no es hover se queda fuera, para no perder el foco de teclado en táctil.
 //    Si el paquete empieza a acotarlos él mismo, esto no encuentra nada y falla: quitar el paso.
 function gateHover(source) {
+    const {out, gated} = gateHoverIn(source, '');
+    if (gated === 0) throw new Error('vendor-survey-css: no encuentro reglas :hover sin acotar; si el paquete ya las acota, quita el paso 5.');
+    return out;
+}
+
+// Recorre las reglas de un nivel. Entra también en los bloques condicionales (`@container`,
+// `@media`, `@supports`): desde 2.2.26 la matriz apilada lleva su `:hover` dentro de una container
+// query, que es justo la que aplica en un popup estrecho. `indent` es la sangría de ese nivel.
+function gateHoverIn(source, indent) {
     let out = '';
     let depth = 0;
-    let start = 0; // inicio del preludio de la regla en curso (nivel superior)
+    let start = 0; // inicio del preludio de la regla en curso (en este nivel)
     let gated = 0;
     for (let i = 0; i < source.length; i++) {
         if (source.startsWith('/*', i)) {
@@ -98,24 +107,42 @@ function gateHover(source) {
         const c = source[i];
         if (c === '{') {
             if (depth === 0) {
-                // Busca el cierre de esta regla (las de hover no tienen bloques anidados).
-                const close = source.indexOf('}', i);
                 const preludeRaw = source.slice(start, i);
                 // Los comentarios que preceden a la regla se conservan tal cual, fuera del selector.
                 const commentEnd = preludeRaw.lastIndexOf('*/') + 2;
                 const selectorRaw = commentEnd > 1 ? preludeRaw.slice(commentEnd) : preludeRaw;
                 const lead = (commentEnd > 1 ? preludeRaw.slice(0, commentEnd) : '') + selectorRaw.match(/^\s*/)[0];
                 const prelude = selectorRaw.trim();
+                if (/^@(container|media|supports)\b/.test(prelude) && !/hover\s*:\s*hover/.test(prelude)) {
+                    // Bloque condicional: se procesa su contenido como un nivel más.
+                    let close = i + 1;
+                    for (let d = 1; close < source.length; close++) {
+                        if (source.startsWith('/*', close)) { close = source.indexOf('*/', close + 2) + 1; continue; }
+                        if (source[close] === '{') d++;
+                        else if (source[close] === '}' && --d === 0) break;
+                    }
+                    const inner = gateHoverIn(source.slice(i + 1, close), `${indent}    `);
+                    out += source.slice(start, i + 1) + inner.out + '}';
+                    gated += inner.gated;
+                    i = close;
+                    start = close + 1;
+                    continue;
+                }
+                // Busca el cierre de esta regla (las de hover no tienen bloques anidados).
+                const close = source.indexOf('}', i);
                 if (!prelude.startsWith('@') && prelude.includes(':hover') && source.slice(i + 1, close).indexOf('{') === -1) {
                     const parts = prelude.split(/,\s*\n?/).map((p) => p.trim()).filter(Boolean);
                     const hoverParts = parts.filter((p) => p.includes(':hover'));
                     const otherParts = parts.filter((p) => !p.includes(':hover'));
-                    const body = source.slice(i + 1, close).replace(/^\n?/, '').replace(/\s*$/, '');
-                    let rewritten = lead;
-                    if (otherParts.length) rewritten += `${otherParts.join(',\n')} {\n${body}\n}\n\n`;
+                    const body = source.slice(i + 1, close).replace(/^\n?/, '').replace(/\s*$/, '')
+                        .split('\n').map((l) => (l.startsWith(indent) ? l.slice(indent.length) : l)).join('\n');
+                    let block = '';
+                    if (otherParts.length) block += `${otherParts.join(',\n')} {\n${body}\n}\n\n`;
                     const indented = body.split('\n').map((l) => (l ? `    ${l}` : l)).join('\n');
-                    rewritten += `@media (hover: hover) {\n    ${hoverParts.join(',\n    ')} {\n${indented}\n    }\n}`;
-                    out += rewritten;
+                    block += `@media (hover: hover) {\n    ${hoverParts.join(',\n    ')} {\n${indented}\n    }\n}`;
+                    // Cada línea a la sangría de su nivel (la primera ya la trae `lead`).
+                    block = block.split('\n').map((l, n) => (n === 0 || !l ? l : `${indent}${l}`)).join('\n');
+                    out += lead + block;
                     gated++;
                     i = close;
                     start = close + 1;
@@ -134,8 +161,7 @@ function gateHover(source) {
         }
     }
     out += source.slice(start);
-    if (gated === 0) throw new Error('vendor-survey-css: no encuentro reglas :hover sin acotar; si el paquete ya las acota, quita el paso 5.');
-    return out;
+    return {out, gated};
 }
 css = gateHover(css);
 

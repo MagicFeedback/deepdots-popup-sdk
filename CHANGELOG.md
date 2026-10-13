@@ -16,6 +16,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drive their own UI need another signal; the submit error text is still logged through the
   SDK logger. Nothing changes for the backend: none of these posted a popup status.
 
+### Fixed
+
+- **Reloading the page no longer splits the analytics session in two.** The browser fires
+  `pagehide` on a reload (Cmd+R / F5) or a full-page navigation exactly as when the tab is
+  closed, and the SDK closed the session there: every reload produced two feedbacks (and two
+  messages in the Slack actions). `pagehide` now *suspends* the session — it sends what is
+  pending with a `deepdots_session_suspend` event and no `completed`, and keeps the record id
+  in `sessionStorage`. The next load in the same tab within a minute carries on in that record,
+  with a `deepdots_session_resume` event instead of `deepdots_session_start`. A tab that is
+  really closed is closed by the backend a few minutes later (`incomplete-surveys` job,
+  `SUSPEND_GRACE_MINUTES`), which must be deployed with this version. When the record is not
+  known yet at `pagehide`, or there is no `sessionStorage`, the session closes as before.
+
+- **Events fired before the popups load are no longer lost.** `init()` fetches the popup
+  definitions asynchronously, so a `triggerEvent('app_opened')` (or `triggerSurvey`) called
+  right after it ran against an empty list and was dropped with "No event popup definitions
+  found", even when the popup arrived milliseconds later. While that fetch is in flight, these
+  calls are now kept (up to 20; past that the oldest is dropped) and replayed in order once the
+  definitions load, through the normal evaluation: segments, `excludedPaths`, cooldowns and
+  conditions apply with the state at that moment. If the fetch fails they are discarded and
+  nothing is kept from then on. Without an `apiKey` there is no fetch and nothing is kept.
+  Same behaviour as the native SDK.
+
+- **React Native: loading the survey no longer marks the popup as `PARTIAL`.**
+  `ReactNativePopupRenderer.handleMessage` counted the WebView's `loaded` message as the first
+  interaction, so every popup that opened posted `PARTIAL` to `POST /sdk/popups` (inflating
+  "started" in the dashboards) and fired a `popup_clicked` to host listeners with nobody
+  touching it. Now only a real interaction (sending an answer, or going back) does, once per
+  popup.
+
+## [1.10.0] — 2026-10-08
+
 ### Added
 
 - **Multi-language surveys.** The popup now passes the language resolved at `init` (the
@@ -26,14 +58,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
   entry of `formData.lang`, the survey's default language.
 
-### Fixed
+### Changed
 
-- **React Native: loading the survey no longer marks the popup as `PARTIAL`.**
-  `ReactNativePopupRenderer.handleMessage` counted the WebView's `loaded` message as the first
-  interaction, so every popup that opened posted `PARTIAL` to `POST /sdk/popups` (inflating
-  "started" in the dashboards) and fired a `popup_clicked` to host listeners with nobody
-  touching it. Now only a real interaction (sending an answer, or going back) does, once per
-  popup.
+- **`@magicfeedback/native` 2.2.31** (from 2.2.22), in the web bundle and as the default CDN
+  version of the React Native WebView. Brings the MaxDiff question type, the 300 ms pause
+  before an option auto-advances (so the pick is seen checked), the ghost tap guard after a
+  page change, the narrow-container layouts of the matrix and the numeric rating, and the
+  `autofocus` option used for the focus on text questions. The survey stylesheet is
+  re-vendored from 2.2.31; the hover rules nested in the matrix's container query are now
+  gated behind `@media (hover: hover)` too, so an option no longer looks selected on touch.
 
 ## [1.9.0] — 2026-10-06
 

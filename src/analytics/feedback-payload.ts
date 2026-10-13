@@ -146,6 +146,11 @@ export interface FeedbackSinkOptions {
    * romper a quien lo pase.
    */
   sendBeaconImpl?: (url: string, body: Blob | string) => boolean;
+  /**
+   * Registro en el que seguir desde el primer lote: el de una sesión suspendida por un
+   * `pagehide` y reanudada tras recargar la página (ver `suspended-session.ts`).
+   */
+  initialSessionId?: string;
   /** Callback invocado cuando el backend devuelve un nuevo sessionId (primer POST). */
   onSessionId?: (id: string) => void;
   /** Callback invocado al cerrar la sesión (`completed:true`): el sessionId cacheado se olvida. */
@@ -191,7 +196,7 @@ async function safeBodyText(res: Response): Promise<string> {
  *    `AnalyticsManager` re-encole el lote; un 4xx se loguea y se descarta.
  */
 export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink {
-  let feedbackSessionId: string | undefined;
+  let feedbackSessionId: string | undefined = options.initialSessionId || undefined;
   /** Primer POST (aún sin sessionId) en vuelo: los siguientes lotes lo esperan. */
   let firstPostInFlight: Promise<void> | null = null;
   /**
