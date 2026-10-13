@@ -81,6 +81,9 @@ export function DeepdotsProvider({ config, children }: DeepdotsProviderProps) {
               style={{ flex: 1 }}
               originWhitelist={['*']}
               javaScriptEnabled
+              // El survey enfoca la pregunta de texto al pasar de página; en iOS el WebView
+              // ignora ese foco (no abre el teclado) si no se desactiva esto.
+              keyboardDisplayRequiresUserAction={false}
               source={{ html: survey.html, baseUrl: 'https://sdk.deepdots.com/' }}
               onMessage={(e: { nativeEvent: { data: string } }) =>
                 rendererRef.current?.handleMessage(e.nativeEvent.data)

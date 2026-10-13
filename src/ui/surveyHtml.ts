@@ -502,11 +502,25 @@ ${customCss}
 ${PRIMARY_COLOR_JS}
 ${BUSY_JS}
 ${REVEAL_JS}
+  // Foco en la primera pregunta si es de escribir. Al navegar lo pone @magicfeedback/native
+  // (autofocus:'navigation'); la apertura la decide el popup, que es quien sabe cuándo se revela.
+  // Necesita el popup revelado y el survey cargado, que llegan en cualquier orden, y solo con
+  // ratón o trackpad: en táctil sacaría el teclado sin que el usuario haya tocado nada.
+  var ddRevealed=false, ddSurveyLoaded=false, ddOpenFocusDone=false;
+  function ddAutofocusOnOpen(){
+    if(ddOpenFocusDone || !ddRevealed || !ddSurveyLoaded){ return; }
+    ddOpenFocusDone=true;
+    var fine=typeof window.matchMedia==='function' && window.matchMedia('(pointer: fine)').matches;
+    var f=window.DeepdotsForm;
+    if(fine && f && typeof f.focusFirstQuestion==='function'){ f.focusFirstQuestion(); }
+  }
   // El popup se enseña cuando el survey está pintado; \`ready\` deja al host abrir su propio
   // Modal en ese momento en vez de montar un WebView en blanco.
   var ddReveal=ddCreateReveal(popup, function(){
     document.body.classList.add('dd-ready');
     emitJSON('ready');
+    ddRevealed=true;
+    ddAutofocusOnOpen();
   }, ${REVEAL_TIMEOUT_MS});
 
   function setLoading(isLoading){
@@ -547,6 +561,9 @@ ${REVEAL_JS}
         // Surveys multi-idioma: native pide a la API este idioma (el del init o el del
         // dispositivo); si el survey no lo tiene, la API sirve el idioma por defecto.
         lang:${initLangJson}||undefined,
+        // Foco en la primera pregunta de escribir tras Start, Siguiente o Atrás. Las versiones
+        // de native sin esta opción la ignoran.
+        autofocus:'navigation',
         onLoadedEvent:function(args){
           // Idioma en el que native muestra el survey: manda sobre el del init para que el
           // chrome no se quede en inglés delante de un survey traducido. Native < 2.3 no lo
@@ -606,6 +623,8 @@ ${REVEAL_JS}
           updateProgress({ progress:form.progress, total:form.total, completed:false, followup:false });
           emitJSON('loaded');
           setLoading(false);
+          // La primera carga es la apertura; las siguientes (tras Start) las enfoca native.
+          if(!ddSurveyLoaded){ ddSurveyLoaded=true; ddAutofocusOnOpen(); }
         },
         beforeSubmitEvent:function(){
           setLoading(true);

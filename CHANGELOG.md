@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Focus on text questions.** When the first question of a page is a text field (text, long
+  text, email or number), the cursor is placed in it: when the popup opens only on devices with
+  a mouse or trackpad, and after Start, Next or Back on every device. A page that starts with any
+  other question type is left alone, and a field of the host page never loses its focus. The
+  focus comes from `@magicfeedback/native` (`autofocus: 'navigation'` and
+  `focusFirstQuestion()` once the popup is revealed), so it needs the native version that ships
+  that option. Web DOM popup and React Native WebView; `DeepdotsProvider` sets
+  `keyboardDisplayRequiresUserAction` to `false` so iOS opens the keyboard for it.
+
 ### Changed
 
 - **Web: `popup_clicked` is now user interaction only**, as in the native SDK. The DOM popup
