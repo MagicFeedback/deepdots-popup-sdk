@@ -42,9 +42,15 @@ test.describe('Sesión de analytics tras recargar (E2E)', () => {
     expect(first.sessionId).toBeUndefined();
     expect(keys(first)).toContain('deepdots_session_start');
 
-    const afterReload = await loadAndFlush(page, bodies, true);
+    // El lote del `pagehide` (con `deepdots_session_suspend`) sale con keepalive y puede llegar
+    // al mock DESPUÉS de que empiece la recarga: no vale "el último lote", hay que buscar el
+    // que manda la página recargada.
+    await loadAndFlush(page, bodies, true);
+    await expect
+      .poll(() => bodies.find((b) => keys(b).includes('deepdots_session_resume')))
+      .toBeTruthy();
+    const afterReload = bodies.find((b) => keys(b).includes('deepdots_session_resume'))!;
     expect(afterReload.sessionId).toBe('rec-1');
-    expect(keys(afterReload)).toContain('deepdots_session_resume');
     expect(keys(afterReload)).not.toContain('deepdots_session_start');
 
     expect(bodies.some((b) => b.completed)).toBe(false);
