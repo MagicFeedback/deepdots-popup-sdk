@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Web: `popup_clicked` is now user interaction only**, as in the native SDK. The DOM popup
+  no longer emits it for things nobody did: `action: 'loaded'` (the survey finished loading),
+  `'before_submit'`, `'validation_error_required'` and `'submit_error'`. One tap on Back now
+  emits one `back` instead of two. Hosts that listened for `loaded` or the error actions to
+  drive their own UI need another signal; the submit error text is still logged through the
+  SDK logger. Nothing changes for the backend: none of these posted a popup status.
+
 ### Fixed
 
 - **Reloading the page no longer splits the analytics session in two.** The browser fires
@@ -29,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conditions apply with the state at that moment. If the fetch fails they are discarded and
   nothing is kept from then on. Without an `apiKey` there is no fetch and nothing is kept.
   Same behaviour as the native SDK.
+
+- **React Native: loading the survey no longer marks the popup as `PARTIAL`.**
+  `ReactNativePopupRenderer.handleMessage` counted the WebView's `loaded` message as the first
+  interaction, so every popup that opened posted `PARTIAL` to `POST /sdk/popups` (inflating
+  "started" in the dashboards) and fired a `popup_clicked` to host listeners with nobody
+  touching it. Now only a real interaction (sending an answer, or going back) does, once per
+  popup.
 
 ## [1.10.0] — 2026-10-08
 

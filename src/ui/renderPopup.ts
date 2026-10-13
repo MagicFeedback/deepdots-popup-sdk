@@ -920,12 +920,11 @@ export async function renderPopup(
 
             // El total solo se conoce con el form ya montado.
             updateProgress({progress: formInstance.progress, total: formInstance.total});
-            emit('popup_clicked', surveyId, {action: 'loaded'});
+            // Cargar no es interacción: no llega al host como popup_clicked (paridad con KMP).
             setLoading(false); // hace visible el formulario y oculta el spinner
         };
         generateOptions.beforeSubmitEvent = () => {
             setLoading(true);
-            emit('popup_clicked', surveyId, {action: 'before_submit'});
         };
         generateOptions.afterSubmitEvent = ({error, completed, total, progress, followup}) => {
             // No cambiar estado de loading aquí; lo gestiona cada transición
@@ -938,7 +937,6 @@ export async function renderPopup(
                 if (errText.toLowerCase().includes('no response')) {
                     errorHint.textContent = labels.errorRequired;
                     errorHint.style.display = 'block';
-                    emit('popup_clicked', surveyId, {action: 'validation_error_required'});
                     // La página no ha cambiado: el estado de navegación se queda como estaba.
                     updateNavButtons();
                     return;
@@ -946,7 +944,8 @@ export async function renderPopup(
                 // Otros errores: mostrar mensaje genérico y permitir cerrar
                 errorHint.textContent = labels.errorSubmit;
                 errorHint.style.display = 'block';
-                emit('popup_clicked', surveyId, {action: 'submit_error', error: errText});
+                // Antes el texto viajaba al host en un popup_clicked `submit_error`.
+                sdkWarn('[Deepdots] survey submit error:', errText);
                 // updateButtons('error');
                 return;
             }
@@ -967,7 +966,7 @@ export async function renderPopup(
             updateProgress({progress, total, followup});
         };
         generateOptions.onBackEvent = ({progress, error, followup}) => {
-            emit('popup_clicked', surveyId, {action: 'back'});
+            // El `back` para el host ya lo emitió el botón: aquí solo se actualiza la navegación.
             // Con error ("No page found") no hubo navegación: la profundidad no se toca.
             if (!error) pageDepth = Math.max(0, pageDepth - 1);
             updateNavButtons();
