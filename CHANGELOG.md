@@ -7,17 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **Multi-language surveys.** The popup now passes the language resolved at `init` (the
-  explicit `language`, else the browser or device language) to `@magicfeedback/native` as
-  `generate({ lang })`, on web and in the React Native WebView. Native asks the API for that
-  language and, when the survey does not have it, the API serves the survey's default.
-- The popup chrome (buttons, progress, aria-labels) follows the language native reports in
-  `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
-  entry of `formData.lang`, the survey's default language.
-
 ### Fixed
+
+- **Reloading the page no longer splits the analytics session in two.** The browser fires
+  `pagehide` on a reload (Cmd+R / F5) or a full-page navigation exactly as when the tab is
+  closed, and the SDK closed the session there: every reload produced two feedbacks (and two
+  messages in the Slack actions). `pagehide` now *suspends* the session — it sends what is
+  pending with a `deepdots_session_suspend` event and no `completed`, and keeps the record id
+  in `sessionStorage`. The next load in the same tab within a minute carries on in that record,
+  with a `deepdots_session_resume` event instead of `deepdots_session_start`. A tab that is
+  really closed is closed by the backend a few minutes later (`incomplete-surveys` job,
+  `SUSPEND_GRACE_MINUTES`), which must be deployed with this version. When the record is not
+  known yet at `pagehide`, or there is no `sessionStorage`, the session closes as before.
 
 - **Events fired before the popups load are no longer lost.** `init()` fetches the popup
   definitions asynchronously, so a `triggerEvent('app_opened')` (or `triggerSurvey`) called
@@ -28,6 +29,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conditions apply with the state at that moment. If the fetch fails they are discarded and
   nothing is kept from then on. Without an `apiKey` there is no fetch and nothing is kept.
   Same behaviour as the native SDK.
+
+## [1.10.0] — 2026-10-08
+
+### Added
+
+- **Multi-language surveys.** The popup now passes the language resolved at `init` (the
+  explicit `language`, else the browser or device language) to `@magicfeedback/native` as
+  `generate({ lang })`, on web and in the React Native WebView. Native asks the API for that
+  language and, when the survey does not have it, the API serves the survey's default.
+- The popup chrome (buttons, progress, aria-labels) follows the language native reports in
+  `onLoadedEvent` (`lang`, native ≥ 2.3). With older native versions it keeps using the first
+  entry of `formData.lang`, the survey's default language.
+
+### Changed
+
+- **`@magicfeedback/native` 2.2.31** (from 2.2.22), in the web bundle and as the default CDN
+  version of the React Native WebView. Brings the MaxDiff question type, the 300 ms pause
+  before an option auto-advances (so the pick is seen checked), the ghost tap guard after a
+  page change, the narrow-container layouts of the matrix and the numeric rating, and the
+  `autofocus` option used for the focus on text questions. The survey stylesheet is
+  re-vendored from 2.2.31; the hover rules nested in the matrix's container query are now
+  gated behind `@media (hover: hover)` too, so an option no longer looks selected on touch.
 
 ## [1.9.0] — 2026-10-06
 
