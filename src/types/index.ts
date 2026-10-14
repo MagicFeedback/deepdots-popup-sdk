@@ -180,6 +180,30 @@ export type SessionEndReason =
     | 'manual'
     | 'idle_timeout';
 
+/**
+ * Motivo del `deepdots_session_start` (param `reason`): por qué EMPIEZA la sesión. Permite a
+ * analytics separar una carga/arranque real de una vuelta desde background ("Started here").
+ * Mismos valores que el SDK nativo donde el significado coincide:
+ *  - `cold_start`: `init()` (carga de la página / arranque de la app RN) sin sesión suspendida
+ *    que reanudar. Una recarga en menos de 1 min no emite `session_start` sino
+ *    `deepdots_session_resume`.
+ *  - `foreground`: `onForeground()` (RN, AppState 'active') tras un cierre (`onBackground()`
+ *    o `endSession()`). Con la sesión abierta no emite nada.
+ *  - `tracking_enabled`: `setTrackingEnabled(true)` (consentimiento concedido).
+ *  - `user_change`: `setUserId()` o un `init()` con otro `userId`, tras cerrar la del anterior.
+ *  - `idle_timeout`: la pestaña vuelve a verse tras más de 30 min oculta (web): la sesión
+ *    anterior se cerró (o se descartó) y empieza otra.
+ *  - `bfcache_restore`: la página vuelve de la bfcache (botón atrás, `pageshow` con
+ *    `persisted`) fuera de la ventana de reanudación (web).
+ */
+export type SessionStartReason =
+    | 'cold_start'
+    | 'foreground'
+    | 'tracking_enabled'
+    | 'user_change'
+    | 'idle_timeout'
+    | 'bfcache_restore';
+
 /** Trigger type used by remote popup definitions */
 export type PopupTriggerType = 'time_on_page' | 'scroll' | 'exit' | 'click' | 'event';
 

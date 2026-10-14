@@ -175,6 +175,8 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
     const names0 = sdk.previewAnalytics().events.map((e) => e.name);
     expect(names0).toContain('deepdots_session_start');
+    const start = sdk.previewAnalytics().events.find((e) => e.name === 'deepdots_session_start');
+    expect(start?.params).toEqual({ reason: 'cold_start' });
 
     sdk.reportError(new TypeError('kaboom'), { severity: 'error', context: { screen: 'Home' } });
     const crash = sdk.previewAnalytics().events.find((e) => e.name === 'deepdots_app_crash');
@@ -412,9 +414,11 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     const closings = bodiesFor(fetchSpy, 'int-bfcache').filter((b) => b.completed);
     expect(closings).toHaveLength(2);
     expect(eventsOf(closings[0]).filter((e) => e.name === 'deepdots_session_start')).toHaveLength(1);
+    expect(eventsOf(closings[0]).find((e) => e.name === 'deepdots_session_start')?.reason).toBe('cold_start');
     expect(eventsOf(closings[1]).map((e) => e.name)).toEqual(
       expect.arrayContaining(['deepdots_session_start', 'deepdots_event_cta_click', 'deepdots_session_end'])
     );
+    expect(eventsOf(closings[1]).find((e) => e.name === 'deepdots_session_start')?.reason).toBe('bfcache_restore');
 
     vi.unstubAllGlobals();
   });
@@ -429,6 +433,11 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
       return spy.mock.calls
         .filter(([u]) => typeof u === 'string' && (u as string).endsWith('/sdk/feedback'))
         .map(([, i]) => JSON.parse((i as RequestInit).body as string));
+    }
+
+    /** `reason` del `deepdots_session_start` que hay en el buffer. */
+    function startReason(sdk: DeepdotsPopups) {
+      return sdk.previewAnalytics().events.find((e) => e.name === 'deepdots_session_start')?.params?.reason;
     }
 
     function initSdk(extra: Record<string, unknown> = {}) {
@@ -541,6 +550,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
       sdk.onForeground();
       expect(sdk.previewAnalytics().events.map((e) => e.name)).toContain('deepdots_session_start');
+      expect(startReason(sdk)).toBe('foreground');
       vi.unstubAllGlobals();
     });
 
@@ -562,6 +572,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
       expect(sdk.getUserId()).toBe('user-b');
       expect(sdk.previewAnalytics().events.map((e) => e.name)).toContain('deepdots_session_start');
+      expect(startReason(sdk)).toBe('user_change');
       // Los atributos eran del usuario anterior.
       expect(sdk.previewAnalytics().context.attributes).toEqual({});
       vi.unstubAllGlobals();
@@ -578,6 +589,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
       const anon = sdk.getUserId();
       expect(anon).toBeTruthy();
       expect(anon).not.toBe('user-a');
+      expect(startReason(sdk)).toBe('user_change');
       vi.unstubAllGlobals();
     });
 
@@ -595,6 +607,7 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
       sdk.setTrackingEnabled(true);
       expect(sdk.previewAnalytics().events.map((e) => e.name)).toContain('deepdots_session_start');
+      expect(startReason(sdk)).toBe('tracking_enabled');
       vi.unstubAllGlobals();
     });
 
@@ -604,6 +617,16 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
       sdk.setTrackingEnabled(true);
       expect(sdk.previewAnalytics().events.map((e) => e.name)).toEqual(['deepdots_session_start']);
+      expect(startReason(sdk)).toBe('tracking_enabled');
+    });
+
+    it('onForeground() con la sesión abierta no abre otra: sigue siendo cold_start', () => {
+      const sdk = initSdk();
+      sdk.onForeground(); // RN: AppState 'active' también llega al arrancar, tras init()
+
+      const starts = sdk.previewAnalytics().events.filter((e) => e.name === 'deepdots_session_start');
+      expect(starts).toHaveLength(1);
+      expect(starts[0].params).toEqual({ reason: 'cold_start' });
     });
   });
 });
