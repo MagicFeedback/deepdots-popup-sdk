@@ -21,6 +21,7 @@ export type {
   PopupTriggerCondition,
   PopupTriggerConditionStatus,
   SessionEndReason,
+  SessionStartReason,
 } from './types';
 export { POPUP_TRIGGER_CONDITION_STATUSES } from './types';
 export { NoopPopupRenderer, BrowserPopupRenderer, createDefaultRenderer } from './platform/renderer';

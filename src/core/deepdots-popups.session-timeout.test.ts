@@ -135,6 +135,10 @@ describe('analytics session heartbeat and timeout', () => {
     const after = bodies().slice(bodies().indexOf(closing as Body) + 1);
     expect(after[0].sessionId).toBeUndefined(); // registro nuevo
     expect(eventsOf(after[0]).some((e) => e.name === 'deepdots_session_start')).toBe(true);
+    // Las instancias de tests anteriores también reciben el `visibilitychange` y pueden colar
+    // su `cold_start` pendiente en este mismo integration: se busca el de la rotación.
+    const starts = after.flatMap(eventsOf).filter((e) => e.name === 'deepdots_session_start');
+    expect(starts.map((e) => e.reason)).toContain('idle_timeout');
   });
 
   it('after 50+ minutes hidden it drops the old session without posting to it', async () => {
@@ -150,7 +154,7 @@ describe('analytics session heartbeat and timeout', () => {
     expect(after.some((b) => b.completed)).toBe(false);
     expect(after.some((b) => b.sessionId === 'int-session:1')).toBe(false);
     expect(after.flatMap(eventsOf).some((e) => e.name === 'deepdots_session_end')).toBe(false);
-    expect(eventsOf(after[0]).some((e) => e.name === 'deepdots_session_start')).toBe(true);
+    expect(eventsOf(after[0]).find((e) => e.name === 'deepdots_session_start')?.reason).toBe('idle_timeout');
     expect(after[0].sessionId).toBeUndefined();
   });
 

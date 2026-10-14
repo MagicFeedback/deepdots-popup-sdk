@@ -220,10 +220,18 @@ sesión en uso de una abandonada: sin él, alguien leyendo una sola página no e
 ```
 
 #### `deepdots_session_start`
-Se emite al abrir sesión: en el `init()`, al volver a foreground tras un cierre, al conceder el consentimiento (`setTrackingEnabled(true)`) y tras un cambio de usuario. Base para Crash-Free Users (#14).
+Se emite al abrir sesión. Base para Crash-Free Users (#14). El `reason` (web desde la versión siguiente a 1.11.0, nativo desde la siguiente a 0.6.2) dice por qué empieza: separa un arranque real de una vuelta desde background, que en móvil abre sesión nueva (ver §7, "Impacto en el conteo de sesiones"). Los eventos anteriores llegan sin `reason`.
 ```json
-{ "timestamp": 1750000000000 }
+{ "timestamp": 1750000000000, "reason": "cold_start" }
 ```
+| `reason` | Cuándo |
+|---|---|
+| `cold_start` | `init()`: carga de la página (web) o arranque de la app (RN/nativo). Una recarga web en menos de 1 min no emite `session_start` sino `deepdots_session_resume` |
+| `foreground` | La app vuelve a foreground (`onForeground()`, RN/nativo) después de que la sesión se cerrara (`background` o `manual`) |
+| `tracking_enabled` | `setTrackingEnabled(true)` (consentimiento concedido; si el `init()` fue con tracking off, es la primera sesión) |
+| `user_change` | `setUserId()` o un `init()` con otro `userId`, tras cerrar la del usuario anterior |
+| `idle_timeout` | La pestaña vuelve a verse tras más de 30 min oculta (web): la anterior se cerró o se descartó |
+| `bfcache_restore` | La página vuelve de la bfcache (botón atrás) fuera de la ventana de reanudación (web) |
 
 #### `deepdots_session_end`
 Último evento de la sesión: viaja en el lote que lleva `completed: true` (ver §7). El `reason` dice qué lo provocó.
@@ -489,3 +497,6 @@ En móvil, cada ida a background cierra sesión y cada vuelta a foreground abre 
 comportamiento de GA con `session_start`, salvo que aquí no hay ventana de gracia de 30 min.
 Si se prefiere reanudar la sesión anterior cuando la vuelta es inmediata, la ventana la tiene
 que aplicar el backend (mismo `deepdots_user_id`, hueco < N minutos → fusionar).
+Para no contar esas vueltas como arranques (p. ej. "sesiones que empezaron en esta pantalla"),
+filtra por el `reason` del `deepdots_session_start`: `cold_start` es un arranque real,
+`foreground` una vuelta desde background.

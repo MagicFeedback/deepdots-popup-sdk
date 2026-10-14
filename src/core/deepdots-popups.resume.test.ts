@@ -27,6 +27,7 @@ function eventsOf(body: Body) {
 }
 
 const names = (body: Body) => eventsOf(body).map((e) => e.name);
+const startReason = (body: Body) => eventsOf(body).find((e) => e.name === 'deepdots_session_start')?.reason;
 
 describe('analytics session survives a page reload', () => {
   let fetchSpy: ReturnType<typeof vi.fn>;
@@ -153,6 +154,7 @@ describe('analytics session survives a page reload', () => {
     const first = bodies('int-late').at(-1)!;
     expect(first.sessionId).toBeUndefined();
     expect(names(first)).toContain('deepdots_session_start');
+    expect(startReason(first)).toBe('cold_start');
     expect(names(first)).not.toContain('deepdots_session_resume');
     expect(sessionStorage.getItem(SUSPENDED_SESSION_KEY)).toBeNull();
   });
@@ -168,6 +170,7 @@ describe('analytics session survives a page reload', () => {
     const otherUser = bodies('int-owner').at(-1)!;
     expect(otherUser.sessionId).toBeUndefined();
     expect(names(otherUser)).toContain('deepdots_session_start');
+    expect(startReason(otherUser)).toBe('cold_start');
 
     await loadWithRecord('int-one');
     window.dispatchEvent(new Event('pagehide'));
@@ -230,5 +233,6 @@ describe('analytics session survives a page reload', () => {
     const last = bodies('int-bfcache-late').at(-1)!;
     expect(last.sessionId).toBeUndefined();
     expect(names(last)).toContain('deepdots_session_start');
+    expect(startReason(last)).toBe('bfcache_restore');
   });
 });

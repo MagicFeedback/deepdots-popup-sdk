@@ -15,6 +15,7 @@ import {
     POPUP_TRIGGER_CONDITION_STATUSES, POPUPSESSIONSTATUS,
     PopupStyle,
     SessionEndReason,
+    SessionStartReason,
 } from '../types';
 // renderPopup se carga de forma PEREZOSA (dynamic import) para no arrastrar
 // `@magicfeedback/native` (browser) ni el CSS al importar el SDK en entornos sin DOM (React Native).
@@ -335,7 +336,7 @@ export class DeepdotsPopups {
         this.setupAnalyticsFlush();
         // Marca de inicio de sesión (base para Crash-Free Users #14), o reanudación de la que
         // suspendió la carga anterior de esta pestaña.
-        this.openSession();
+        this.openSession('cold_start');
         if (resumable && this.analyticsFeedbackSessionId === resumable.sessionId) {
             this.notifyFeedbackSession(resumable.sessionId, 'open');
         }
@@ -410,7 +411,7 @@ export class DeepdotsPopups {
         if (!enabled) this.closeSession('tracking_disabled');
         this.tracking?.setTrackingEnabled(enabled);
         // Consentimiento concedido (ahora o más tarde que el init): abre sesión.
-        if (enabled) this.openSession();
+        if (enabled) this.openSession('tracking_enabled');
         // El lookup de geo se aplaza hasta que haya consentimiento.
         if (enabled) this.resolveGeo();
         this.log('tracking · setTrackingEnabled:', enabled, '· session_id:', this.tracking?.getSessionId() ?? null);
@@ -547,7 +548,7 @@ export class DeepdotsPopups {
     /** App a foreground (RN: AppState 'active'): reanuda el engagement time y abre sesión nueva. */
     onForeground(): void {
         this.engagement?.resume();
-        this.openSession();
+        this.openSession('foreground');
     }
 
     /**
@@ -606,7 +607,7 @@ export class DeepdotsPopups {
         clearPopupState(storage);
 
         this.log('tracking · user_change · user_id:', this.tracking.getUserId());
-        this.openSession();
+        this.openSession('user_change');
     }
 
     /**
@@ -640,17 +641,24 @@ export class DeepdotsPopups {
     }
 
     /**
-     * Abre sesión (`session_start`) si no hay una abierta y el tracking está activo. Idempotente:
-     * se llama en init(), al volver a foreground y al conceder el consentimiento.
+     * Abre sesión (`session_start`) si no hay una abierta y el tracking está activo. Idempotente.
+     * El `reason` dice por qué empieza (ver `SessionStartReason`):
+     *  - `cold_start`: init() (carga de la página / arranque de la app RN).
+     *  - `foreground`: onForeground() tras un cierre (RN).
+     *  - `tracking_enabled`: setTrackingEnabled(true).
+     *  - `user_change`: setUserId() o init() con otro userId.
+     *  - `idle_timeout`: la pestaña vuelve a verse tras más de 30 min oculta.
+     *  - `bfcache_restore`: vuelta desde la bfcache fuera de la ventana de reanudación.
+     * Si hay una sesión suspendida a tiempo emite `deepdots_session_resume` en su lugar, sin reason.
      */
-    private openSession(): void {
+    private openSession(reason: SessionStartReason): void {
         if (this.sessionOpen) return;
         if (!this.tracking?.isTrackingEnabled()) return;
         const suspendedMs = this.takeSuspendedSession();
         this.sessionOpen = true;
         this.lastEngagementAt = Date.now();
         if (suspendedMs === null) {
-            this.track('deepdots_session_start', {});
+            this.track('deepdots_session_start', { reason });
         } else {
             // Misma sesión: sin `session_start`, que contaría una sesión de más.
             this.track('deepdots_session_resume', { suspended_ms: suspendedMs });
@@ -733,7 +741,7 @@ export class DeepdotsPopups {
         } else {
             this.discardSession();
         }
-        this.openSession();
+        this.openSession('idle_timeout');
     }
 
     /**
@@ -880,7 +888,7 @@ export class DeepdotsPopups {
         window.addEventListener('pageshow', (event) => {
             if (!(event as PageTransitionEvent).persisted) return;
             this.startAnalyticsFlushTimer();
-            this.openSession();
+            this.openSession('bfcache_restore');
         });
         // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado
         document.addEventListener('visibilitychange', () => {
