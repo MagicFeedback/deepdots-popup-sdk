@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] — 2026-10-15
+
+### Added
+
+- **`deepdots_session_start` says why the session started**, in a new `reason` param, so
+  analytics can tell a real start from a return to the app ("sessions that started on this
+  screen" counted every return from the background as a new start in React Native and the
+  native SDK). Values: `cold_start` (`init()`: page load or app launch), `foreground`
+  (`onForeground()` after the session was closed), `tracking_enabled`
+  (`setTrackingEnabled(true)`), `user_change` (`setUserId()` or `init()` with another
+  `userId`), `idle_timeout` (the tab is seen again after more than 30 min hidden) and
+  `bfcache_restore` (back from the bfcache after the resume window). Same values as the
+  native SDK where the meaning is the same. The type is exported as `SessionStartReason`.
+  The event name and every other event are unchanged.
+
 ## [1.11.0] — 2026-10-13
 
 ### Added
