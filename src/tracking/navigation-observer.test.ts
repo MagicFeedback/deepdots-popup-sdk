@@ -163,3 +163,46 @@ describe('screenPath and the visit path', () => {
   });
 });
 
+
+/**
+ * `current()` alimenta el `user_engagement`: la pantalla en curso aún no tiene `page_view`
+ * (sale al abandonarla), y si el cierre se pierde es lo único que queda de ella.
+ */
+describe('current()', () => {
+  it('gives the screen in progress with the same screen/path/seconds its page_view would carry', () => {
+    let t = 1000;
+    const obs = new NavigationObserver({ now: () => t });
+    const visits: ScreenVisit[] = [];
+    obs.onVisit((v) => visits.push(v));
+    obs.begin('https://app.test/orders/42?tab=1');
+    t += 7400;
+
+    expect(obs.current()).toEqual({ screen: '/orders/:id', path: '/orders/42', seconds: 7 });
+    expect(visits).toHaveLength(0); // no cierra ni emite nada
+
+    obs.stop();
+    expect(visits[0]).toMatchObject({ screen: '/orders/:id', path: '/orders/42', durationSeconds: 7 });
+  });
+
+  it('follows navigation: after leaving a screen it reports the next one, from its entry', () => {
+    let t = 0;
+    const obs = new NavigationObserver({ now: () => t });
+    obs.begin('https://app.test/home');
+    t = 10_000;
+    obs.visit('https://app.test/cart');
+    t = 13_000;
+
+    expect(obs.current()).toEqual({ screen: '/cart', path: '/cart', seconds: 3 });
+  });
+
+  it('is null before begin(), after stop() and after discard()', () => {
+    const obs = new NavigationObserver({ now: () => 0 });
+    expect(obs.current()).toBeNull();
+    obs.begin('https://app.test/home');
+    obs.stop();
+    expect(obs.current()).toBeNull();
+    obs.begin('https://app.test/home');
+    obs.discard();
+    expect(obs.current()).toBeNull();
+  });
+});

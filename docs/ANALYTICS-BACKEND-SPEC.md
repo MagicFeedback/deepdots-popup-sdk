@@ -193,10 +193,20 @@ al cerrar la sesión y, como **latido**, al menos cada 5 min mientras la pestañ
 la app en foreground (desde 1.8.3). El latido es lo que permite al backend distinguir una
 sesión en uso de una abandonada: sin él, alguien leyendo una sola página no enviaba nada.
 
+Lleva además la **pantalla en curso** (`screen`, `path`, `screen_seconds`), que aún no tiene
+`page_view` porque este sale al abandonarla. Si el cierre de la sesión no llega nunca (pestaña
+oculta 50 min o más que se descarta al volver, pestaña o app matada en segundo plano), es lo
+único que queda de la última pantalla: el backend/journey la reconstruye con estos campos. El
+engagement que se emite **al cerrar** la sesión no los lleva (esa pantalla acaba de recibir su
+`page_view`), así que una pantalla nunca se cuenta dos veces.
+
 ```json
 {
   "timestamp": 1750000005000,
   "engagement_time_msec": 38000,
+  "screen": "/orders/:id",
+  "path": "/orders/42",
+  "screen_seconds": 95,
   "mini_service": "checkout"
 }
 ```
@@ -205,6 +215,9 @@ sesión en uso de una abandonada: sin él, alguien leyendo una sola página no e
 |---|---|---|
 | `timestamp` | number (ms) | Momento del flush |
 | `engagement_time_msec` | number | Milisegundos de tiempo activo en foreground |
+| `screen` | string? | Pantalla en curso, normalizada como en `page_view` (IDs → `:id`). Ausente si no hay pantalla (antes de la primera, o en el engagement del cierre) |
+| `path` | string? | Ruta real de esa pantalla, sin query, como el `path` de su `page_view` |
+| `screen_seconds` | number? | Segundos en esa pantalla hasta este momento (tiempo de reloj desde que se entró, la misma medida que el `duration_seconds` de su `page_view`) |
 | `mini_service` | string? | Presente si había un mini-service activo |
 
 ---
