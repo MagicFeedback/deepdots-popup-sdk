@@ -698,12 +698,31 @@ export class DeepdotsPopups {
         this.analytics?.flush(this.analyticsIdentity(), options);
     }
 
-    /** Emite un evento `user_engagement` con el tiempo activo acumulado (#8). */
+    /**
+     * Emite un evento `user_engagement` con el tiempo activo acumulado (#8) y la pantalla en
+     * curso: `screen` y `path` (los mismos que llevará su `page_view`) y `screen_seconds` (lo
+     * que lleva en ella, medido como el `duration_seconds` del `page_view`).
+     *
+     * El `page_view` sale al SALIR de la pantalla; si el cierre no llega nunca (pestaña dormida
+     * y descartada al volver, pestaña o app matada en segundo plano), la última pantalla de la
+     * sesión se perdía y una visita de una sola pantalla se quedaba sin ninguna. Con la pantalla
+     * en el latido y en el engagement de ocultar la pestaña, el backend la reconstruye.
+     *
+     * En los cierres (`closeSession`, `suspendSession`) el observador ya emitió el `page_view`
+     * y no tiene pantalla, así que ese engagement va sin `screen`: nunca se cuenta dos veces.
+     * Tampoco se emite un `page_view` aquí, por lo mismo.
+     */
     private flushEngagement(): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         const ms = this.engagement?.consume() ?? 0;
         if (ms > 0) {
-            this.track('deepdots_user_engagement', { engagement_time_msec: ms });
+            const current = this.navObserver?.current();
+            this.track('deepdots_user_engagement', {
+                engagement_time_msec: ms,
+                ...(current
+                    ? { screen: current.screen, path: current.path, screen_seconds: current.seconds }
+                    : {}),
+            });
             this.lastEngagementAt = Date.now();
         }
     }
@@ -890,7 +909,9 @@ export class DeepdotsPopups {
             this.startAnalyticsFlushTimer();
             this.openSession('bfcache_restore');
         });
-        // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado
+        // al ocultar/mostrar la pestaña: pausar/reanudar engagement y enviar lo acumulado. El
+        // engagement de ocultar lleva la pantalla en curso: si la pestaña no vuelve (la descarta
+        // el navegador, se cierra dormida) es lo último que se sabe de dónde estaba el usuario.
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
                 this.flushEngagement();

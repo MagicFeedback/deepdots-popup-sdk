@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-10-16
+
+### Fixed
+
+- **The last screen of a session is no longer lost when the session never closes.**
+  `deepdots_page_view` goes out when the user *leaves* a screen or the session closes, and
+  the 5-minute heartbeat only sent `deepdots_user_engagement`, which carried no screen. A tab
+  hidden for 50 minutes or more is discarded on return without sending anything, and a tab or
+  app killed while in the background loses its closing batch: the backend then closes the
+  record with only its start, so a one-screen visit had no page view at all (~24 % of the
+  sessions on our own platform after 1.8.3) and a longer one lost its last screen. Every
+  `deepdots_user_engagement` (heartbeat and the one sent when the tab is hidden) now also
+  carries the screen the user is on: `screen` and `path` (the same values its page view will
+  carry) and `screen_seconds` (time on that screen so far, measured like the page view's
+  `duration_seconds`). The engagement sent while closing the session carries none of them,
+  because that screen has just got its page view. No extra page views are emitted, so nothing
+  is counted twice; the event name and its `engagement_time_msec` are unchanged. The journey
+  builder uses the new params to add the missing screen.
+
 ## [1.12.0] — 2026-10-15
 
 ### Added

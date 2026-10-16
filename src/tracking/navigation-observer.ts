@@ -23,6 +23,17 @@ export interface ScreenVisit {
   durationSeconds: number;
 }
 
+/**
+ * La pantalla en la que está el usuario AHORA, aún sin `page_view` (sale al abandonarla).
+ * Mismos `screen`/`path` que llevará su visita y `seconds` medidos igual que su
+ * `durationSeconds` (tiempo de reloj desde que se entró), pero hasta este momento.
+ */
+export interface CurrentScreen {
+  screen: string;
+  path: string;
+  seconds: number;
+}
+
 export type VisitListener = (visit: ScreenVisit) => void;
 
 const UUID_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
@@ -118,6 +129,25 @@ export class NavigationObserver {
     this.begin(window.location.href);
   }
 
+  /**
+   * La pantalla en curso, sin cerrarla ni emitir nada; null si no hay (antes de `begin`, tras
+   * `stop`/`discard`). Para que el `user_engagement` lleve la pantalla: si el cierre de la
+   * sesión no llega nunca (pestaña dormida y descartada, app matada), la última pantalla no
+   * tiene `page_view` y solo queda esto.
+   */
+  current(): CurrentScreen | null {
+    if (this.currentScreen == null) return null;
+    return {
+      screen: this.currentScreen,
+      path: this.currentPath ?? this.currentScreen,
+      seconds: this.secondsSinceEntry(this.now()),
+    };
+  }
+
+  private secondsSinceEntry(at: number): number {
+    return Math.max(0, Math.round((at - this.entryAt) / 1000));
+  }
+
   private closeCurrent(): void {
     if (this.currentScreen == null) return;
     const exit = this.now();
@@ -126,7 +156,7 @@ export class NavigationObserver {
       path: this.currentPath ?? this.currentScreen,
       entry: this.entryAt,
       exit,
-      durationSeconds: Math.max(0, Math.round((exit - this.entryAt) / 1000)),
+      durationSeconds: this.secondsSinceEntry(exit),
     };
     this.listeners.forEach((l) => {
       try {
