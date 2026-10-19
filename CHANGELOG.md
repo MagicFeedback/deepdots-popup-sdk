@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`@magicfeedback/native` 2.2.32** (from 2.2.31), in the web bundle and as the default CDN
+  version of the React Native WebView. A follow-up question now knows the survey's previous
+  answers and upcoming questions, so it doesn't ask what was already answered or is about to
+  be asked; AI survey previews store nothing. The survey stylesheet is unchanged (re-vendored
+  from 2.2.32).
+
 ## [1.13.0] — 2026-10-16
 
 ### Fixed
