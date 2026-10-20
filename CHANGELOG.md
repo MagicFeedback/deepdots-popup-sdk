@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] — 2026-10-20
+
 ### Changed
 
 - **`@magicfeedback/native` 2.2.33** (from 2.2.31), in the web bundle and as the default CDN
   version of the React Native WebView. A follow-up question now sends the survey's previous
   answers and upcoming questions, so the API can avoid asking what was already answered or is
-  about to be asked (v4 follow up, chosen per survey once MagicFeedback_API#528 is deployed);
+  about to be asked (v4 follow up, chosen per survey by platform admins; every survey is on
+  v3 by default, so nothing changes until one is switched);
   AI survey previews store nothing; `?<ref>=<value>&autoadvance=true` sends a prefilled first
   page on its own; a `RATING_STAR` prefilled from the URL shows its stars. The survey
   stylesheet is unchanged (re-vendored from 2.2.33).
