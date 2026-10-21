@@ -32,6 +32,33 @@ describe('DeepdotsPopups', () => {
       const container = document.getElementById('deepdots-popup-container');
       expect(container).toBeTruthy();
     });
+
+    // El contenedor lo crea el renderer. El core creaba otro con el mismo id que nunca se
+    // usaba (el renderer siempre existe): dos `#deepdots-popup-container` en el DOM, uno vacío.
+    it('crea un único #deepdots-popup-container', () => {
+      popups.init({ apiKey: 'test-key' });
+      expect(document.querySelectorAll('#deepdots-popup-container')).toHaveLength(1);
+    });
+
+    it('sigue habiendo uno solo al mostrar un popup', async () => {
+      const defs: PopupDefinition[] = [{
+        id: 'p-1', title: '', message: '', surveyId: 's-1', productId: 'pr-1',
+        triggers: [{ type: 'event', value: 'OPEN' }],
+      }];
+      mockPopupsApi(defs);
+      popups.init({ apiKey: 'test-key' });
+      await flushPopupsLoad();
+      popups.autoLaunch();
+      popups.triggerEvent('OPEN');
+      await flushPopupsLoad();
+      expect(document.querySelectorAll('#deepdots-popup-container')).toHaveLength(1);
+    });
+
+    it('con un renderer propio el SDK no mete contenedor en el DOM', () => {
+      popups.setRenderer({ show: () => {}, hide: () => {} });
+      popups.init({ apiKey: 'test-key' });
+      expect(document.getElementById('deepdots-popup-container')).toBeNull();
+    });
   });
 
   describe('configureTriggers', () => {

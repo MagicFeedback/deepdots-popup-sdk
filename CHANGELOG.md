@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Native renders the survey in its own WebView. Found while testing an Angular 22 app with
   SSR and a nonce-based CSP, where it is the `CSP_NONCE` token.
 
+### Fixed
+
+- **Only one `#deepdots-popup-container` in the DOM.** `init()` added a second, empty and
+  hidden container with the same id next to the renderer's: the core created its own for a
+  fallback path that never ran (the renderer always exists). The container is now created only
+  by the renderer, and with a custom renderer (`setRenderer`) the SDK adds none.
+
 ## [1.14.0] — 2026-10-20
 
 ### Changed

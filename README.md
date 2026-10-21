@@ -539,7 +539,7 @@ interface DeepdotsEvent {
 - The default browser renderer uses Deepdots forms and applies button labels from `actions.accept`, `actions.start`, `actions.back`, and `actions.complete`.
 - `title`, `message`, and `style` belong to the popup definition contract, but the current browser renderer focuses on the embedded form and does not render those fields as standalone popup copy/layout controls.
 - `actions.decline` is accepted in the definition shape, but the current browser renderer does not render a dedicated decline button or enforce `decline.cooldownDays`.
-- In browser mode, the SDK creates `#deepdots-popup-container` and injects the shared popup stylesheet from jsDelivr.
+- In browser mode, the default renderer creates a single `#deepdots-popup-container` on `document.body` and injects the popup and survey stylesheets into `<head>` (bundled with the SDK, no external request). With a custom renderer (`setRenderer`) the SDK adds no container of its own.
 
 ## Running The Examples Locally
 
