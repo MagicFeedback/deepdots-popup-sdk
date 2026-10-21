@@ -119,7 +119,6 @@ export class DeepdotsPopups {
     private renderer: PopupRenderer = createDefaultRenderer();
     /** Logger para el output de debug. Default `console`; el host puede inyectar el suyo en init(). */
     private logger: DeepdotsLogger = console;
-    private popupContainer: HTMLElement | null = null; // deprecated: mantenido para compatibilidad interna
     private popupDefinitions: NormalizedPopupDefinition[] = [];
     private popupsLoaded = false;
     /**
@@ -150,6 +149,7 @@ export class DeepdotsPopups {
     private showProgressBar: boolean | undefined = undefined;
     /** CSS del host inyectado al final de los estilos del popup. */
     private surveyCss: string | undefined = undefined;
+    private cspNonce: string | undefined = undefined;
 
     /** Identidad + sesión (Fase 1 tracking). Null hasta init(). */
     private tracking: TrackingManager | null = null;
@@ -228,6 +228,7 @@ export class DeepdotsPopups {
         this.renderChrome = config.renderChrome ?? true;
         this.showProgressBar = config.showProgressBar;
         this.surveyCss = config.surveyCss;
+        this.cspNonce = config.cspNonce;
         this.onFeedbackSession = config.onFeedbackSession;
 
         this.config = {
@@ -351,8 +352,8 @@ export class DeepdotsPopups {
 
         this.initialized = true;
         this.log('SDK initialized', this.config);
+        // El contenedor del popup (`#deepdots-popup-container`) lo crea el renderer, no el core.
         if (this.renderer.init) this.renderer.init();
-        this.setupPopupContainer();
 
         // Los popups SIEMPRE se reciben de la API (no se definen en init). Sin apiKey no hay
         // GET que esperar, así que tampoco se guardan disparos.
@@ -1510,28 +1511,6 @@ export class DeepdotsPopups {
         }
     }
 
-    /** Setup popup container element */
-    private setupPopupContainer(): void {
-        if (typeof document === 'undefined') {
-            return;
-        }
-        this.popupContainer = document.createElement('div');
-        this.popupContainer.id = 'deepdots-popup-container';
-        this.popupContainer.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          display: none;
-          z-index: 999999;
-          background: rgba(0, 0, 0, 0.5);
-          justify-content: center;
-          align-items: center;
-        `;
-        document.body.appendChild(this.popupContainer);
-    }
-
     /** Render the popup UI */
     private renderPopup(surveyId: string, productId: string, actions?: PopupActions, style?: PopupStyle, title?: string): void {
         const userId = this.tracking?.getUserId() ?? this.config?.userId;
@@ -1539,56 +1518,26 @@ export class DeepdotsPopups {
         const miniService = this.analytics?.getMiniService() ?? undefined;
         const analyticsFeedbackSessionId = this.analyticsFeedbackSessionId;
         this.log('tracking · survey identity →', { userId: userId ?? null, sessionId: sessionId ?? null, miniService: miniService ?? null, analyticsFeedbackSessionId: analyticsFeedbackSessionId ?? null });
-        if (this.renderer) {
-            this.renderer.show(
-                surveyId,
-                productId,
-                actions,
-                (type, id, payload) => this.emitEvent(type, id, payload),
-                () => this.hidePopup(),
-                this.env,
-                userId,
-                style,
-                sessionId,
-                miniService,
-                analyticsFeedbackSessionId,
-                this.renderChrome,
-                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language },
-            );
-            return;
-        }
-
-        if (!this.popupContainer) return;
-        const container = this.popupContainer;
-        void import('../ui/renderPopup').then(({ renderPopup }) => {
-            renderPopup(
-                container,
-                surveyId,
-                productId,
-                actions,
-                (type, id, payload) => this.emitEvent(type, id, payload),
-                () => this.hidePopup(),
-                this.env,
-                userId,
-                style,
-                sessionId,
-                miniService,
-                analyticsFeedbackSessionId,
-                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language },
-            );
-        });
+        this.renderer.show(
+            surveyId,
+            productId,
+            actions,
+            (type, id, payload) => this.emitEvent(type, id, payload),
+            () => this.hidePopup(),
+            this.env,
+            userId,
+            style,
+            sessionId,
+            miniService,
+            analyticsFeedbackSessionId,
+            this.renderChrome,
+            { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language, cspNonce: this.cspNonce },
+        );
     }
 
     /** Hide the popup */
     private hidePopup(): void {
-        if (this.renderer) {
-            this.renderer.hide();
-            return;
-        }
-        if (this.popupContainer) {
-            this.popupContainer.style.display = 'none';
-            this.popupContainer.innerHTML = '';
-        }
+        this.renderer.hide();
     }
 
     /** Emit an event */

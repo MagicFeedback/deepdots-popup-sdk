@@ -24,6 +24,12 @@ export interface PopupRenderOptions {
    * (`formData.lang[0]`) en cuanto este carga, y ambos los pisa `actions.*.label` de la API.
    */
   language?: string;
+  /**
+   * Nonce de la Content-Security-Policy del host (`DeepdotsInitParams.cspNonce`). Se pone en
+   * cada `<style>` que inyecta el popup DOM; sin él, una CSP con `style-src 'nonce-…'` bloquea
+   * la hoja del survey. No aplica a React Native (el survey vive en su propio WebView).
+   */
+  cspNonce?: string;
 }
 
 export interface PopupRenderer {
