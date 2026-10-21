@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] — 2026-10-21
+
+### Added
+
+- **`cspNonce` init option, for pages with a strict Content-Security-Policy.** With
+  `style-src 'nonce-…'` and no `'unsafe-inline'`, the browser blocked the `<style>` elements
+  the popup injects into `<head>`, and the survey rendered without its stylesheet (the card,
+  backdrop and buttons survived because they use inline `element.style`). The popup now puts
+  the nonce on all of them: survey stylesheet, alignment, spinner, responsive rules,
+  `surveyCss` and the custom font's `@font-face`. A stylesheet already injected without the
+  nonce is recreated, since the browser only checks the nonce on insertion. Web only: React
+  Native renders the survey in its own WebView. Found while testing an Angular 22 app with
+  SSR and a nonce-based CSP, where it is the `CSP_NONCE` token.
+
+### Fixed
+
+- **Only one `#deepdots-popup-container` in the DOM.** `init()` added a second, empty and
+  hidden container with the same id next to the renderer's: the core created its own for a
+  fallback path that never ran (the renderer always exists). The container is now created only
+  by the renderer, and with a custom renderer (`setRenderer`) the SDK adds none.
+
 ## [1.14.0] — 2026-10-20
 
 ### Changed

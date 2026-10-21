@@ -113,6 +113,15 @@ export interface DeepdotsInitParams {
      * en vez de cambiar los defaults que comparten todos los clientes.
      */
     surveyCss?: string;
+    /**
+     * Nonce de la Content-Security-Policy de la página, para hosts con una CSP estricta
+     * (`style-src 'nonce-…'` sin `'unsafe-inline'`). El popup lo pone en cada `<style>` que
+     * inyecta en el `<head>` (hoja del survey, spinner, responsive, `surveyCss`, `@font-face`);
+     * sin él el navegador las bloquea y el survey sale sin estilos. Debe ser el MISMO nonce de
+     * la cabecera CSP de esa respuesta (en Angular, el token `CSP_NONCE`). Solo web: en React
+     * Native el survey vive en su propio WebView y no le afecta la CSP del host.
+     */
+    cspNonce?: string;
 
 }
 export interface DeepdotsConfig {
