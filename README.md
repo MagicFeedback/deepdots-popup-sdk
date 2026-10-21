@@ -143,6 +143,11 @@ Config fields:
   or positioning, so the host mounts its own `Modal`/container and controls the styling. This
   avoids a "double modal" when the host already wraps the WebView. The survey stays fully
   functional (message bridge, form, nav buttons, close). No effect on the web DOM popup.
+- `cspNonce?: string` — for pages with a strict Content-Security-Policy (`style-src 'nonce-…'`
+  without `'unsafe-inline'`). The popup puts it on every `<style>` it injects into `<head>`
+  (survey stylesheet, spinner, responsive rules, `surveyCss`, `@font-face`); without it the
+  browser blocks them and the survey renders unstyled. Pass the same nonce your CSP header
+  uses for that response (in Angular, the `CSP_NONCE` token). Web only.
 - `language?: string` — BCP-47 tag (`'en'`, `'en-US'`, …) used for popup language
   segmentation (`segments.lang`) and for the analytics context. If omitted it is
   auto-detected from `navigator.language`, falling back to the `Intl` locale (which is

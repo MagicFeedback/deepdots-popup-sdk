@@ -80,3 +80,22 @@ describe('DeepdotsPopups — idioma del chrome del popup', () => {
     expect(renderer.options?.language).toBe('sv-SE');
   });
 });
+
+describe('DeepdotsPopups — nonce de CSP', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    localStorage.clear();
+  });
+
+  it('pasa al renderer el cspNonce del init', async () => {
+    const renderer = new CapturingRenderer();
+    await boot(renderer, { apiKey: 'k', cspNonce: 'n0nce' });
+    expect(renderer.options?.cspNonce).toBe('n0nce');
+  });
+
+  it('sin cspNonce no lo inventa', async () => {
+    const renderer = new CapturingRenderer();
+    await boot(renderer, { apiKey: 'k' });
+    expect(renderer.options?.cspNonce).toBeUndefined();
+  });
+});

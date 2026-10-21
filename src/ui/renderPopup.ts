@@ -15,14 +15,33 @@ import magicfeedbackCss from '../assets/style.css';
 // para que la ruta del WebView pueda leerla sin arrastrar `@magicfeedback/native`.
 export { REVEAL_TIMEOUT_MS } from './reveal';
 
+/**
+ * `<style>` del SDK en el `<head>`, identificado por `id` e inyectado una sola vez. Con `nonce`
+ * (la CSP del host, ver `DeepdotsInitParams.cspNonce`) lo lleva puesto desde que se inserta:
+ * el navegador solo comprueba el nonce al insertar, así que una hoja que ya estaba sin él (o con
+ * otro) se recrea en vez de parchearse.
+ */
+function ensureStyle(id: string, css: string, nonce?: string): HTMLStyleElement {
+    let el = document.getElementById(id) as HTMLStyleElement | null;
+    if (el && nonce && el.getAttribute('nonce') !== nonce) {
+        el.remove();
+        el = null;
+    }
+    if (!el) {
+        el = document.createElement('style');
+        el.id = id;
+        if (nonce) el.setAttribute('nonce', nonce);
+        el.textContent = css;
+        document.head.appendChild(el);
+    } else if (el.textContent !== css) {
+        el.textContent = css;
+    }
+    return el;
+}
+
 // Inserta la hoja de estilos de MagicFeedback directamente en el popup para garantizar estilos incluso si el bundler no la inyecta globalmente.
-function ensureMagicFeedbackStyles(_popup: HTMLElement) {
-    const STYLE_ID = 'magicfeedback-sdk-styles';
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = magicfeedbackCss;
-    document.head.appendChild(style);
+function ensureMagicFeedbackStyles(nonce?: string) {
+    ensureStyle('magicfeedback-sdk-styles', magicfeedbackCss, nonce);
 }
 
 /**
@@ -42,24 +61,17 @@ export const SURVEY_ALIGNMENT_STYLE_ID = 'deepdots-survey-alignment';
  * repintaría sus propios formularios; de paso, la especificidad extra hace que gane sobre el CSS
  * del paquete sin depender del orden.
  */
-function ensureSurveyAlignmentStyles() {
-    if (document.getElementById(SURVEY_ALIGNMENT_STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = SURVEY_ALIGNMENT_STYLE_ID;
-    style.textContent = `
+function ensureSurveyAlignmentStyles(nonce?: string) {
+    ensureStyle(SURVEY_ALIGNMENT_STYLE_ID, `
     .deepdots-popup .magicfeedback-container,
     .deepdots-popup .magicfeedback-form,
     .deepdots-popup .magicfeedback-div { padding-left: 0; padding-right: 0; }
-  `;
-    document.head.appendChild(style);
+  `, nonce);
 }
 
 // Añade estilos de spinner si no existen
-function ensureSpinnerStyles(_popup: HTMLElement) {
-    if (document.getElementById('deepdots-spinner-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'deepdots-spinner-styles';
-    style.textContent = `
+function ensureSpinnerStyles(nonce?: string) {
+    ensureStyle('deepdots-spinner-styles', `
     /* El enunciado trae margin-top:20px del CSS de surveys, que sumaba al hueco de la barra
        de progreso y descompensaba la simetría. Solo se anula en el primero: entre preguntas
        de la misma página sigue separando. */
@@ -67,15 +79,11 @@ function ensureSpinnerStyles(_popup: HTMLElement) {
     @keyframes ddspin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .mf-spinner { display:flex; justify-content:center; align-items:center; padding:8px 0; }
     .mf-spinner-circle { width:28px; height:28px; border:3px solid #e0e6ed; border-top-color:#1E293B; border-radius:50%; animation: ddspin 0.9s linear infinite; }
-  `;
-    document.head.appendChild(style);
+  `, nonce);
 }
 
-function ensureResponsiveStyles(_popup: HTMLElement) {
-    if (document.getElementById('deepdots-responsive-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'deepdots-responsive-styles';
-    style.textContent = `
+function ensureResponsiveStyles(nonce?: string) {
+    ensureStyle('deepdots-responsive-styles', `
     /* Responsive adjustments */
     @media (max-width: 640px) {
       .deepdots-popup {
@@ -108,8 +116,7 @@ function ensureResponsiveStyles(_popup: HTMLElement) {
         overflow-y: auto !important;
       }
     }
-  `;
-    document.head.appendChild(style);
+  `, nonce);
 }
 
 /**
@@ -117,32 +124,21 @@ function ensureResponsiveStyles(_popup: HTMLElement) {
  * `@magicfeedback/native` para que gane en cascada sin tocar ninguno de los dos.
  * Se reemplaza en cada render por si cambia entre popups.
  */
-function ensureCustomCss(css?: string) {
+function ensureCustomCss(css?: string, nonce?: string) {
     const STYLE_ID = 'deepdots-custom-css';
-    const existing = document.getElementById(STYLE_ID);
     if (!css) {
-        existing?.remove();
+        document.getElementById(STYLE_ID)?.remove();
         return;
     }
-    const el = (existing as HTMLStyleElement | null) ?? document.createElement('style');
-    el.id = STYLE_ID;
-    if (el.textContent !== css) el.textContent = css;
     // Reanexar mueve el nodo al final del head: garantiza que va tras las hojas del SDK.
-    document.head.appendChild(el);
+    document.head.appendChild(ensureStyle(STYLE_ID, css, nonce));
 }
 
 // Inyecta (una sola vez) el @font-face de la fuente personalizada.
-function ensureFontFace(family: string, url: string) {
+function ensureFontFace(family: string, url: string, nonce?: string) {
     const css = buildFontFaceCss(family, url);
     if (!css) return;
-    const STYLE_ID = 'deepdots-font-face';
-    let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
-    if (!el) {
-        el = document.createElement('style');
-        el.id = STYLE_ID;
-        document.head.appendChild(el);
-    }
-    if (el.textContent !== css) el.textContent = css;
+    ensureStyle('deepdots-font-face', css, nonce);
 }
 
 /** Ratón o trackpad. Un iPad sin trackpad cuenta como táctil. */
@@ -178,6 +174,8 @@ export async function renderPopup(
     // dejan el total igual, así que un survey de una pregunta con follow-up nunca lo mostraba).
     let pageDepth = 0;
     let onStartPage = false;
+    // Nonce de la CSP del host para cada `<style>` que se inyecta (en blanco = sin nonce).
+    const cspNonce = options?.cspNonce?.trim() || undefined;
 
     // Textos del chrome (botones, progreso, aria-labels, errores). Arrancan con el idioma que
     // conoce el init y se re-resuelven en `onLoadedEvent` con el idioma en el que se muestra el
@@ -247,7 +245,7 @@ export async function renderPopup(
         // Los controles de formulario (button/input/textarea/select) NO heredan
         // font-family por defecto; esta clase activa la regla que los fuerza a heredar.
         popup.classList.add('deepdots-has-font');
-        if (font.url) ensureFontFace(font.family, font.url);
+        if (font.url) ensureFontFace(font.family, font.url, cspNonce);
     }
 
     // Sección header (título + botón cerrar)
@@ -385,13 +383,13 @@ export async function renderPopup(
         progressFollowUp.style.display = p.followup ? 'inline-block' : 'none';
     }
 
-    ensureMagicFeedbackStyles(popup);
+    ensureMagicFeedbackStyles(cspNonce);
     // Después del CSS del paquete y antes del CSS del host, que sigue teniendo la última palabra.
-    ensureSurveyAlignmentStyles();
-    ensureSpinnerStyles(popup);
-    ensureResponsiveStyles(popup);
+    ensureSurveyAlignmentStyles(cspNonce);
+    ensureSpinnerStyles(cspNonce);
+    ensureResponsiveStyles(cspNonce);
     // El último en entrar: el CSS del host gana sobre todo lo anterior.
-    ensureCustomCss(options?.surveyCss);
+    ensureCustomCss(options?.surveyCss, cspNonce);
 
     const containerContent = document.createElement('div');
     containerContent.id = 'dd-content';

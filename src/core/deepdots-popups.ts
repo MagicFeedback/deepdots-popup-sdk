@@ -150,6 +150,7 @@ export class DeepdotsPopups {
     private showProgressBar: boolean | undefined = undefined;
     /** CSS del host inyectado al final de los estilos del popup. */
     private surveyCss: string | undefined = undefined;
+    private cspNonce: string | undefined = undefined;
 
     /** Identidad + sesión (Fase 1 tracking). Null hasta init(). */
     private tracking: TrackingManager | null = null;
@@ -228,6 +229,7 @@ export class DeepdotsPopups {
         this.renderChrome = config.renderChrome ?? true;
         this.showProgressBar = config.showProgressBar;
         this.surveyCss = config.surveyCss;
+        this.cspNonce = config.cspNonce;
         this.onFeedbackSession = config.onFeedbackSession;
 
         this.config = {
@@ -1553,7 +1555,7 @@ export class DeepdotsPopups {
                 miniService,
                 analyticsFeedbackSessionId,
                 this.renderChrome,
-                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language },
+                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language, cspNonce: this.cspNonce },
             );
             return;
         }
@@ -1574,7 +1576,7 @@ export class DeepdotsPopups {
                 sessionId,
                 miniService,
                 analyticsFeedbackSessionId,
-                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language },
+                { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language, cspNonce: this.cspNonce },
             );
         });
     }
