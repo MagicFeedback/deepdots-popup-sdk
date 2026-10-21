@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] — 2026-10-21
+
 ### Added
 
 - **`cspNonce` init option, for pages with a strict Content-Security-Policy.** With
