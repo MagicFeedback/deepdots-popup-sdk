@@ -302,10 +302,12 @@ export async function renderPopup(
         closeBtn.style.color = theme.textPrimary;
         closeBtn.style.transform = 'scale(1)';
     };
-    closeBtn.onclick = () => {
+    // La X y el Cancel del survey que no carga cierran por el mismo camino.
+    const closeFromChrome = () => {
         emit('popup_clicked', surveyId, {action: 'close_icon'});
         onClose();
     };
+    closeBtn.onclick = closeFromChrome;
     closeBtn.style.flex = '0 0 auto';
     closeBtn.style.marginLeft = 'auto';
     header.appendChild(closeBtn);
@@ -446,6 +448,15 @@ export async function renderPopup(
     formWrapper.appendChild(spinnerEl);
     formWrapper.appendChild(formHost);
     main.appendChild(formWrapper);
+
+    // Aviso de survey que no carga (clave o producto inexistentes, sin red). Ocupa el sitio del
+    // survey; `textContent`, nunca innerHTML.
+    const loadErrorEl = document.createElement('div');
+    loadErrorEl.id = 'dd-load-error';
+    loadErrorEl.className = 'deepdots-load-error';
+    loadErrorEl.setAttribute('role', 'alert');
+    loadErrorEl.style.cssText = `display:none; width:100%; text-align:center; padding:24px 0; font-size:15px; color:${theme.textPrimary};`;
+    main.appendChild(loadErrorEl);
     // Insertar el hint justo antes del footer
     main.appendChild(errorHint);
 
@@ -578,6 +589,16 @@ export async function renderPopup(
       justify-content: center;
       text-align: center;
     `;
+    // Única acción del survey que no carga. Cierra igual que la X: no depende de que la API
+    // mande `actions.decline` (solo su `label`, si viene).
+    const cancelButton = document.createElement('button');
+    cancelButton.id = 'dd-cancel';
+    cancelButton.type = 'button';
+    cancelButton.className = 'dd-nav-btn';
+    cancelButton.textContent = actionLabels.decline;
+    cancelButton.style.cssText = submitButton.style.cssText;
+    cancelButton.onclick = closeFromChrome;
+
     submitButton.onclick = () => {
         if (!surveyCompletedEmitted) {
             emit('popup_clicked', surveyId, {action: 'manual_send'});
@@ -601,6 +622,8 @@ export async function renderPopup(
         startButton.textContent = actionLabels.start;
         closeButton.textContent = actionLabels.complete;
         submitButton.textContent = actionLabels.accept;
+        cancelButton.textContent = actionLabels.decline;
+        loadErrorEl.textContent = labels.errorLoad;
         closeBtn.setAttribute('aria-label', labels.closeAria);
         spinnerEl.setAttribute('aria-label', labels.loadingAria);
         progressFollowUp.textContent = labels.followUp;
@@ -613,12 +636,14 @@ export async function renderPopup(
     startButton.style.display = 'none';
     submitButton.style.display = 'none';
     closeButton.style.display = 'none';
+    cancelButton.style.display = 'none';
 
     // Insertar botones dentro del footer en orden visual (row-reverse deja primario a la derecha)
     footer.appendChild(submitButton);
     footer.appendChild(backButton);
     footer.appendChild(closeButton);
     footer.appendChild(startButton);
+    footer.appendChild(cancelButton);
 
     // Añadir footer al main y main al containerContent
     containerContent.appendChild(main);
@@ -627,7 +652,7 @@ export async function renderPopup(
     containerContent.appendChild(footer);
 
     // Helper para controlar visibilidad de botones según estado
-    type ViewState = 'loading' | 'start' | 'in_progress_first' | 'in_progress_next' | 'completed' | 'error';
+    type ViewState = 'loading' | 'start' | 'in_progress_first' | 'in_progress_next' | 'completed' | 'error' | 'load_error';
 
     function updateButtons(state: ViewState) {
         // Por defecto, ocultar todos
@@ -635,6 +660,7 @@ export async function renderPopup(
         startButton.style.display = 'none';
         submitButton.style.display = 'none';
         closeButton.style.display = 'none';
+        cancelButton.style.display = 'none';
         // Reset widths por estado
         backButton.style.width = '';
         startButton.style.width = '';
@@ -673,6 +699,10 @@ export async function renderPopup(
                 // closeButton.style.display = 'inline-flex';
                 setLoading(false);
                 break;
+            case 'load_error':
+                // Survey que no ha cargado: solo se puede cerrar.
+                cancelButton.style.display = 'inline-flex';
+                break;
         }
     }
 
@@ -702,6 +732,27 @@ export async function renderPopup(
         done.querySelectorAll('img').forEach((img) => {
             img.style.cssText = 'max-width:100%; height:auto; margin:0 auto 16px auto; display:block;';
         });
+    }
+
+    /**
+     * Survey que no ha cargado. `@magicfeedback/native` lo avisa con `onLoadedEvent({error})`
+     * y antes se trataba como una carga normal: Send sobre un survey vacío. Se enseña el aviso
+     * traducido, la X sigue y el footer queda en Cancel. Se revela ya: no hay nada más que
+     * esperar. No es interacción del usuario, así que no llega al host como `popup_clicked`.
+     */
+    let loadFailed = false;
+    function showLoadError(reason: unknown) {
+        sdkWarn('[Deepdots] survey failed to load:', reason);
+        if (loadFailed) return;
+        loadFailed = true;
+        progressEl.style.display = 'none';
+        formWrapper.style.display = 'none';
+        errorHint.style.display = 'none';
+        loadErrorEl.textContent = labels.errorLoad;
+        loadErrorEl.style.display = 'block';
+        setLoading(false);
+        updateButtons('load_error');
+        reveal();
     }
 
     // Ensamblar popup
@@ -814,7 +865,7 @@ export async function renderPopup(
     try {
         if (!magicfeedback || typeof magicfeedback.form !== 'function') {
             sdkWarn('[MagicFeedback] form() no disponible. Fallback manual.');
-            setLoading(false);
+            showLoadError('form() not available');
             return;
         }
         magicfeedback.init({
@@ -832,6 +883,9 @@ export async function renderPopup(
             lang?: string;
             onLoadedEvent?: (args: {
                 formData: FormData,
+                loading?: boolean,
+                // Presente cuando el survey NO ha cargado (406 de `/info`, sin red).
+                error?: unknown,
                 lang?: string,
                 progress?: number, total?: number
             }) => void;
@@ -856,7 +910,11 @@ export async function renderPopup(
             // quitado el `inert`. La apertura va aparte (ver autofocusOnOpen).
             autofocus: 'navigation',
         };
-        generateOptions.onLoadedEvent = ({formData, lang}) => {
+        generateOptions.onLoadedEvent = ({formData, lang, error}) => {
+            if (error) {
+                showLoadError(error);
+                return;
+            }
             // Idioma en el que native muestra el survey. Manda sobre el del init para que el
             // chrome no se quede en inglés delante de un survey traducido. Native < 2.3 no lo
             // envía: entonces el primero de `formData.lang` (el idioma por defecto).
@@ -1009,10 +1067,10 @@ export async function renderPopup(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .catch((err: any) => {
                 sdkError('[MagicFeedback] Error generating form:', err);
-                setLoading(false);
+                showLoadError(err);
             });
     } catch (e) {
         sdkError('[MagicFeedback] Exception initializing form:', e);
-        setLoading(false);
+        showLoadError(e);
     }
 }
