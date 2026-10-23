@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-10-23
+
 ### Fixed
 
 - **A survey that fails to load no longer shows an empty survey with a Send button.** When
