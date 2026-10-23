@@ -67,6 +67,31 @@ describe('ReactNativePopupRenderer · aviso de listo', () => {
     expect(eventos).toEqual([]);
   });
 
+  it('un survey que no carga también avisa de listo, para que el host enseñe el error', () => {
+    // El HTML ya manda `ready` al revelar el aviso; si un WebView viejo solo manda `error:load`
+    // (JSON o mensaje simple), el host que difiere el montaje no debe quedarse esperando.
+    showPopup(sdk);
+    renderer.handleMessage(JSON.stringify({ name: 'error:load', payload: { message: 'Public key not found' } }));
+    expect(ready).toEqual(['survey-rn']);
+  });
+
+  it('también con `error:load` como mensaje simple', () => {
+    showPopup(sdk);
+    renderer.handleMessage('error:load');
+    expect(ready).toEqual(['survey-rn']);
+  });
+
+  it('el fallo de carga no cuenta como interacción del usuario', () => {
+    const eventos: string[] = [];
+    sdk.on('popup_clicked', () => eventos.push('clicked'));
+    showPopup(sdk);
+
+    renderer.handleMessage(JSON.stringify({ name: 'error:load', payload: { message: 'x' } }));
+    renderer.handleMessage(JSON.stringify({ name: 'ready' }));
+
+    expect(eventos).toEqual([]);
+  });
+
   it('avisa igualmente si el WebView nunca responde', () => {
     // Si el WebView no llega ni a ejecutar el HTML (motor que no arranca, documento que no
     // carga), el techo de dentro del HTML no existe: el host se quedaría sin abrir el Modal.

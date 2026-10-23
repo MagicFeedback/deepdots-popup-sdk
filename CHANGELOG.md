@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-10-23
+
+### Fixed
+
+- **A survey that fails to load no longer shows an empty survey with a Send button.** When
+  `@magicfeedback/native` cannot load the survey (unknown key or product, so
+  `GET /sdk/app/{survey}/{product}/info` answers 406 "Public key not found", or no network) it
+  calls `onLoadedEvent({ loading: false, error })`, and the popup treated that as a normal
+  load. Now the popup shows a translated notice ("We couldn't load this survey.", new
+  `errorLoad` label in all 12 locales), keeps the close X and replaces the footer with a
+  single Cancel button (`#dd-cancel`, `actions.decline.label` if the platform sets one) that
+  closes the same way as the X. The popup is revealed right away instead of waiting for the
+  deferred-opening ceiling. Same in the React Native WebView, which also covers the survey
+  bundle failing to download from the CDN: it now sends `error:load` (or `error:init` /
+  `error:exception`) as a JSON message `{name, payload: {message}}` instead of `loaded`
+  (before, the CDN failure was the bare string `error:load`), and still sends `ready`, so a
+  host that mounts its Modal on `onReady` shows the notice; `ReactNativePopupRenderer` also
+  treats any `error:*` message as ready. The failed load is not reported as `popup_clicked`.
+  Mirrors the same fix in the native SDK.
+
 ## [1.15.0] — 2026-10-21
 
 ### Added

@@ -33,6 +33,8 @@ const SELECTORES_PUBLICOS = [
   '#dd-main',
   '.deepdots-popup-main',
   '#dd-form-wrapper',
+  '#dd-load-error',
+  '.deepdots-load-error',
   '#dd-error',
   '.deepdots-error-hint',
   '#dd-footer',
@@ -41,6 +43,7 @@ const SELECTORES_PUBLICOS = [
   '#dd-back',
   '#dd-start',
   '#dd-complete',
+  '#dd-cancel',
 ];
 
 describe('paridad de selectores del chrome (web ↔ WebView de RN)', () => {
@@ -98,9 +101,9 @@ describe('paridad de selectores del chrome (web ↔ WebView de RN)', () => {
   });
 
   it('los botones de navegación llevan la clase compartida en las dos rutas', async () => {
-    // `.dd-nav-btn` permite estilar los cuatro de una vez sin enumerar ids.
+    // `.dd-nav-btn` permite estilar los cinco de una vez sin enumerar ids (Cancel incluido).
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect((html.match(/class="dd-nav-btn"/g) ?? []).length).toBe(4);
+    expect((html.match(/class="dd-nav-btn"/g) ?? []).length).toBe(5);
 
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -108,6 +111,6 @@ describe('paridad de selectores del chrome (web ↔ WebView de RN)', () => {
       container, 's1', 'p1', undefined, () => {}, () => {},
       'production', undefined, undefined, undefined, undefined, undefined, {},
     );
-    expect(container.querySelectorAll('.dd-nav-btn').length).toBe(4);
+    expect(container.querySelectorAll('.dd-nav-btn').length).toBe(5);
   });
 });

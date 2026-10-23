@@ -51,8 +51,9 @@ function ddCreateReveal(popup, onReveal, timeoutMs){
  * (`profile`/`metadata`) y reenvía los eventos al host vía el puente de
  * react-native-webview: `window.ReactNativeWebView.postMessage`.
  *
- * Mensajes emitidos (JSON `{name, payload}`): `loaded`, `before_submit`, `after_submit`,
- * `survey_completed`, `back`, `popup_close`.
+ * Mensajes emitidos (JSON `{name, payload}`): `loaded`, `ready`, `before_submit`,
+ * `after_submit`, `survey_completed`, `back`, `popup_close`, y `error:load` / `error:init` /
+ * `error:exception` (con `{message}`) cuando el survey no ha podido cargar.
  */
 export interface BuildSurveyHtmlOptions {
   surveyId: string;
@@ -197,6 +198,7 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const startLabel = jsonForScript(initActionLabels.start);
   const completeLabel = jsonForScript(initActionLabels.complete);
   const submitLabel = jsonForScript(initActionLabels.accept);
+  const cancelLabel = jsonForScript(initActionLabels.decline);
   // La tabla entera viaja con el HTML: el idioma del survey no se conoce hasta que carga.
   const labelsTableJson = jsonForScript(LABELS);
   // Los labels de la API van aparte para que sigan ganando después de re-resolver.
@@ -205,6 +207,7 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
     start: trimmedOrNull(opts.actions?.start?.label),
     complete: trimmedOrNull(opts.actions?.complete?.label),
     back: trimmedOrNull(opts.actions?.back?.label),
+    decline: trimmedOrNull(opts.actions?.decline?.label),
   });
   const initLangJson = jsonForScript(opts.language ?? '');
   // Dirección del chrome. El survey se voltea solo desde 2.2.22 (`dir="rtl"` en su contenedor);
@@ -269,6 +272,7 @@ body.dd-ready #dd-popup{visibility:visible}
 #dd-logo{max-height:40px;max-width:100%;object-fit:contain;display:block;margin:12px 0 0 0}
 .deepdots-error-hint{display:none;margin:12px 0 0 0;padding:10px 12px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;font-size:13px}
 /* Pantalla final: el HTML del editor de la plataforma (imagen + texto), centrado. */
+.deepdots-load-error{display:none;width:100%;text-align:center;padding:24px 0;font-size:15px;color:${textPrimary}}
 .deepdots-success{display:none;width:100%;text-align:center;padding:24px 0;color:${textPrimary}}
 .deepdots-success img{max-width:100%;height:auto;margin:0 auto 16px auto;display:block}
 .deepdots-success p{margin:0;font-size:16px;font-weight:600;line-height:1.4}
@@ -276,7 +280,7 @@ body.dd-ready #dd-popup{visibility:visible}
 .dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:999px;cursor:pointer;font-size:15px;font-weight:600;align-items:center;justify-content:center;text-align:center}
 /* Secundario como botón de texto: sin borde ni fondo, para que el primario sea la única CTA. */
 #dd-back{background:transparent;color:${textMuted};border:none}
-#dd-start,#dd-complete,#dd-submit{background:#1E293B;color:#fff;border:none}
+#dd-start,#dd-complete,#dd-submit,#dd-cancel{background:#1E293B;color:#fff;border:none}
 #dd-submit:disabled,#dd-start:disabled,#dd-back:disabled,#dd-complete:disabled{opacity:0.6;cursor:not-allowed}
 .mf-spinner{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
 .mf-spinner-circle{width:28px;height:28px;border:3px solid #e0e6ed;border-top-color:#1E293B;border-radius:50%;animation:ddspin 0.9s linear infinite}
@@ -317,6 +321,7 @@ ${customCss}
         <div class="mf-spinner" id="dd-spinner" role="status" aria-label="${initLabels.loadingAria}"><div class="mf-spinner-circle"></div></div>
         <div id="mf"></div>
       </div>
+      <div class="deepdots-load-error" id="dd-load-error" role="alert"></div>
       <div class="deepdots-error-hint" id="dd-error" role="alert" aria-live="polite"></div>
     </div>
     <div class="deepdots-popup-footer" id="dd-footer">
@@ -324,6 +329,7 @@ ${customCss}
       <button type="button" class="dd-nav-btn" id="dd-back"></button>
       <button type="button" class="dd-nav-btn" id="dd-complete"></button>
       <button type="button" class="dd-nav-btn" id="dd-start"></button>
+      <button type="button" class="dd-nav-btn" id="dd-cancel"></button>
     </div>
   </div>
 </div>
@@ -346,6 +352,8 @@ ${customCss}
   var startBtn=document.getElementById('dd-start');
   var completeBtn=document.getElementById('dd-complete');
   var submitBtn=document.getElementById('dd-submit');
+  var cancelBtn=document.getElementById('dd-cancel');
+  var loadErrorEl=document.getElementById('dd-load-error');
   var titleEl=document.getElementById('dd-title');
   var progressEl=document.getElementById('dd-progress');
   var progressLabel=document.getElementById('dd-progress-label');
@@ -375,6 +383,8 @@ ${customCss}
     startBtn.textContent=DD_ACTION_OVERRIDES.start||next.start;
     completeBtn.textContent=DD_ACTION_OVERRIDES.complete||next.complete;
     submitBtn.textContent=DD_ACTION_OVERRIDES.accept||next.accept;
+    cancelBtn.textContent=DD_ACTION_OVERRIDES.decline||next.decline;
+    loadErrorEl.textContent=next.errorLoad;
     if(closeEl){ closeEl.setAttribute('aria-label',next.closeAria); }
     if(spinner){ spinner.setAttribute('aria-label',next.loadingAria); }
     progressFollowUp.textContent=next.followUp;
@@ -429,6 +439,7 @@ ${customCss}
   startBtn.textContent=${startLabel};
   completeBtn.textContent=${completeLabel};
   submitBtn.textContent=${submitLabel};
+  cancelBtn.textContent=${cancelLabel};
 
   closeEl.onclick=function(){ emitJSON('popup_close'); };
   backBtn.onclick=function(){ if(window.DeepdotsForm && window.DeepdotsForm.back){ window.DeepdotsForm.back(); } };
@@ -440,6 +451,8 @@ ${customCss}
     }
   };
   completeBtn.onclick=function(){ emitJSON('popup_close'); };
+  // Única acción del survey que no carga: cierra igual que la X.
+  cancelBtn.onclick=function(){ emitJSON('popup_close'); };
   var surveyCompletedEmitted=false;
   submitBtn.onclick=function(){
     if(surveyCompletedEmitted) return;
@@ -481,6 +494,7 @@ ${customCss}
     startBtn.style.display='none';
     submitBtn.style.display='none';
     completeBtn.style.display='none';
+    cancelBtn.style.display='none';
     backBtn.style.width='';
     startBtn.style.width='';
     submitBtn.style.width='';
@@ -496,6 +510,8 @@ ${customCss}
     } else if(state==='completed'){
       completeBtn.style.display='inline-flex';
       completeBtn.style.width='100%';
+    } else if(state==='load_error'){
+      cancelBtn.style.display='inline-flex';
     }
   }
 
@@ -542,6 +558,26 @@ ${REVEAL_JS}
   }
   setLoading(true);
 
+  // Survey que no ha cargado (406 de /info, sin red, bundle del CDN caído). Antes se emitía
+  // \`loaded\` y se pintaba un Send sobre un survey vacío. Espejo de KMP: aviso traducido, la X
+  // sigue, un único Cancel, y se revela ya (manda \`ready\`): no hay nada más que esperar.
+  // No es interacción del usuario: el renderer no lo convierte en popup_clicked.
+  var ddLoadFailed=false;
+  function ddShowLoadError(name, reason){
+    if(ddLoadFailed){ return; }
+    ddLoadFailed=true;
+    var why=(reason && reason.message) ? reason.message : String(reason);
+    emitJSON(name, { message: why });
+    progressEl.style.display='none';
+    formWrapper.style.display='none';
+    errorHint.style.display='none';
+    loadErrorEl.textContent=DD_LABELS_ACTIVE.errorLoad;
+    loadErrorEl.style.display='block';
+    setLoading(false);
+    updateButtons('load_error');
+    ddReveal.reveal();
+  }
+
   var initialized=false;
   function initMF(){
     if(initialized || !window.magicfeedback) return initialized;
@@ -565,6 +601,7 @@ ${REVEAL_JS}
         // de native sin esta opción la ignoran.
         autofocus:'navigation',
         onLoadedEvent:function(args){
+          if(args && args.error){ ddShowLoadError('error:load', args.error); return; }
           // Idioma en el que native muestra el survey: manda sobre el del init para que el
           // chrome no se quede en inglés delante de un survey traducido. Native < 2.3 no lo
           // envía: entonces el primero de formData.lang (el idioma por defecto).
@@ -668,13 +705,13 @@ ${REVEAL_JS}
           updateProgress({ progress:p&&p.progress, total:form.total, completed:false, followup:p&&p.followup });
           emitJSON('back', p);
         }
-      }).catch(function(e){ setLoading(false); emit('error:init'); });
-    }catch(e){ setLoading(false); emit('error:exception'); }
+      }).catch(function(e){ ddShowLoadError('error:init', e); });
+    }catch(e){ ddShowLoadError('error:exception', e); }
     return true;
   }
   var s=document.createElement('script'); s.src=${JSON.stringify(cdn)}; s.async=true;
   s.onload=function(){ initMF(); };
-  s.onerror=function(){ setLoading(false); emit('error:load'); };
+  s.onerror=function(){ ddShowLoadError('error:load', 'survey script failed to load'); };
   document.head.appendChild(s);
   var tries=0, t=setInterval(function(){ if(initMF()||++tries>40){ clearInterval(t); } },150);
 })();

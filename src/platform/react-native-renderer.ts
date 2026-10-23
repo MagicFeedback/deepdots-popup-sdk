@@ -207,6 +207,11 @@ export class ReactNativePopupRenderer implements PopupRenderer {
         this.onCloseFn?.();
         break;
       default:
+        // `error:load` / `error:init` / `error:exception`: el survey no ha cargado y el WebView
+        // ya enseña el aviso con su Cancel. El HTML manda `ready` al revelarlo; esto cubre un
+        // WebView que solo avise del error, para que el host que difiere el montaje lo enseñe.
+        // Tampoco es interacción del usuario: nada de popup_clicked.
+        if (typeof name === 'string' && name.startsWith('error:')) this.emitReady(surveyId);
         break;
     }
   }
