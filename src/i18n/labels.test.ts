@@ -93,6 +93,26 @@ describe('getLabels', () => {
   });
 });
 
+describe('errorLoad (survey que no carga)', () => {
+  // Mismos textos que `DefaultLabels.kt` (KMP): las tres rutas dicen lo mismo.
+  it.each([
+    ['en', "We couldn't load this survey."],
+    ['es', 'No se ha podido cargar la encuesta.'],
+    ['da', 'Undersøgelsen kunne ikke indlæses.'],
+    ['no', 'Undersøkelsen kunne ikke lastes inn.'],
+    ['sv', 'Enkäten kunde inte laddas.'],
+    ['fi', 'Kyselyä ei voitu ladata.'],
+    ['de', 'Die Umfrage konnte nicht geladen werden.'],
+    ['fr', "Impossible de charger l'enquête."],
+    ['pt', 'Não foi possível carregar o inquérito.'],
+    ['ar', 'تعذّر تحميل الاستبيان.'],
+    ['bn', 'সমীক্ষাটি লোড করা যায়নি।'],
+    ['zh-CN', '无法加载问卷。'],
+  ])('%s', (locale, expected) => {
+    expect(getLabels(locale).errorLoad).toBe(expected);
+  });
+});
+
 describe('resolveActionLabels', () => {
   it('sin actions de la API usa los textos del idioma', () => {
     expect(resolveActionLabels(undefined, 'da')).toEqual({
