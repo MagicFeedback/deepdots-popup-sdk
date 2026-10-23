@@ -64,4 +64,37 @@ describe('ContactManager', () => {
     expect(sent).toBe(false);
     expect(post).toHaveBeenCalledTimes(1);
   });
+
+  it('si el envío falla NO guarda la caché: la llamada siguiente reintenta', async () => {
+    post.mockRejectedValueOnce(new Error('HTTP 503'));
+    const manager = new ContactManager({ storage, publicKey: 'pk', userId: 'user123', post });
+
+    const first = await manager.setAttributes({ plan: 'premium' });
+    expect(first).toBe(false);
+    expect(storage.getItem(STORAGE_KEYS.contactAttributes)).toBeNull();
+
+    const second = await manager.setAttributes({ plan: 'premium' });
+    expect(second).toBe(true);
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
+  it('un fallo no propaga: setAttributes resuelve a false en vez de rechazar', async () => {
+    post.mockRejectedValueOnce(new Error('network'));
+    const manager = new ContactManager({ storage, publicKey: 'pk', userId: 'user123', post });
+
+    await expect(manager.setAttributes({ plan: 'premium' })).resolves.toBe(false);
+  });
+
+  it('la caché es por usuario: otro userId con los mismos atributos SÍ envía', async () => {
+    const a = new ContactManager({ storage, publicKey: 'pk', userId: 'user-a', post });
+    await a.setAttributes({ customer_number: '12345' });
+
+    // mismo dispositivo (mismo storage), otro usuario
+    const b = new ContactManager({ storage, publicKey: 'pk', userId: 'user-b', post });
+    const sent = await b.setAttributes({ customer_number: '12345' });
+
+    expect(sent).toBe(true);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenLastCalledWith({ publicKey: 'pk', userId: 'user-b', userAttributes: { customer_number: '12345' } });
+  });
 });
