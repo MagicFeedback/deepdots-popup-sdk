@@ -1435,25 +1435,31 @@ export class DeepdotsPopups {
         }
     }
 
-    /** Envía los atributos de contact a la API (`POST /sdk/popups/contact`). */
+    /**
+     * Envía los atributos de contact a la API (`POST /sdk/popups/contact`). Rechaza si no se
+     * pudo enviar (sin red o respuesta no-2xx), para que `ContactManager` no guarde la caché
+     * y la llamada siguiente reintente.
+     */
     private async postContact(body: { publicKey: string; userId: string; userAttributes: ContactAttributes }): Promise<void> {
         const baseUrl = this.baseUrl;
-        if (!baseUrl) return;
+        if (!baseUrl) throw new Error('no base URL');
         const endpoint = `${baseUrl}/sdk/popups/contact`;
+        let response: Response;
         try {
-            const response = await fetch(endpoint, {
+            response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
-            if (!response.ok) {
-                this.log('Failed to post contact', response.status, response.statusText);
-                return;
-            }
-            this.log('contact · sent attributes for user:', body.userId);
         } catch (error) {
             this.log('Error posting contact', error);
+            throw error;
         }
+        if (!response.ok) {
+            this.log('Failed to post contact', response.status, response.statusText);
+            throw new Error(`HTTP ${response.status}`);
+        }
+        this.log('contact · sent attributes for user:', body.userId);
     }
 
     /** Notifica eventos de popup a la API */
