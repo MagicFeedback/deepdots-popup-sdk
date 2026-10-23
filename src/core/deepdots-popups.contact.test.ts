@@ -86,4 +86,40 @@ describe('DeepdotsPopups — setContactAttributes', () => {
 
     expect(calls.some((c) => c.url.includes('/sdk/popups/contact'))).toBe(false);
   });
+
+  it('si la API responde con error, la llamada siguiente reintenta (no se queda cacheado)', async () => {
+    const calls: { url: string; ok: boolean }[] = [];
+    let contactStatus = 503;
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      const isContact = String(url).includes('/sdk/popups/contact');
+      const status = isContact ? contactStatus : 200;
+      calls.push({ url: String(url), ok: status < 400 });
+      return { ok: status < 400, status, statusText: '', json: async () => ({}), text: async () => '[]' } as unknown as Response;
+    }));
+    popups.init({ apiKey: 'pk', nodeEnv: 'development', userId: 'user123', storage: new InMemoryStorage() });
+
+    expect(await popups.setContactAttributes({ plan: 'premium' })).toBe(false);
+    contactStatus = 200;
+    expect(await popups.setContactAttributes({ plan: 'premium' })).toBe(true);
+
+    expect(calls.filter((c) => c.url.includes('/sdk/popups/contact'))).toHaveLength(2);
+  });
+
+  it('si fetch rechaza (sin red), la llamada siguiente reintenta', async () => {
+    let offline = true;
+    let contactPosts = 0;
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      if (String(url).includes('/sdk/popups/contact')) {
+        contactPosts++;
+        if (offline) throw new TypeError('Failed to fetch');
+      }
+      return { ok: true, status: 200, json: async () => ({}), text: async () => '[]' } as unknown as Response;
+    }));
+    popups.init({ apiKey: 'pk', nodeEnv: 'development', userId: 'user123', storage: new InMemoryStorage() });
+
+    expect(await popups.setContactAttributes({ plan: 'premium' })).toBe(false);
+    offline = false;
+    expect(await popups.setContactAttributes({ plan: 'premium' })).toBe(true);
+    expect(contactPosts).toBe(2);
+  });
 });
