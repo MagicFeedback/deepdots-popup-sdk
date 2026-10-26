@@ -163,6 +163,8 @@ export class DeepdotsPopups {
     private analyticsFlushTimer: ReturnType<typeof setInterval> | undefined = undefined;
     /** Crash & error reporting (#14–17). Null hasta init(). */
     private crashReporter: CrashReporter | null = null;
+    /** ErrorUtils de RN recibido del host (o del Provider); se engancha en cuanto haya consentimiento. */
+    private rnErrorUtils: ReactNativeErrorUtils | null = null;
     /** Protecciones del funnel de Messaging (#18–22). Vigencia de sesión: se reinicia en init(). */
     private messageGuard = new MessageGuard();
     /** Observador de navegación (Fase 2): emite page_view por el canal de analytics. */
@@ -318,9 +320,7 @@ export class DeepdotsPopups {
             now: () => Date.now(),
             enabled: () => this.tracking?.isTrackingEnabled() ?? false,
         });
-        if (this.tracking?.isTrackingEnabled()) {
-            this.crashReporter.install();
-        }
+        this.installCrashHandlers();
         // Geolocalización por IP: ver `resolveGeo()` para cuándo se consulta a terceros.
         this.geoEnabled = config.geolocation ?? true;
         this.geoWanted = this.geoEnabled && !!config.analytics;
@@ -413,6 +413,8 @@ export class DeepdotsPopups {
         this.tracking?.setTrackingEnabled(enabled);
         // Consentimiento concedido (ahora o más tarde que el init): abre sesión.
         if (enabled) this.openSession('tracking_enabled');
+        // Si el consentimiento llega después del init, los handlers de crash aún no están puestos.
+        if (enabled) this.installCrashHandlers();
         // El lookup de geo se aplaza hasta que haya consentimiento.
         if (enabled) this.resolveGeo();
         this.log('tracking · setTrackingEnabled:', enabled, '· session_id:', this.tracking?.getSessionId() ?? null);
@@ -452,10 +454,29 @@ export class DeepdotsPopups {
         this.crashReporter?.reportError(error, options);
     }
 
-    /** Engancha `global.ErrorUtils` de RN para capturar errores JS no manejados. No-op si tracking off. */
+    /**
+     * Engancha `global.ErrorUtils` de RN para capturar errores JS no manejados. Con tracking off
+     * se recuerda y se engancha cuando se conceda el consentimiento (`setTrackingEnabled(true)`).
+     */
     installReactNativeCrashHandler(errorUtils: ReactNativeErrorUtils): void {
-        if (!this.tracking?.isTrackingEnabled()) return;
-        this.crashReporter?.installReactNative(errorUtils);
+        this.rnErrorUtils = errorUtils;
+        this.installCrashHandlers();
+    }
+
+    /**
+     * Pone los handlers de errores no capturados: `window` en web y `ErrorUtils` en RN (el que
+     * pasó el host o, si no pasó ninguno, `globalThis.ErrorUtils`, para que un `init()` sin
+     * `setupReactNative` también capture). Solo con consentimiento; idempotente, así que se
+     * llama en `init()` y cada vez que se activa el tracking.
+     */
+    private installCrashHandlers(): void {
+        if (!this.crashReporter || !this.tracking?.isTrackingEnabled()) return;
+        this.crashReporter.install();
+        const errorUtils = this.rnErrorUtils
+            ?? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils;
+        if (errorUtils && typeof errorUtils.setGlobalHandler === 'function') {
+            this.crashReporter.installReactNative(errorUtils);
+        }
     }
 
     /**

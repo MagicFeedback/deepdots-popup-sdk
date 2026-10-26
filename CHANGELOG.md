@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Crash capture works when consent is granted after `init()`.** The unhandled-error handlers
+  (`window.onerror` / `unhandledrejection` on the web, `global.ErrorUtils` on React Native) were
+  only installed in `init()`, and only if tracking was already enabled. An app that started with
+  `trackingEnabled: false` and called `setTrackingEnabled(true)` later never captured an
+  unhandled error, and `installReactNativeCrashHandler()` (what `<DeepdotsProvider>` /
+  `setupReactNative()` call) was silently dropped while tracking was off. Now the handlers are
+  installed as soon as consent is granted, and an `ErrorUtils` received before that is kept and
+  hooked then. `reportError()` was not affected.
+- **React Native apps that call `init()` directly also capture crashes.** Without
+  `setupReactNative()`, nothing hooked `global.ErrorUtils`, so unhandled JS errors were never
+  reported. `init()` now hooks it when the runtime provides it. Installing is idempotent: the
+  Provider passing the same `ErrorUtils` again, or toggling consent, never chains a second
+  handler (which would report every crash twice).
+
 ## [1.16.1] — 2026-10-23
 
 ### Fixed
