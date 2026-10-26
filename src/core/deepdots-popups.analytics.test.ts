@@ -215,6 +215,75 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
     expect(names).not.toContain('deepdots_app_crash');
   });
 
+  /**
+   * Consentimiento después del init: los handlers de crash se ponían solo en `init()` y solo con
+   * tracking activo, así que una app que arranca con `trackingEnabled:false` no capturaba nunca.
+   */
+  it('captura errores no manejados de window si el consentimiento llega después del init', () => {
+    const storage = new InMemoryStorage();
+    const sdk = new DeepdotsPopups();
+    sdk.setRenderer(new NoopPopupRenderer());
+    sdk.init({ apiKey: 'pk-1', storage, trackingEnabled: false });
+    sdk.setTrackingEnabled(true);
+
+    window.dispatchEvent(new ErrorEvent('error', { error: new RangeError('after consent') }));
+
+    const queue = JSON.parse(storage.getItem('deepdots.crash.queue') ?? '[]');
+    expect(queue).toHaveLength(1);
+    expect(queue[0]).toMatchObject({ crashType: 'RangeError', message: 'after consent', fatal: true });
+  });
+
+  describe('React Native (ErrorUtils)', () => {
+    type Handler = (error: unknown, isFatal?: boolean) => void;
+    const fakeErrorUtils = () => {
+      const eu = {
+        handler: undefined as Handler | undefined,
+        getGlobalHandler: () => eu.handler,
+        setGlobalHandler: vi.fn((h: Handler) => { eu.handler = h; }),
+      };
+      return eu;
+    };
+
+    afterEach(() => {
+      delete (globalThis as { ErrorUtils?: unknown }).ErrorUtils;
+    });
+
+    it('engancha el ErrorUtils recibido con tracking off en cuanto se concede el consentimiento', () => {
+      const storage = new InMemoryStorage();
+      const eu = fakeErrorUtils();
+      const sdk = new DeepdotsPopups();
+      sdk.setRenderer(new NoopPopupRenderer());
+      sdk.init({ apiKey: 'pk-1', storage, trackingEnabled: false });
+
+      sdk.installReactNativeCrashHandler(eu);
+      expect(eu.setGlobalHandler).not.toHaveBeenCalled();
+
+      sdk.setTrackingEnabled(true);
+      eu.handler?.(new TypeError('rn crash'), true);
+
+      const queue = JSON.parse(storage.getItem('deepdots.crash.queue') ?? '[]');
+      expect(queue).toHaveLength(1);
+      expect(queue[0]).toMatchObject({ crashType: 'TypeError', message: 'rn crash' });
+    });
+
+    it('init() sin setupReactNative engancha globalThis.ErrorUtils, una sola vez', () => {
+      const eu = fakeErrorUtils();
+      (globalThis as { ErrorUtils?: unknown }).ErrorUtils = eu;
+      const sdk = new DeepdotsPopups();
+      sdk.setRenderer(new NoopPopupRenderer());
+      sdk.init({ apiKey: 'pk-1', storage: new InMemoryStorage() });
+
+      expect(eu.setGlobalHandler).toHaveBeenCalledTimes(1);
+
+      // setupReactNative lo vuelve a pasar tras el init, y alternar el consentimiento lo
+      // reinstala: ninguno de los dos debe encadenar un segundo handler.
+      sdk.installReactNativeCrashHandler(eu);
+      sdk.setTrackingEnabled(false);
+      sdk.setTrackingEnabled(true);
+      expect(eu.setGlobalHandler).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('trackMessage emite deepdots_message con stage + message_id/title/channel (#18–22)', () => {
     popups.trackMessage('delivered', { id: 'msg-42', title: 'Rebajas de verano', channel: 'push', campaign: 'summer_sale' });
     popups.trackMessage('clicked', { id: 'msg-42', title: 'Rebajas de verano', channel: 'push' });
