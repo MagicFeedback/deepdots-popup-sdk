@@ -63,6 +63,9 @@ describe('analytics session survives a page reload', () => {
 
   const settle = () => new Promise((r) => setTimeout(r, 0));
 
+  /** Registro (sessionId, lo genera el SDK) del primer lote de esa integración. */
+  const firstRecord = (integration: string) => bodies(integration)[0].sessionId;
+
   /** Una "carga" de la página: instancia nueva (las anteriores siguen escuchando `pagehide`). */
   const load = (integration: string, userId?: string) => {
     const sdk = new DeepdotsPopups();
@@ -87,7 +90,7 @@ describe('analytics session survives a page reload', () => {
 
     const last = bodies('int-suspend').at(-1)!;
     expect(last.completed).toBe(false);
-    expect(last.sessionId).toBe('int-suspend:1');
+    expect(last.sessionId).toBe(firstRecord('int-suspend'));
     expect(names(last)).toEqual(expect.arrayContaining(['deepdots_event_cta_click', 'deepdots_session_suspend']));
     expect(names(last)).not.toContain('deepdots_session_end');
     expect(eventsOf(last).find((e) => e.name === 'deepdots_session_suspend')?.reason).toBe('page_hide');
@@ -114,15 +117,15 @@ describe('analytics session survives a page reload', () => {
     await settle();
 
     const afterReload = bodies('int-reload').at(-1)!;
-    expect(afterReload.sessionId).toBe('int-reload:1');
+    expect(afterReload.sessionId).toBe(firstRecord('int-reload'));
     expect(afterReload.completed).toBe(false);
     expect(names(afterReload)).toContain('deepdots_session_resume');
     expect(names(afterReload)).not.toContain('deepdots_session_start');
     expect(eventsOf(afterReload).find((e) => e.name === 'deepdots_session_resume')?.suspended_ms).toBe(2_000);
     // Ningún lote abrió un registro nuevo: todos los posteriores al primero van al mismo.
-    expect(bodies('int-reload').slice(1).every((b) => b.sessionId === 'int-reload:1')).toBe(true);
-    expect(sdk.getFeedbackSessionId()).toBe('int-reload:1');
-    expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: 'int-reload:1', status: 'open' });
+    expect(bodies('int-reload').slice(1).every((b) => b.sessionId === firstRecord('int-reload'))).toBe(true);
+    expect(sdk.getFeedbackSessionId()).toBe(firstRecord('int-reload'));
+    expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: firstRecord('int-reload'), status: 'open' });
     expect(sessionStorage.getItem(SUSPENDED_SESSION_KEY)).toBeNull();
   });
 
@@ -137,7 +140,7 @@ describe('analytics session survives a page reload', () => {
 
     const closings = bodies('int-reload-close').filter((b) => b.completed);
     expect(closings).toHaveLength(1);
-    expect(closings[0].sessionId).toBe('int-reload-close:1');
+    expect(closings[0].sessionId).toBe(firstRecord('int-reload-close'));
     expect(names(closings[0])).toContain('deepdots_session_end');
   });
 
@@ -152,7 +155,7 @@ describe('analytics session survives a page reload', () => {
     await settle();
 
     const first = bodies('int-late').at(-1)!;
-    expect(first.sessionId).toBeUndefined();
+    expect(first.sessionId).not.toBe(firstRecord('int-late'));
     expect(names(first)).toContain('deepdots_session_start');
     expect(startReason(first)).toBe('cold_start');
     expect(names(first)).not.toContain('deepdots_session_resume');
@@ -168,7 +171,7 @@ describe('analytics session survives a page reload', () => {
     sdk.flushAnalytics();
     await settle();
     const otherUser = bodies('int-owner').at(-1)!;
-    expect(otherUser.sessionId).toBeUndefined();
+    expect(otherUser.sessionId).not.toBe(firstRecord('int-owner'));
     expect(names(otherUser)).toContain('deepdots_session_start');
     expect(startReason(otherUser)).toBe('cold_start');
 
@@ -178,7 +181,7 @@ describe('analytics session survives a page reload', () => {
     const other = load('int-two');
     other.flushAnalytics();
     await settle();
-    expect(bodies('int-two')[0].sessionId).toBeUndefined();
+    expect(firstRecord('int-two')).not.toBe(firstRecord('int-one'));
   });
 
   it('closes as before when the record is not known yet at pagehide', async () => {
@@ -210,7 +213,7 @@ describe('analytics session survives a page reload', () => {
 
     const posts = bodies('int-bfcache-resume');
     expect(posts.every((b) => !b.completed)).toBe(true);
-    expect(posts.slice(1).every((b) => b.sessionId === 'int-bfcache-resume:1')).toBe(true);
+    expect(posts.slice(1).every((b) => b.sessionId === firstRecord('int-bfcache-resume'))).toBe(true);
     const last = posts.at(-1)!;
     expect(names(last)).toEqual(
       expect.arrayContaining(['deepdots_session_resume', 'deepdots_event_back_again', 'deepdots_session_suspend'])
@@ -231,7 +234,7 @@ describe('analytics session survives a page reload', () => {
     await settle();
 
     const last = bodies('int-bfcache-late').at(-1)!;
-    expect(last.sessionId).toBeUndefined();
+    expect(last.sessionId).not.toBe(firstRecord('int-bfcache-late'));
     expect(names(last)).toContain('deepdots_session_start');
     expect(startReason(last)).toBe('bfcache_restore');
   });

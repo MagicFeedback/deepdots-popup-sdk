@@ -128,7 +128,8 @@ describe('the current screen in deepdots_user_engagement', () => {
     await vi.advanceTimersByTimeAsync(40_000);
     setVisibility('hidden');
     await vi.advanceTimersByTimeAsync(55 * MIN);
-    const firstRecord = (b: Body) => (b.sessionId ?? 'int-scr-discard:1') === 'int-scr-discard:1';
+    const oldRecord = bodies('int-scr-discard')[0].sessionId;
+    const firstRecord = (b: Body) => b.sessionId === oldRecord;
     const before = bodies('int-scr-discard').filter(firstRecord).length;
     setVisibility('visible');
     await vi.advanceTimersByTimeAsync(0);

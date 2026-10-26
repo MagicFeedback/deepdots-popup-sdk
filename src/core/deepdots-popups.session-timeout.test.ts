@@ -40,13 +40,10 @@ describe('analytics session heartbeat and timeout', () => {
     vi.useFakeTimers();
     localStorage.clear();
     sessionStorage.clear();
-    // Cada integración numera sus registros: <integración>:1, y tras un cierre <integración>:2…
-    const opened = new Map<string, number>();
+    // La API guarda cada lote bajo el sessionId que manda el SDK y lo devuelve.
     fetchSpy = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(init.body as string) as Body;
-      if (!body.sessionId) opened.set(body.integration, (opened.get(body.integration) ?? 0) + 1);
-      const id = body.sessionId ?? `${body.integration}:${opened.get(body.integration)}`;
-      return { ok: true, json: async () => ({ sessionId: id }) };
+      return { ok: true, json: async () => ({ sessionId: body.sessionId }) };
     });
     vi.stubGlobal('fetch', fetchSpy);
     bodies = (integration = 'int-session') =>
@@ -94,7 +91,7 @@ describe('analytics session heartbeat and timeout', () => {
       .reduce((ms, e) => ms + e.engagement_time_msec, 0);
     expect(total).toBeGreaterThanOrEqual(10 * MIN);
     expect(bodies().every((b) => !b.completed)).toBe(true);
-    expect(new Set(bodies().map((b) => b.sessionId ?? 'int-session:1'))).toEqual(new Set(['int-session:1']));
+    expect(new Set(bodies().map((b) => b.sessionId))).toEqual(new Set([bodies()[0].sessionId]));
   });
 
   it('a hidden tab sends no heartbeat', async () => {
@@ -127,13 +124,14 @@ describe('analytics session heartbeat and timeout', () => {
     await vi.advanceTimersByTimeAsync(30_000);
 
     const closing = bodies().find((b) => b.completed);
-    expect(closing?.sessionId).toBe('int-session:1');
+    // Cierra el registro de la sesión vieja: el que ya tenía sus lotes anteriores.
+    expect(bodies().some((b) => b !== closing && b.sessionId === closing?.sessionId)).toBe(true);
     const closed = eventsOf(closing as Body);
     expect(closed.find((e) => e.name === 'deepdots_session_end')?.reason).toBe('idle_timeout');
     expect(closed.some((e) => e.name === 'deepdots_page_view')).toBe(true);
 
     const after = bodies().slice(bodies().indexOf(closing as Body) + 1);
-    expect(after[0].sessionId).toBeUndefined(); // registro nuevo
+    expect(after[0].sessionId).not.toBe(closing?.sessionId); // registro nuevo
     expect(eventsOf(after[0]).some((e) => e.name === 'deepdots_session_start')).toBe(true);
     // Las instancias de tests anteriores también reciben el `visibilitychange` y pueden colar
     // su `cold_start` pendiente en este mismo integration: se busca el de la rotación.
@@ -146,16 +144,17 @@ describe('analytics session heartbeat and timeout', () => {
     await vi.advanceTimersByTimeAsync(30_000);
     setVisibility('hidden');
     const sentBefore = bodies().length;
+    const oldRecord = bodies()[0].sessionId;
     await vi.advanceTimersByTimeAsync(55 * MIN);
     setVisibility('visible');
     await vi.advanceTimersByTimeAsync(30_000);
 
     const after = bodies().slice(sentBefore);
     expect(after.some((b) => b.completed)).toBe(false);
-    expect(after.some((b) => b.sessionId === 'int-session:1')).toBe(false);
+    expect(after.some((b) => b.sessionId === oldRecord)).toBe(false);
     expect(after.flatMap(eventsOf).some((e) => e.name === 'deepdots_session_end')).toBe(false);
     expect(eventsOf(after[0]).find((e) => e.name === 'deepdots_session_start')?.reason).toBe('idle_timeout');
-    expect(after[0].sessionId).toBeUndefined();
+    expect(after[0].sessionId).not.toBe(oldRecord);
   });
 
   // `pagehide` suspende la sesión en vez de cerrarla (ver deepdots-popups.resume.test.ts).
@@ -170,8 +169,10 @@ describe('analytics session heartbeat and timeout', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     const last = bodies('int-session-close').at(-1)!;
+    const records = [...new Set(bodies('int-session-close').map((b) => b.sessionId))];
     expect(last.completed).toBe(false);
-    expect(last.sessionId).toBe('int-session-close:2');
+    expect(records).toHaveLength(2);
+    expect(last.sessionId).toBe(records[1]);
     expect(eventsOf(last).some((e) => e.name === 'deepdots_session_suspend')).toBe(true);
   });
 });
