@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildAnalyticsFeedbackBody, createFeedbackSink } from './feedback-payload';
 import type { AnalyticsEnvelope } from './analytics-manager';
+import { InMemoryStorage } from '../tracking/tracking-manager';
 
 const KEYS = { publicKey: 'pub-k', integration: 'int-1' };
 
@@ -141,33 +142,6 @@ describe('createFeedbackSink', () => {
     expect(pv.value).toHaveLength(1);
   });
 
-  it('cachea el sessionId de la respuesta y lo envía en la siguiente llamada', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-sess-1' }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
-    const sink = createFeedbackSink({
-      baseUrl: 'https://api-dev.deepdots.com',
-      keys: KEYS,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    // Primera llamada — sin sessionId en el body
-    sink(envelope());
-    await new Promise((r) => setTimeout(r, 0));
-
-    // Segunda llamada — debe incluir el sessionId cacheado
-    sink(envelope());
-    const [, init2] = fetchImpl.mock.calls[1];
-    const sent2 = JSON.parse((init2 as RequestInit).body as string);
-    expect(sent2.sessionId).toBe('fbk-sess-1');
-
-    // Y la primera NO lo tenía
-    const [, init1] = fetchImpl.mock.calls[0];
-    const sent1 = JSON.parse((init1 as RequestInit).body as string);
-    expect(sent1).not.toHaveProperty('sessionId');
-  });
-
   it('envía con keepalive para que el navegador no cancele el POST al navegar fuera', () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     const sink = createFeedbackSink({
@@ -193,16 +167,53 @@ describe('createFeedbackSink', () => {
     expect((fetchImpl.mock.calls[0][1] as RequestInit).keepalive).toBeUndefined();
   });
 
+  /** Ids de sesión deterministas para los tests: s-1, s-2… */
+  function ids() {
+    let n = 0;
+    return () => `s-${++n}`;
+  }
+
+  /** Respuesta OK de la API (devuelve el sessionId que se le mandó). */
+  const ok = (init: RequestInit) => ({
+    ok: true,
+    json: async () => ({ sessionId: JSON.parse(init.body as string).sessionId }),
+  });
+
+  const bodiesOf = (fetchImpl: ReturnType<typeof vi.fn>) =>
+    fetchImpl.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+
+  const eventNames = (body: { feedback: { metadata: { key: string; value: string[] }[] } }) =>
+    body.feedback.metadata.filter((m) => m.value[0]?.startsWith('{')).map((m) => m.key);
+
+  /**
+   * Fallos de red y del backend. Un lote que falla de forma transitoria se guarda y se reenvía
+   * TAL CUAL (con su sessionId y su `completed`) antes del lote siguiente. No se devuelve al
+   * buffer del manager: allí se mezclaba con la sesión siguiente y viajaba con su registro.
+   */
   describe('errores del backend', () => {
-    it('rechaza (para que el manager re-encole) en fallo transitorio: 500, 408, 429', async () => {
-      for (const status of [500, 503, 408, 429]) {
-        const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status, text: async () => 'upstream boom' });
+    it('en fallo transitorio (500, 408, 429, red) no rechaza y reenvía el lote antes del siguiente', async () => {
+      for (const failure of [500, 503, 408, 429, 'network'] as const) {
+        const fetchImpl = vi
+          .fn()
+          .mockImplementationOnce(async () => {
+            if (failure === 'network') throw new TypeError('Network request failed');
+            return { ok: false, status: failure, text: async () => 'upstream boom' };
+          })
+          .mockImplementation(async (_u: string, init: RequestInit) => ok(init));
         const sink = createFeedbackSink({
           baseUrl: 'https://api-dev.deepdots.com',
           keys: KEYS,
           fetchImpl: fetchImpl as unknown as typeof fetch,
+          newSessionId: ids(),
         });
-        await expect(sink(envelope())).rejects.toThrow(new RegExp(String(status)));
+
+        await expect(sink(envelope())).resolves.toBeUndefined();
+        await sink(envelope({ events: [{ name: 'deepdots_page_view', timestamp: 3000 }] }));
+
+        const bodies = bodiesOf(fetchImpl);
+        expect(bodies).toHaveLength(3);
+        expect(bodies[1]).toEqual(bodies[0]); // el reintento es el mismo lote
+        expect(eventNames(bodies[2])).toEqual(['deepdots_page_view']);
       }
     });
 
@@ -210,7 +221,8 @@ describe('createFeedbackSink', () => {
       const log = vi.fn();
       const fetchImpl = vi
         .fn()
-        .mockResolvedValue({ ok: false, status: 406, text: async () => 'Contact not found' });
+        .mockResolvedValueOnce({ ok: false, status: 406, text: async () => 'Contact not found' })
+        .mockImplementation(async (_u: string, init: RequestInit) => ok(init));
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
@@ -218,49 +230,14 @@ describe('createFeedbackSink', () => {
         log,
       });
 
-      await expect(sink(envelope())).resolves.toBeUndefined(); // no reintentable
+      await expect(sink(envelope())).resolves.toBeUndefined();
+      await sink(envelope());
+
+      expect(fetchImpl).toHaveBeenCalledTimes(2); // el 406 no se reintenta
       const logged = log.mock.calls.map((c) => c.join(' ')).join('\n');
       expect(logged).toContain('406');
       expect(logged).toContain('Contact not found');
     });
-
-    it('rechaza cuando fetch falla por red', async () => {
-      const fetchImpl = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
-      const sink = createFeedbackSink({
-        baseUrl: 'https://api-dev.deepdots.com',
-        keys: KEYS,
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      });
-      await expect(sink(envelope())).rejects.toThrow('Failed to fetch');
-    });
-  });
-
-  it('serializa los lotes hasta conocer el sessionId (no crea dos registros en paralelo)', async () => {
-    let resolveFirst!: (v: unknown) => void;
-    const fetchImpl = vi
-      .fn()
-      .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }))
-      .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
-    const sink = createFeedbackSink({
-      baseUrl: 'https://api-dev.deepdots.com',
-      keys: KEYS,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    const first = sink(envelope());
-    const second = sink(envelope()); // sale antes de que responda el primero
-
-    // el segundo lote NO se envía todavía: espera al sessionId del primero
-    await Promise.resolve();
-    expect(fetchImpl).toHaveBeenCalledOnce();
-
-    resolveFirst({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
-    await first;
-    await second;
-
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-    const sent2 = JSON.parse((fetchImpl.mock.calls[1][1] as RequestInit).body as string);
-    expect(sent2.sessionId).toBe('fbk-1'); // agrupado en el mismo registro
   });
 
   /**
@@ -308,22 +285,6 @@ describe('createFeedbackSink', () => {
       expect(fetchImpl).toHaveBeenCalledOnce();
     });
 
-    it('no espera al primer POST en vuelo: la página se muere, mejor enviar sin sessionId', async () => {
-      const fetchImpl = vi
-        .fn()
-        .mockImplementationOnce(() => new Promise(() => {})) // primer POST nunca responde
-        .mockResolvedValue({ ok: true, json: async () => ({}) });
-      const sink = createFeedbackSink({
-        baseUrl: 'https://api-dev.deepdots.com',
-        keys: KEYS,
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      });
-
-      void sink(envelope());
-      await sink(envelope(), { final: true }); // no se queda colgado
-
-      expect(fetchImpl).toHaveBeenCalledTimes(2);
-    });
   });
 
   /**
@@ -349,46 +310,81 @@ describe('createFeedbackSink', () => {
   });
 
   /**
-   * Fin de sesión: el último lote cierra el registro con `completed:true`, y el siguiente
-   * OMITE el sessionId viejo para que el backend abra un registro nuevo (sesión o usuario nuevos).
+   * El sessionId lo genera el SDK al abrir la sesión. Antes lo asignaba la API en la
+   * respuesta del primer POST, y si esa respuesta no llegaba (la app iba a background con el
+   * POST en vuelo: MOM, oct-2026) el resto de la sesión acababa en otro registro: sesiones
+   * con solo `session_start`, cierres sin inicio y `mini_service_exit` sin su enter.
    */
-  describe('fin de sesión (completed:true)', () => {
-    it('cierra con el sessionId cacheado y el lote siguiente ya no lo lleva', async () => {
-      const fetchImpl = vi
-        .fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) })
-        .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
+  describe('sessionId generado en el cliente', () => {
+    it('va desde el primer lote y los lotes siguientes no esperan a la respuesta', async () => {
+      const fetchImpl = vi.fn().mockImplementation(() => new Promise(() => {})); // la API nunca responde
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
         fetchImpl: fetchImpl as unknown as typeof fetch,
+        newSessionId: ids(),
       });
 
-      await sink(envelope()); // abre registro → cachea fbk-1
-      await sink(envelope(), { sessionEnd: true }); // cierra fbk-1
-      await sink(envelope()); // sesión nueva
+      void sink(envelope());
+      void sink(envelope());
+      await Promise.resolve();
 
-      const bodies = fetchImpl.mock.calls.map(([, i]) => JSON.parse((i as RequestInit).body as string));
-      expect(bodies[0].completed).toBe(false);
-      expect(bodies[1]).toMatchObject({ completed: true, sessionId: 'fbk-1' });
-      // El tercero abre registro nuevo: sin sessionId y sin completed.
-      expect(bodies[2]).not.toHaveProperty('sessionId');
-      expect(bodies[2].completed).toBe(false);
+      expect(bodiesOf(fetchImpl).map((b) => b.sessionId)).toEqual(['s-1', 's-1']);
     });
 
-    it('no re-cachea el sessionId que devuelve el POST de cierre', async () => {
-      const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) });
+    it('por defecto es un UUID v4', async () => {
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
         fetchImpl: fetchImpl as unknown as typeof fetch,
       });
 
+      await sink(envelope());
+
+      expect(bodiesOf(fetchImpl)[0].sessionId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+    });
+
+    it('sigue en initialSessionId (sesión reanudada tras recargar la página)', async () => {
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        initialSessionId: 'resumed-1',
+        newSessionId: ids(),
+      });
+
+      await sink(envelope());
+
+      expect(bodiesOf(fetchImpl)[0].sessionId).toBe('resumed-1');
+    });
+  });
+
+  /**
+   * Fin de sesión: el último lote cierra el registro con `completed:true`, y el siguiente
+   * abre otro con un sessionId nuevo (sesión o usuario nuevos).
+   */
+  describe('fin de sesión (completed:true)', () => {
+    it('cierra el registro de la sesión y el lote siguiente abre otro con un id nuevo', async () => {
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        newSessionId: ids(),
+      });
+
+      await sink(envelope());
       await sink(envelope(), { sessionEnd: true });
       await sink(envelope());
 
-      const last = JSON.parse((fetchImpl.mock.calls[1][1] as RequestInit).body as string);
-      expect(last).not.toHaveProperty('sessionId');
+      const bodies = bodiesOf(fetchImpl);
+      expect(bodies[0]).toMatchObject({ completed: false, sessionId: 's-1' });
+      expect(bodies[1]).toMatchObject({ completed: true, sessionId: 's-1' });
+      expect(bodies[2]).toMatchObject({ completed: false, sessionId: 's-2' });
     });
 
     it('avisa por onSessionReset para que el host olvide el sessionId', async () => {
@@ -405,104 +401,63 @@ describe('createFeedbackSink', () => {
       expect(onSessionReset).toHaveBeenCalledOnce();
     });
 
-    it('avisa por onSessionClosed con el sessionId del registro que cierra', async () => {
-      const onSessionClosed = vi.fn();
-      const fetchImpl = vi
-        .fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-1' }) })
-        // Respuesta de cierre sin JSON útil: vale el sessionId que llevaba el lote.
-        .mockResolvedValue({ ok: true, json: async () => ({}) });
+    it('avisa onSessionId una vez por sesión, cuando la API acepta su primer lote', async () => {
+      const onSessionId = vi.fn();
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
         fetchImpl: fetchImpl as unknown as typeof fetch,
-        onSessionClosed,
-      });
-
-      await sink(envelope()); // abre fbk-1
-      expect(onSessionClosed).not.toHaveBeenCalled();
-      await sink(envelope(), { sessionEnd: true });
-
-      expect(onSessionClosed).toHaveBeenCalledOnce();
-      expect(onSessionClosed).toHaveBeenCalledWith('fbk-1');
-    });
-
-    it('en una sesión de un solo lote, onSessionClosed recibe el sessionId que devuelve el cierre', async () => {
-      const onSessionId = vi.fn();
-      const onSessionClosed = vi.fn();
-      const sink = createFeedbackSink({
-        baseUrl: 'https://api-dev.deepdots.com',
-        keys: KEYS,
-        fetchImpl: vi
-          .fn()
-          .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-9' }) }) as unknown as typeof fetch,
+        newSessionId: ids(),
         onSessionId,
-        onSessionClosed,
       });
 
+      await sink(envelope());
+      await sink(envelope());
       await sink(envelope(), { sessionEnd: true });
+      await sink(envelope());
 
-      expect(onSessionId).not.toHaveBeenCalled(); // el cierre no se re-cachea
-      expect(onSessionClosed).toHaveBeenCalledWith('fbk-9');
+      expect(onSessionId.mock.calls).toEqual([['s-1'], ['s-2']]);
     });
 
-    it('ignora la respuesta del primer lote si la sesión se cerró mientras estaba en vuelo', async () => {
-      // page_hide con el primer POST aún sin respuesta: el cierre (final) no lo espera.
+    it('no da por abierta una sesión cuyo primer lote responde después del cierre', async () => {
       let resolveFirst!: (r: unknown) => void;
       const fetchImpl = vi
         .fn()
         .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }))
-        .mockResolvedValue({ ok: true, json: async () => ({}) });
+        .mockImplementation(async (_u: string, init: RequestInit) => ok(init));
       const onSessionId = vi.fn();
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
         fetchImpl: fetchImpl as unknown as typeof fetch,
+        newSessionId: ids(),
         onSessionId,
       });
 
       const first = sink(envelope());
-      await sink(envelope(), { final: true, sessionEnd: true });
-      resolveFirst({ ok: true, json: async () => ({ sessionId: 'fbk-stale' }) });
+      await sink(envelope(), { sessionEnd: true });
+      resolveFirst({ ok: true, json: async () => ({ sessionId: 's-1' }) });
       await first;
 
-      // Ni se avisa como abierto ni se cachea: el lote siguiente (sesión nueva) va sin sessionId.
       expect(onSessionId).not.toHaveBeenCalled();
-      await sink(envelope());
-      const lastBody = JSON.parse(fetchImpl.mock.calls[2][1].body);
-      expect(lastBody).not.toHaveProperty('sessionId');
     });
 
-    it('la sesión siguiente no hereda el id viejo si un lote normal seguía en vuelo al cerrar', async () => {
-      // RN iOS: AppState 'inactive' hace un flush normal y 'background' cierra milisegundos
-      // después. iOS suspende la app y la respuesta del primero llega al volver, ya cerrada la
-      // sesión. Visto en producción (MOM): la sesión nueva escribía en el registro cerrado.
-      let resolveInactive!: (r: unknown) => void;
-      const fetchImpl = vi
-        .fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) })
-        .mockImplementationOnce(() => new Promise((r) => { resolveInactive = r; }))
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) }) // cierre
-        .mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-new' }) });
-      const onSessionId = vi.fn();
+    it('avisa por onSessionClosed con el sessionId del registro que cierra', async () => {
+      const onSessionClosed = vi.fn();
       const sink = createFeedbackSink({
         baseUrl: 'https://api-dev.deepdots.com',
         keys: KEYS,
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-        onSessionId,
+        fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }) as unknown as typeof fetch,
+        newSessionId: ids(),
+        onSessionClosed,
       });
 
-      await sink(envelope()); // sesión abierta en fbk-old
-      const inactive = sink(envelope()); // flush de 'inactive', sin respuesta todavía
-      await sink(envelope(), { sessionEnd: true }); // 'background' → cierre
-      resolveInactive({ ok: true, json: async () => ({ sessionId: 'fbk-old' }) });
-      await inactive;
+      await sink(envelope());
+      expect(onSessionClosed).not.toHaveBeenCalled();
+      await sink(envelope(), { sessionEnd: true });
 
-      await sink(envelope()); // primer lote de la sesión nueva
-      const nextBody = JSON.parse(fetchImpl.mock.calls[3][1].body);
-      expect(nextBody).not.toHaveProperty('sessionId');
-      // fbk-old no se vuelve a dar por abierto tras el cierre
-      expect(onSessionId.mock.calls).toEqual([['fbk-old'], ['fbk-new']]);
+      expect(onSessionClosed.mock.calls).toEqual([['s-1']]);
     });
 
     it('no avisa onSessionClosed si el backend rechaza el lote de cierre', async () => {
@@ -519,6 +474,181 @@ describe('createFeedbackSink', () => {
       await sink(envelope(), { sessionEnd: true });
 
       expect(onSessionClosed).not.toHaveBeenCalled();
+    });
+
+    /**
+     * MOM_PROD, 25-oct-2026: el lote de cierre llegaba a la API pero la app, ya en background,
+     * no recibía la respuesta. El SDK lo daba por fallido, lo devolvía al buffer y salía con el
+     * primer lote de la sesión SIGUIENTE: su `mini_service_exit` aparecía en otro registro,
+     * sin enter (133 exits frente a 130 enters).
+     */
+    it('un cierre que falla se reintenta en SU registro, no en el de la sesión siguiente', async () => {
+      const fetchImpl = vi
+        .fn()
+        .mockImplementationOnce(async (_u: string, init: RequestInit) => ok(init)) // s-1 abre
+        .mockRejectedValueOnce(new TypeError('Network request failed')) // cierre de s-1
+        .mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        newSessionId: ids(),
+      });
+      const close = envelope({
+        events: [{ name: 'deepdots_mini_service_exit', timestamp: 5000, params: { mini_service: 'scan' } }],
+      });
+      const next = envelope({ events: [{ name: 'deepdots_session_start', timestamp: 9000 }] });
+
+      await sink(envelope());
+      await sink(close, { sessionEnd: true });
+      await sink(next);
+
+      const bodies = bodiesOf(fetchImpl);
+      const retried = bodies.filter((b) => b.sessionId === 's-1' && b.completed);
+      expect(retried).toHaveLength(2); // el intento fallido y el reintento, los dos a s-1
+      expect(eventNames(retried[1])).toEqual(['deepdots_mini_service_exit']);
+      const s2 = bodies.filter((b) => b.sessionId === 's-2');
+      expect(s2).toHaveLength(1);
+      expect(eventNames(s2[0])).toEqual(['deepdots_session_start']);
+    });
+  });
+
+  /**
+   * Con `storage` (React Native: MMKV) los lotes pendientes sobreviven a que la app muera: el
+   * de cierre se guarda ANTES de enviarse y cualquiera que falle se queda hasta entregarse.
+   * El sink del arranque siguiente los reenvía a su registro.
+   */
+  describe('pendientes persistidos (storage)', () => {
+    const flushAsync = () => new Promise((r) => setTimeout(r, 0));
+
+    it('reenvía al arrancar el cierre que no llegó a salir, con su sessionId y completed', async () => {
+      const storage = new InMemoryStorage();
+      const dying = vi.fn().mockImplementation(() => new Promise(() => {})); // la app muere sin respuesta
+      const before = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: dying as unknown as typeof fetch,
+        newSessionId: () => 'old-1',
+        storage,
+      });
+      void before(envelope(), { sessionEnd: true });
+      await flushAsync();
+
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      const onSessionClosed = vi.fn();
+      createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        newSessionId: () => 'new-1',
+        storage,
+        onSessionClosed,
+      });
+      await flushAsync();
+
+      const bodies = bodiesOf(fetchImpl);
+      expect(bodies).toHaveLength(1);
+      expect(bodies[0]).toMatchObject({ sessionId: 'old-1', completed: true });
+      expect(onSessionClosed).toHaveBeenCalledWith('old-1');
+
+      // entregado: el siguiente arranque ya no lo repite
+      const again = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      createFeedbackSink({ baseUrl: 'https://api-dev.deepdots.com', keys: KEYS, fetchImpl: again as unknown as typeof fetch, storage });
+      await flushAsync();
+      expect(again).not.toHaveBeenCalled();
+    });
+
+    it('reenvía al arrancar un lote normal que falló', async () => {
+      const storage = new InMemoryStorage();
+      const failing = vi.fn().mockRejectedValue(new TypeError('Network request failed'));
+      const before = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: failing as unknown as typeof fetch,
+        newSessionId: () => 'old-1',
+        storage,
+      });
+      await before(envelope());
+
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      createFeedbackSink({ baseUrl: 'https://api-dev.deepdots.com', keys: KEYS, fetchImpl: fetchImpl as unknown as typeof fetch, storage });
+      await flushAsync();
+
+      expect(bodiesOf(fetchImpl)).toEqual([expect.objectContaining({ sessionId: 'old-1', completed: false })]);
+    });
+
+    it('no guarda los lotes normales que se entregan', async () => {
+      const storage = new InMemoryStorage();
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        storage,
+      });
+
+      await sink(envelope());
+      await sink(envelope(), { sessionEnd: true });
+
+      const again = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      createFeedbackSink({ baseUrl: 'https://api-dev.deepdots.com', keys: KEYS, fetchImpl: again as unknown as typeof fetch, storage });
+      await flushAsync();
+      expect(again).not.toHaveBeenCalled();
+    });
+
+    it('descarta los pendientes de más de 24 h y los de otra integración', async () => {
+      const storage = new InMemoryStorage();
+      let now = Date.UTC(2026, 9, 25);
+      const failing = vi.fn().mockRejectedValue(new TypeError('Network request failed'));
+      await createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: failing as unknown as typeof fetch,
+        storage,
+        now: () => now,
+      })(envelope());
+
+      const otherIntegration = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: { publicKey: 'pub-k', integration: 'int-2' },
+        fetchImpl: otherIntegration as unknown as typeof fetch,
+        storage,
+        now: () => now,
+      });
+      await flushAsync();
+      expect(otherIntegration).not.toHaveBeenCalled();
+
+      now += 24 * 60 * 60 * 1000 + 1;
+      const late = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: late as unknown as typeof fetch,
+        storage,
+        now: () => now,
+      });
+      await flushAsync();
+      expect(late).not.toHaveBeenCalled();
+    });
+
+    it('un storage que falla no rompe el envío', async () => {
+      const storage = {
+        getItem: () => { throw new Error('boom'); },
+        setItem: () => { throw new Error('boom'); },
+        removeItem: () => { throw new Error('boom'); },
+      };
+      const fetchImpl = vi.fn().mockImplementation(async (_u: string, init: RequestInit) => ok(init));
+      const sink = createFeedbackSink({
+        baseUrl: 'https://api-dev.deepdots.com',
+        keys: KEYS,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        storage,
+      });
+
+      await sink(envelope(), { sessionEnd: true });
+
+      expect(fetchImpl).toHaveBeenCalledOnce();
     });
   });
 });

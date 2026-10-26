@@ -88,6 +88,10 @@ export function crashRecordToParams(r: CrashRecord): Record<string, unknown> {
 export class CrashReporter {
   private options: CrashReporterOptions;
   private now: () => number;
+  /** Los handlers de `window` ya están puestos: `install()` es idempotente. */
+  private windowInstalled = false;
+  /** ErrorUtils ya enganchados: engancharlos dos veces capturaría cada error dos veces. */
+  private hookedErrorUtils = new Set<ReactNativeErrorUtils>();
 
   constructor(options: CrashReporterOptions) {
     this.options = options;
@@ -178,12 +182,14 @@ export class CrashReporter {
     return queue;
   }
 
-  /** Instala los handlers globales de errores no capturados (no-op sin `window`). */
+  /** Instala los handlers globales de errores no capturados (no-op sin `window`). Idempotente. */
   install(): void {
+    if (this.windowInstalled) return;
     // En React Native `window` existe pero NO tiene addEventListener; comprobamos
     // la capacidad, no solo la existencia de `window`. En RN el host usa
     // installReactNative(ErrorUtils) para capturar los errores no manejados.
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    this.windowInstalled = true;
     window.addEventListener('error', (e: ErrorEvent) => {
       if (!this.isEnabled()) return;
       this.captureUnhandled(e.error ?? e.message ?? 'error');
@@ -194,8 +200,10 @@ export class CrashReporter {
     });
   }
 
-  /** Engancha `global.ErrorUtils` de RN (no hay `window`): persiste y encadena al handler previo. */
+  /** Engancha `global.ErrorUtils` de RN (no hay `window`): persiste y encadena al handler previo. Idempotente por instancia de ErrorUtils. */
   installReactNative(errorUtils: ReactNativeErrorUtils): void {
+    if (this.hookedErrorUtils.has(errorUtils)) return;
+    this.hookedErrorUtils.add(errorUtils);
     const previous = errorUtils.getGlobalHandler?.();
     errorUtils.setGlobalHandler((error: unknown, isFatal?: boolean) => {
       if (this.isEnabled()) this.captureUnhandled(error);
