@@ -284,6 +284,10 @@ export class DeepdotsPopups {
                   keys: config.analytics,
                   log: (...a) => this.log(...a),
                   initialSessionId: resumable?.sessionId,
+                  // En móvil (RN) la app puede morir con el lote de cierre sin entregar: se
+                  // persiste y se reenvía en el arranque siguiente. En web el cierre sale con
+                  // `keepalive` y varias pestañas compartirían el mismo storage.
+                  storage: (config.platform ?? 'web') !== 'web' ? storage : undefined,
                   onSessionId: (id) => {
                       this.analyticsFeedbackSessionId = id;
                       this.notifyFeedbackSession(id, 'open');

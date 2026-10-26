@@ -3,9 +3,9 @@
  *
  * La analítica se envía como un Feedback del modelo del Surveys SDK, agrupado por una
  * INTEGRACIÓN creada en la plataforma. Se manda en streaming con `completed:false`; el
- * backend cose por `sessionId` + `user_id`. El ÚLTIMO lote de una sesión (cierre de página,
- * app a background, cambio de usuario) va con `completed:true`: cierra el registro y el
- * siguiente lote omite el `sessionId` viejo para que el backend abra uno nuevo.
+ * backend agrupa los lotes por `sessionId`, que genera el SDK al abrir cada sesión. El
+ * ÚLTIMO lote de una sesión (cierre de página, app a background, cambio de usuario) va con
+ * `completed:true`: cierra el registro y el lote siguiente abre otro con un sessionId nuevo.
  * `feedback.finished` se queda siempre en `false` (no es la señal de cierre acordada).
  *
  * Encoding:
@@ -19,6 +19,7 @@
  */
 
 import type { AnalyticsEnvelope, AnalyticsSink } from './analytics-manager';
+import type { KeyValueStorage } from '../tracking/tracking-manager';
 
 export interface AnalyticsKeys {
   publicKey: string;
@@ -43,7 +44,7 @@ export interface AnalyticsFeedbackBody {
   integration: string;
   completed: boolean;
   finished?: boolean;
-  /** sessionId devuelto por el primer POST; permite que el backend agrupe todos los eventos en un solo registro. */
+  /** sessionId de la sesión (lo genera el SDK): el backend agrupa todos sus lotes en un solo registro. */
   sessionId?: string;
 }
 
@@ -56,8 +57,8 @@ function pushKV(list: FeedbackKV[], key: string, value: unknown): void {
 export interface BuildBodyOptions {
   /**
    * `true` en el último lote de la sesión → `completed:true` (cierra el registro en backend).
-   * El body SÍ lleva el `sessionId` actual (es el registro que se cierra); es el lote
-   * SIGUIENTE el que lo omite.
+   * El body lleva el `sessionId` de la sesión que se cierra; el lote siguiente abre otro
+   * registro con un sessionId nuevo.
    */
   sessionEnd?: boolean;
 }
@@ -151,14 +152,25 @@ export interface FeedbackSinkOptions {
    * `pagehide` y reanudada tras recargar la página (ver `suspended-session.ts`).
    */
   initialSessionId?: string;
-  /** Callback invocado cuando el backend devuelve un nuevo sessionId (primer POST). */
+  /**
+   * Genera el sessionId de cada sesión (default: UUID v4). Inyectable para tests.
+   */
+  newSessionId?: () => string;
+  /**
+   * Persistencia de los lotes pendientes (React Native: MMKV). Con él, el lote de cierre se
+   * guarda antes de enviarse y cualquier lote que falle sobrevive a que la app muera: el sink
+   * del arranque siguiente lo reenvía a su registro. Sin él, los pendientes viven en memoria.
+   */
+  storage?: KeyValueStorage;
+  /** Reloj inyectable (tests). */
+  now?: () => number;
+  /** Callback invocado cuando la API acepta el primer lote de una sesión (registro abierto). */
   onSessionId?: (id: string) => void;
   /** Callback invocado al cerrar la sesión (`completed:true`): el sessionId cacheado se olvida. */
   onSessionReset?: () => void;
   /**
    * Callback invocado cuando el backend acepta el lote de cierre, con el sessionId del
-   * registro cerrado: el que llevaba el lote o, en una sesión de un solo lote, el que
-   * devuelve la respuesta. Ese registro se convierte en Feedback en segundos.
+   * registro cerrado. Ese registro se convierte en Feedback en segundos.
    */
   onSessionClosed?: (id: string) => void;
 }
@@ -179,37 +191,112 @@ async function safeBodyText(res: Response): Promise<string> {
   }
 }
 
+/** Un lote ya construido a la espera de entregarse. */
+interface PendingBatch {
+  body: AnalyticsFeedbackBody;
+  /** Cuándo se construyó (ms epoch): los de más de PENDING_MAX_AGE_MS se descartan al cargar. */
+  at: number;
+}
+
+/** Techo de lotes pendientes; al superarlo se descartan los más antiguos. */
+const PENDING_MAX = 50;
+/** Un pendiente más viejo ya no se reenvía: el backend cerró ese registro hace mucho. */
+const PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/**
+ * Un POST que no responde en este tiempo se da por fallido y se reintenta: un `fetch` sin
+ * respuesta (la app pasó a background con él en vuelo) no puede retener el resto de envíos.
+ */
+const POST_TIMEOUT_MS = 20_000;
+
+/** Clave de los pendientes en el storage, una por integración. */
+function pendingKey(integration: string): string {
+  return `__deepdots_analytics_pending__:${integration}`;
+}
+
+/** UUID v4. `crypto.randomUUID` no existe en todos los runtimes (Hermes, navegadores viejos). */
+export function generateSessionId(): string {
+  const c = (globalThis as { crypto?: Crypto }).crypto;
+  if (typeof c?.randomUUID === 'function') return c.randomUUID();
+  const b = new Uint8Array(16);
+  if (typeof c?.getRandomValues === 'function') c.getRandomValues(b);
+  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 /**
  * Sink real: transforma el envelope y hace `POST {baseUrl}/sdk/feedback`.
  *
- * Stateful: cachea el `sessionId` que devuelve el backend en la primera respuesta y lo
- * envía en los siguientes POSTs para que el backend agrupe todos los eventos en un único
- * registro de feedback.
+ * El `sessionId` de cada sesión lo genera el SDK (UUID) y va en TODOS sus lotes, desde el
+ * primero. La API guarda cada lote bajo el sessionId que recibe, así que una sesión es un
+ * registro aunque no llegue ninguna respuesta. Antes lo asignaba la API en la respuesta del
+ * primer POST: si esa respuesta se perdía (la app pasaba a background con el POST en vuelo),
+ * el resto de la sesión acababa en otro registro.
  *
  * Garantías de entrega:
- *  - mientras no se conozca el `sessionId`, los lotes se **serializan** (esperan la primera
- *    respuesta): dos POSTs a la vez sin `sessionId` crearían dos registros y partirían los datos;
+ *  - un lote que falla de forma transitoria (red, 5xx, 408, 429, sin respuesta en
+ *    POST_TIMEOUT_MS) se guarda TAL CUAL —con su sessionId y su `completed`— y se reenvía
+ *    antes del lote siguiente. Nunca vuelve al buffer del manager: allí se mezclaba con la
+ *    sesión siguiente y viajaba con su registro. La promesa del sink no rechaza;
+ *  - con `storage` (React Native) los pendientes sobreviven a que la app muera: el lote de
+ *    cierre se guarda ANTES de enviarse y el sink del arranque siguiente lo reenvía. La API
+ *    descarta los eventos repetidos de una misma sesión al ensamblarla;
  *  - `keepalive` para que el navegador no cancele el POST al navegar fuera ni al cerrar la
- *    página, también en el flush final (sin `sendBeacon`: ver `sendBeaconImpl`);
+ *    página (sin `sendBeacon`: ver `sendBeaconImpl`);
  *  - sin credenciales, que es lo único que pasa el CORS de la API (`Allow-Origin: *`);
- *  - la promesa **rechaza** en fallo transitorio (red, 5xx, 408, 429) para que el
- *    `AnalyticsManager` re-encole el lote; un 4xx se loguea y se descarta.
+ *  - un 4xx se loguea y se descarta.
  */
 export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink {
-  let feedbackSessionId: string | undefined = options.initialSessionId || undefined;
-  /** Primer POST (aún sin sessionId) en vuelo: los siguientes lotes lo esperan. */
-  let firstPostInFlight: Promise<void> | null = null;
-  /**
-   * Sube cada vez que se cierra u olvida una sesión. Una respuesta que llega con otra
-   * generación es de una sesión ya cerrada (p. ej. el primer POST seguía en vuelo en el
-   * `page_hide`) y no puede volver a cachear su sessionId ni avisarlo como abierto.
-   */
-  let generation = 0;
-
   const url = `${options.baseUrl}/sdk/feedback`;
+  const newSessionId = options.newSessionId ?? generateSessionId;
+  const now = options.now ?? (() => Date.now());
+  const storageKey = pendingKey(options.keys.integration);
 
-  const post = async (body: AnalyticsFeedbackBody, final: boolean, sessionEnd = false): Promise<void> => {
-    const postGeneration = generation;
+  /** Registro de la sesión en curso; se crea con el primer lote y se olvida al cerrarla. */
+  let feedbackSessionId: string | undefined = options.initialSessionId || undefined;
+  /** Sesión ya avisada como abierta (`onSessionId`). La reanudada la avisa el host. */
+  let announcedId: string | undefined = feedbackSessionId;
+
+  const pending: PendingBatch[] = loadPending();
+  let draining: Promise<void> | null = null;
+
+  function loadPending(): PendingBatch[] {
+    if (!options.storage) return [];
+    try {
+      const raw = options.storage.getItem(storageKey);
+      const list = raw ? (JSON.parse(raw) as PendingBatch[]) : [];
+      return Array.isArray(list) ? list.filter((p) => p?.body && now() - p.at <= PENDING_MAX_AGE_MS) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function savePending(): void {
+    if (!options.storage) return;
+    try {
+      if (pending.length) options.storage.setItem(storageKey, JSON.stringify(pending));
+      else options.storage.removeItem(storageKey);
+    } catch {
+      /* sin storage los pendientes viven solo en memoria */
+    }
+  }
+
+  function addPending(batch: PendingBatch): void {
+    pending.push(batch);
+    if (pending.length > PENDING_MAX) pending.splice(0, pending.length - PENDING_MAX);
+    savePending();
+  }
+
+  function removePending(batch: PendingBatch): void {
+    const i = pending.indexOf(batch);
+    if (i >= 0) pending.splice(i, 1);
+    savePending();
+  }
+
+  /** Un POST. 'retry' = fallo transitorio; 'drop' = la API lo rechazó (4xx) o no hay fetch. */
+  async function post(body: AnalyticsFeedbackBody, final: boolean): Promise<'ok' | 'retry' | 'drop'> {
     const json = JSON.stringify(body);
     const small = json.length <= KEEPALIVE_MAX_BYTES;
 
@@ -220,106 +307,128 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
     const f = options.fetchImpl ?? (typeof fetch !== 'undefined' ? fetch : undefined);
     if (!f) {
       options.log?.('[DeepdotsAnalytics] no fetch available; payload not sent', body);
-      return;
+      return 'drop';
     }
 
-    const res = await f(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: json,
-      // La API autentica por `publicKey` en el body y responde `Allow-Origin: *`: una
-      // petición con credenciales fallaría el CORS. Explícito para no depender del default.
-      credentials: 'omit',
-      // keepalive: el POST sobrevive a la navegación mientras el body sea pequeño.
-      ...(small ? { keepalive: true } : {}),
-    });
-
-    if (!res.ok) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const request = f(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: json,
+        // La API autentica por `publicKey` en el body y responde `Allow-Origin: *`: una
+        // petición con credenciales fallaría el CORS. Explícito para no depender del default.
+        credentials: 'omit',
+        // keepalive: el POST sobrevive a la navegación mientras el body sea pequeño.
+        ...(small ? { keepalive: true } : {}),
+      });
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timeout')), POST_TIMEOUT_MS);
+      });
+      const res = await Promise.race([request, timeout]);
+      if (res.ok) return 'ok';
       const detail = await safeBodyText(res);
       if (isRetryableStatus(res.status)) {
-        // Rechazar → el manager re-encola el lote y se reintenta en el siguiente flush.
-        throw new Error(`POST /sdk/feedback ${res.status} (retryable): ${detail}`);
+        options.log?.(`[DeepdotsAnalytics] POST /sdk/feedback ${res.status} (retryable): ${detail}`);
+        return 'retry';
       }
       options.log?.(
         `[DeepdotsAnalytics] POST /sdk/feedback rejected with ${res.status}; batch DISCARDED:`,
         detail,
       );
-      return;
+      return 'drop';
+    } catch (error) {
+      options.log?.('[DeepdotsAnalytics] POST /sdk/feedback failed (will retry):', error);
+      return 'retry';
+    } finally {
+      clearTimeout(timer);
     }
+  }
 
-    // El POST de cierre devuelve el sessionId del registro que acabamos de cerrar:
-    // NO se re-cachea (si no, el lote siguiente volvería a apuntar al registro cerrado),
-    // pero se avisa por onSessionClosed, porque ese registro ya va a ser un Feedback.
-    if (sessionEnd) {
-      let closedId = body.sessionId;
-      try {
-        const data = (await res.json()) as { sessionId?: string };
-        closedId = data?.sessionId ?? closedId;
-      } catch {
-        /* respuesta sin JSON: vale el sessionId que llevaba el lote */
-      }
-      try {
-        if (closedId) options.onSessionClosed?.(closedId);
-      } catch {
-        // Un fallo del callback no puede convertir el lote entregado en uno fallido:
-        // el manager lo re-encolaría y el cierre se enviaría dos veces.
-      }
-      return;
-    }
-
+  /** Avisos al host tras entregar un lote. Un fallo del callback no afecta al envío. */
+  function delivered(body: AnalyticsFeedbackBody): void {
+    const id = body.sessionId;
+    if (!id) return;
     try {
-      const data = (await res.json()) as { sessionId?: string };
-      if (postGeneration !== generation) {
-        options.log?.('[DeepdotsAnalytics] sessionId of a closed session ignored:', data?.sessionId);
-        return;
-      }
-      if (data?.sessionId && data.sessionId !== feedbackSessionId) {
-        feedbackSessionId = data.sessionId;
-        options.log?.('[DeepdotsAnalytics] feedbackSessionId cached:', feedbackSessionId);
-        options.onSessionId?.(feedbackSessionId);
+      if (body.completed) {
+        options.onSessionClosed?.(id);
+      } else if (id === feedbackSessionId && id !== announcedId) {
+        // Solo la sesión EN CURSO: un lote que responde después de su cierre no la reabre.
+        announcedId = id;
+        options.log?.('[DeepdotsAnalytics] feedback session open:', id);
+        options.onSessionId?.(id);
       }
     } catch {
-      /* respuesta sin JSON — ignorar */
+      /* el callback del host no puede romper el envío */
     }
-  };
+  }
+
+  /** Entrega un lote y, si falla de forma transitoria, lo deja pendiente. */
+  async function send(batch: PendingBatch, final: boolean, alreadyPending: boolean): Promise<void> {
+    const result = await post(batch.body, final);
+    if (result === 'retry') {
+      if (!alreadyPending) addPending(batch);
+      return;
+    }
+    if (alreadyPending) removePending(batch);
+    if (result === 'ok') delivered(batch.body);
+  }
+
+  /**
+   * Reenvía los pendientes en orden y para en el primero que vuelva a fallar. Cada llamada
+   * encadena una pasada sobre la lista VIVA, así que un lote añadido mientras otra pasada está
+   * en curso sale en la suya en vez de quedarse esperando al envío siguiente.
+   */
+  function drain(): Promise<void> {
+    const run = async () => {
+      for (let i = 0; i < pending.length; ) {
+        const batch = pending[i];
+        await send(batch, false, true);
+        if (pending[i] === batch) return; // sigue fallando: el resto, en el próximo envío
+      }
+    };
+    // Sin otra pasada en curso arranca YA: el primer POST sale en esta misma tarea, que en un
+    // `pagehide` puede ser la última que ejecute la página.
+    const next = draining ? draining.then(run) : run();
+    draining = next;
+    void next.finally(() => {
+      if (draining === next) draining = null;
+    });
+    return next;
+  }
+
+  // Pendientes de una ejecución anterior (la app murió con ellos): se reenvían ya.
+  if (pending.length) {
+    savePending(); // sin los caducados
+    setTimeout(() => void drain(), 0);
+  }
 
   return async (envelope: AnalyticsEnvelope, meta) => {
     if (meta?.resetSession) {
       // Sesión cerrada por el backend: no se envía nada, solo se olvida el registro.
       feedbackSessionId = undefined;
-      firstPostInFlight = null;
-      generation++;
       options.onSessionReset?.();
       return;
     }
     const final = meta?.final === true;
     const sessionEnd = meta?.sessionEnd === true;
 
-    // Sin sessionId todavía: esperar al primer POST para heredarlo y no partir el registro.
-    // En el flush final no se espera (la página se está muriendo): mejor un registro
-    // partido que perder el lote — el backend cose por user_id.
-    if (!feedbackSessionId && firstPostInFlight && !final) {
-      await firstPostInFlight;
-    }
-
+    if (!feedbackSessionId) feedbackSessionId = newSessionId();
     const body = buildAnalyticsFeedbackBody(envelope, options.keys, feedbackSessionId, { sessionEnd });
     options.log?.('[DeepdotsAnalytics] POST /sdk/feedback →', body);
+    const batch: PendingBatch = { body, at: now() };
 
-    const sent = post(body, final, sessionEnd);
     if (sessionEnd) {
-      // Registro cerrado con `completed:true`: olvidar el sessionId para que el siguiente
-      // lote lo OMITA y el backend abra uno nuevo (sesión nueva, o usuario nuevo).
+      // Registro cerrado con `completed:true`: el lote siguiente abre otro con un id nuevo.
       feedbackSessionId = undefined;
-      firstPostInFlight = null;
-      generation++;
       options.onSessionReset?.();
-    } else if (!feedbackSessionId) {
-      // nunca rechaza: es solo una barrera de orden, el fallo lo propaga `sent`
-      firstPostInFlight = sent.then(
-        () => undefined,
-        () => undefined,
-      );
+      // El cierre es lo que se pierde si la app muere: se guarda ANTES de enviarlo.
+      addPending(batch);
+      await drain();
+      return;
     }
-    await sent;
+
+    const retries = pending.length ? drain() : null;
+    await Promise.all([retries, send(batch, final, false)]);
   };
 }

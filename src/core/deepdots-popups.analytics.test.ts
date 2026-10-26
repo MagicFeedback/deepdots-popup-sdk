@@ -490,7 +490,8 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
       sdk.track('cta_click');
       sdk.flushAnalytics();
-      await vi.waitFor(() => expect(sdk.getFeedbackSessionId()).toBe('fbk-42'));
+      const record = bodies(fetchSpy)[0].sessionId;
+      await vi.waitFor(() => expect(sdk.getFeedbackSessionId()).toBe(record));
 
       sdk.endSession();
       expect(sdk.getFeedbackSessionId()).toBeNull();
@@ -505,13 +506,14 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
       sdk.track('cta_click');
       sdk.flushAnalytics();
+      const record = bodies(fetchSpy)[0].sessionId;
       await vi.waitFor(() =>
-        expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: 'fbk-42', status: 'open' }),
+        expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: record, status: 'open' }),
       );
 
       sdk.endSession();
       await vi.waitFor(() =>
-        expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: 'fbk-42', status: 'closed' }),
+        expect(onFeedbackSession).toHaveBeenCalledWith({ sessionId: record, status: 'closed' }),
       );
       expect(onFeedbackSession).toHaveBeenCalledTimes(2);
       vi.unstubAllGlobals();
@@ -528,12 +530,13 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
 
       sdk.track('a');
       sdk.flushAnalytics();
-      await vi.waitFor(() => expect(sdk.getFeedbackSessionId()).toBe('fbk-42'));
+      const record = bodies(fetchSpy)[0].sessionId;
+      await vi.waitFor(() => expect(sdk.getFeedbackSessionId()).toBe(record));
       sdk.track('b');
       sdk.flushAnalytics();
 
       await vi.waitFor(() => expect(bodies(fetchSpy)).toHaveLength(2));
-      expect(bodies(fetchSpy)[1].sessionId).toBe('fbk-42');
+      expect(bodies(fetchSpy)[1].sessionId).toBe(record);
       vi.unstubAllGlobals();
     });
 
