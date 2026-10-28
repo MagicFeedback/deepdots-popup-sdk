@@ -26,7 +26,8 @@ import type { Page, TestInfo } from '@playwright/test';
  */
 export const KNOWN_BUGS = {
   'corner-overlay': {
-    fixedIn: null as string | null,
+    // [failure test · do not merge] se declara arreglado SIN el arreglo: el test tiene que fallar.
+    fixedIn: 'local' as string | null,
     summary: 'popup en esquina: el contenedor a pantalla completa (transparente) se come los clics del host',
   },
   'duplicate-shown': {
