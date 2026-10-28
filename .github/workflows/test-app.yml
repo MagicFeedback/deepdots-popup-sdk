@@ -1,13 +1,15 @@
 name: Test app
 
 # Test app de MF-3243 (apps/test-app): una tienda de prueba que carga el SDK PUBLICADO en npm
-# (o la build de este commit) contra DEV, y una suite de Playwright encima. Un job por versión:
+# (o la build de este commit) contra DEV, y una suite de Playwright encima: el smoke (MF-3243) y
+# la regresión funcional (MF-3245, e2e/regression, escritorio + móvil). Un job por versión:
 #
 #   local   la build de este commit (lo que se va a publicar)
 #   latest  la `latest` de npm (lo que tienen hoy los clientes)
 #   1.16.1  la versión anterior soportada
 #
 # A mano (Run workflow) se puede pasar cualquier lista de versiones, p. ej. "1.14.0 1.17.1".
+# Los lunes corre solo con una lista más amplia de versiones publicadas.
 # Todo va contra api-dev.deepdots.com con la compañía MAGICFEEDBACK_DEV; la app bloquea
 # cualquier petición a producción y la suite falla si alguna sale.
 
@@ -22,6 +24,8 @@ on:
       - '.github/workflows/test-app.yml'
   push:
     branches: [dev]
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       versions:
@@ -50,14 +54,17 @@ jobs:
       - id: pick
         env:
           INPUT: ${{ github.event.inputs.versions }}
+          SCHEDULED: ${{ github.event_name == 'schedule' }}
         run: |
-          list="${INPUT:-local latest 1.16.1}"
+          default="local latest 1.16.1"
+          [ "$SCHEDULED" = "true" ] && default="local latest 1.16.1 1.15.0"
+          list="${INPUT:-$default}"
           json=$(printf '%s\n' $list | jq -R . | jq -cs .)
           echo "versions=$json" >> "$GITHUB_OUTPUT"
           echo "SDK versions: $list"
 
   smoke:
-    name: Smoke · SDK ${{ matrix.sdk }}
+    name: Smoke + regression · SDK ${{ matrix.sdk }}
     needs: matrix
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -101,7 +108,7 @@ jobs:
           echo "### SDK under test: \`$v\` (\`$SDK\`) · env DEV (api-dev.deepdots.com)" >> "$GITHUB_STEP_SUMMARY"
           echo "SDK under test: $v ($SDK) · env DEV"
 
-      - name: Run smoke
+      - name: Run smoke + regression
         working-directory: apps/test-app
         env:
           SDK_VERSION: ${{ matrix.sdk }}
@@ -115,7 +122,27 @@ jobs:
           node -e '
             const r = require("./test-results/results.json");
             const s = r.stats;
-            console.log(`expected ${s.expected} · unexpected ${s.unexpected} · flaky ${s.flaky} · skipped ${s.skipped}`);
+            const rows = {};
+            const known = new Set();
+            const walk = (suite) => {
+              (suite.suites || []).forEach(walk);
+              for (const spec of suite.specs || []) {
+                for (const t of spec.tests) {
+                  const row = (rows[t.projectName] ??= { passed: 0, failed: 0, knownBug: 0, skipped: 0 });
+                  if (t.status === "skipped") row.skipped++;
+                  else if (t.status !== "expected") row.failed++;
+                  else if (t.expectedStatus === "failed") row.knownBug++;
+                  else row.passed++;
+                  for (const a of t.annotations || []) if (a.type === "known-bug") known.add(a.description.replace(/ \(.*$/, ""));
+                }
+              }
+            };
+            r.suites.forEach(walk);
+            console.log(`expected ${s.expected} · unexpected ${s.unexpected} · flaky ${s.flaky} · skipped ${s.skipped}\n`);
+            console.log("| project (platform · SDK) | passed | known bug (test.fail) | failed | skipped |");
+            console.log("|---|---|---|---|---|");
+            for (const [p, x] of Object.entries(rows)) console.log(`| ${p} | ${x.passed} | ${x.knownBug} | ${x.failed} | ${x.skipped} |`);
+            if (known.size) console.log("\nKnown SDK bugs detected:\n" + [...known].map((k) => `- ${k}`).join("\n"));
           ' | tee -a "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload report

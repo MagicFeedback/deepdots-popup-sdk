@@ -44,8 +44,16 @@ async function labOf(clientId) {
     scenario: params.get('scenario') || 'all',
     popups: params.get('popups') || 'fixture',
     fault: params.get('fault') || 'none',
+    survey: params.get('survey') || 'dev',
+    pos: params.get('pos') || '',
   };
 }
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retrasos de los fallos "lentos". Son de tiempo real (el reloj falso de Playwright no llega al
+// service worker): lo bastante largos para que se note la espera, lo bastante cortos para el CI.
+const SLOW_MS = { slow: 4000, 'popups-slow': 3000 };
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -89,6 +97,28 @@ async function route(req, url, lab, entry) {
     const isPopupEvent = url.pathname === '/sdk/popups' && req.method === 'POST';
     const isFeedback = url.pathname === '/sdk/feedback';
 
+    if (isPopups && lab.fault === 'popups-slow') {
+      entry.note = `fault injected: popups +${SLOW_MS['popups-slow']} ms`;
+      await sleep(SLOW_MS['popups-slow']);
+    }
+    if (isPopups && lab.fault === 'popups-timeout') {
+      // La API no contesta nunca: la petición se queda colgada mientras dure el test.
+      entry.note = 'fault injected: popups never answer';
+      await new Promise(() => {});
+    }
+    if ((isPopupEvent || isFeedback) && lab.fault === 'events500') {
+      entry.note = 'fault injected';
+      return json({ error: 'injected' }, 500);
+    }
+    if (isSurvey && lab.fault === 'slow') {
+      entry.note = `fault injected: survey +${SLOW_MS.slow} ms`;
+      await sleep(SLOW_MS.slow);
+    }
+    if (isSurvey && lab.fault === 'survey-garbage') {
+      // 200 con un cuerpo que no es JSON: el renderer arranca y se queda a medio pintar.
+      entry.note = 'fault injected: invalid body';
+      return new Response('<html>upstream proxy error</html>', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     if (isPopups && lab.fault === 'popups500') {
       entry.note = 'fault injected';
       return json({ error: 'injected' }, 500);
@@ -102,6 +132,26 @@ async function route(req, url, lab, entry) {
       return Response.error();
     }
 
+    // ?survey=fixture: la encuesta sale de app/fixtures/surveys (grabada de DEV con
+    // scripts/record-surveys.mjs) y las respuestas se contestan aquí. La regresión de MF-3245 va
+    // así para no depender de la red; el smoke y el test de envío siguen yendo a DEV.
+    if (lab.survey === 'fixture') {
+      const info = /^\/sdk\/app\/([^/]+)\/[^/]+\/info$/.exec(url.pathname);
+      if (info) {
+        const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'es';
+        const res = await fetch(`/app/fixtures/surveys/${info[1]}.${lang}.json`);
+        if (res.ok) {
+          // Con `fault=slow` la nota del retraso inyectado se conserva.
+          entry.note ??= `fixture: survey ${lang}`;
+          return json(await res.json());
+        }
+      }
+      if (isFeedback) {
+        entry.note = 'stubbed (fixture survey)';
+        return json({ sessionId: 'lab-fixture-session' });
+      }
+    }
+
     if (lab.popups === 'fixture') {
       if (isPopups && lab.scenario === 'release-fixtures') {
         const defs = await loadReleaseFixtures();
@@ -111,8 +161,10 @@ async function route(req, url, lab, entry) {
       if (isPopups) {
         const scenarios = await loadScenarios();
         const scenario = scenarios.scenarios[lab.scenario] ?? scenarios.scenarios.all;
-        const defs = scenario.popups.map((id) => scenarios.popups[id]).filter(Boolean);
-        entry.note = `fixture: ${lab.scenario} (${defs.length})`;
+        let defs = scenario.popups.map((id) => scenarios.popups[id]).filter(Boolean);
+        // ?pos=bottom-right…: misma definición en otra posición (regresión de posicionamiento).
+        if (lab.pos) defs = defs.map((d) => ({ ...d, style: { ...d.style, position: lab.pos } }));
+        entry.note = `fixture: ${lab.scenario} (${defs.length})${lab.pos ? ` pos=${lab.pos}` : ''}`;
         return json(defs);
       }
       // Los estados de popup y el analytics de un popup de fixture no existen en DEV: se
@@ -134,10 +186,17 @@ async function route(req, url, lab, entry) {
 // `/sdk/feedback` lo comparten el analytics del popup y las respuestas de la encuesta (las de
 // @magicfeedback/native). Las respuestas van a la integración de DEV de verdad: son el dato que
 // la prueba tiene que dejar, en la compañía MagicFeedback_DEV.
+//
+// Una petición es de la encuesta si su `integration` es una de las encuestas de los escenarios.
+// Mirar solo si lleva respuestas no basta: el último POST de la encuesta (`completed: true`, el
+// que cierra la sesión) va sin respuestas, y contestarlo aquí con `{}` dejaba la encuesta sin
+// completar con el error genérico de envío (MF-3245).
 async function isSurveyAnswer(req) {
   try {
     const body = await req.clone().json();
-    return Array.isArray(body?.feedback?.answers) && body.feedback.answers.length > 0;
+    const scenarios = await loadScenarios();
+    const surveys = new Set(Object.values(scenarios.popups).map((p) => p.surveyId));
+    return surveys.has(body?.integration) || (Array.isArray(body?.feedback?.answers) && body.feedback.answers.length > 0);
   } catch {
     return false;
   }

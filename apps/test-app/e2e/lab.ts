@@ -13,7 +13,9 @@ const IS_EXACT = /^\d+\.\d+\.\d+/.test(SDK);
 type LabEvent = { kind: string; name: string; data?: unknown };
 type LabNet = { method: string; url: string; host: string; path: string; status: number; note?: string; blocked?: boolean };
 
-export type LabParams = Partial<Record<'scenario' | 'fault' | 'nav' | 'load' | 'lang' | 'popups' | 'css' | 'user', string>>;
+export type LabParams = Partial<
+  Record<'scenario' | 'fault' | 'nav' | 'load' | 'lang' | 'popups' | 'css' | 'user' | 'survey' | 'pos' | 'init', string>
+>;
 
 export class Lab {
   constructor(readonly page: Page) {}
