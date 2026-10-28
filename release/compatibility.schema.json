@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/MagicFeedback/deepdots-popup-sdk/release/compatibility.schema.json",
+  "title": "Popup SDK compatibility manifest",
+  "description": "Lo que promete cada release de @magicfeedback/popup-sdk (MF-3241). Lo valida scripts/release/check.mjs en cada PR y antes de publicar; una release con el manifiesto invalido no se publica.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "package",
+    "platform",
+    "version",
+    "surveyRenderer",
+    "hosts",
+    "configSchema",
+    "fixtures",
+    "knownIssues",
+    "supportPolicy"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "package": { "const": "@magicfeedback/popup-sdk" },
+    "platform": { "const": "web" },
+    "version": {
+      "description": "Igual a la version de package.json y al tag vX.Y.Z.",
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "surveyRenderer": {
+      "description": "El renderer de surveys que va dentro del bundle. Se versiona aparte; aqui queda la version exacta empaquetada.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "version"],
+      "properties": {
+        "package": { "const": "@magicfeedback/native" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
+        "cdnVersion": {
+          "description": "Version que carga el WebView de React Native desde el CDN (surveyHtml.ts).",
+          "type": "string"
+        }
+      }
+    },
+    "hosts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["browsers", "frameworks"],
+      "properties": {
+        "buildTarget": { "type": "string" },
+        "browsers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "min", "tested"],
+            "properties": {
+              "name": { "enum": ["chrome", "edge", "firefox", "safari", "ios_safari", "samsung", "android_webview", "ios_wkwebview"] },
+              "min": { "type": "string", "minLength": 1 },
+              "tested": { "description": "true si la suite E2E corre en ese motor.", "type": "boolean" },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "frameworks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "support"],
+            "properties": {
+              "name": { "enum": ["vanilla", "react", "angular", "vue", "react-native", "react-native-web"] },
+              "support": { "enum": ["supported", "best-effort", "unsupported"] },
+              "range": { "type": "string" },
+              "entry": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "configSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "generatedFrom"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^release/.+\\.json$" },
+        "generatedFrom": { "type": "string" }
+      }
+    },
+    "fixtures": {
+      "description": "Respuestas de GET /sdk/{publicKey}/popups conocidas como buenas. Se validan contra configSchema y las pinta src/core/release-fixtures.test.ts.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "path", "trigger", "covers"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "path": { "type": "string", "pattern": "^release/fixtures/.+\\.json$" },
+          "trigger": {
+            "description": "Como se dispara en el test: evento del host con ese nombre.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["event"],
+            "properties": {
+              "event": { "type": "string", "minLength": 1 },
+              "href": { "type": "string" }
+            }
+          },
+          "covers": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        }
+      }
+    },
+    "knownIssues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "summary", "affects", "detected"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "summary": { "type": "string", "minLength": 10 },
+          "affects": { "type": "array", "minItems": 1, "items": { "enum": ["web", "react-native", "all"] } },
+          "detected": { "description": "Fecha en que se detecto (YYYY-MM-DD).", "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "workaround": { "type": "string" },
+          "tracking": { "type": "string" }
+        }
+      }
+    },
+    "supportPolicy": { "type": "string", "pattern": "\\.md$" }
+  }
+}

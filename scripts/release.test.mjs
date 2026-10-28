@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { nextVersion, promoteUnreleased, unreleasedBody, versionBody } from './release.mjs';
+import { nextVersion, promoteUnreleased, setManifestVersion, unreleasedBody, versionBody } from './release.mjs';
 
 const CHANGELOG = `# Changelog
 
@@ -68,5 +68,15 @@ describe('release: version', () => {
   it('rechaza lo que no es semver', () => {
     expect(() => nextVersion('1.9.0', '1.9')).toThrow();
     expect(() => nextVersion('1.9.0', 'next')).toThrow();
+  });
+});
+
+describe('release: manifiesto de compatibilidad', () => {
+  it('solo cambia la version del manifiesto, sin tocar el resto', () => {
+    const text = readFileSync(resolve('release/compatibility.json'), 'utf8');
+    const out = setManifestVersion(text, '9.9.9');
+    expect(JSON.parse(out).version).toBe('9.9.9');
+    expect(JSON.parse(out).surveyRenderer).toEqual(JSON.parse(text).surveyRenderer);
+    expect(out.split('\n').length).toBe(text.split('\n').length);
   });
 });
