@@ -27,6 +27,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: process.env.RECORD_VIDEO ? 'on' : 'retain-on-failure',
     viewport: { width: 1280, height: 860 },
+    // SLOWMO=400 para grabar demos que se puedan seguir a ojo (RECORD_VIDEO=1).
+    launchOptions: { slowMo: Number(process.env.SLOWMO ?? 0) },
   },
   projects: [{ name: `chromium · sdk ${SDK}`, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } } }],
   webServer: {
