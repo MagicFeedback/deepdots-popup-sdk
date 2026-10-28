@@ -1,0 +1,409 @@
+{
+  "$comment": "Generado por scripts/build-scenarios.mjs. No editar a mano.",
+  "scenarios": {
+    "checkout-time": {
+      "popups": [
+        "lab-checkout-time-es",
+        "lab-checkout-time-en"
+      ]
+    },
+    "exit-checkout": {
+      "popups": [
+        "lab-exit-checkout-es",
+        "lab-exit-checkout-en"
+      ]
+    },
+    "rate-product": {
+      "popups": [
+        "lab-rate-product-es",
+        "lab-rate-product-en"
+      ]
+    },
+    "help-click": {
+      "popups": [
+        "lab-help-click-es",
+        "lab-help-click-en"
+      ]
+    },
+    "redisplay": {
+      "popups": [
+        "lab-redisplay-es",
+        "lab-redisplay-en"
+      ]
+    },
+    "not-on-cart": {
+      "popups": [
+        "lab-not-on-cart-es",
+        "lab-not-on-cart-en"
+      ]
+    },
+    "all": {
+      "popups": [
+        "lab-checkout-time-es",
+        "lab-checkout-time-en",
+        "lab-exit-checkout-es",
+        "lab-exit-checkout-en",
+        "lab-rate-product-es",
+        "lab-rate-product-en",
+        "lab-help-click-es",
+        "lab-help-click-en",
+        "lab-redisplay-es",
+        "lab-redisplay-en"
+      ]
+    }
+  },
+  "popups": {
+    "lab-checkout-time-es": {
+      "id": "lab-checkout-time-es",
+      "title": "¿Algo te ha impedido terminar la compra?",
+      "message": "<p>Te llevará menos de un minuto.</p>",
+      "triggers": [
+        {
+          "type": "time_on_page",
+          "value": 3
+        }
+      ],
+      "cooldown": [
+        {
+          "answered": "COMPLETED",
+          "cooldownDays": 30
+        }
+      ],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-right"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ],
+        "path": [
+          "/checkout"
+        ]
+      }
+    },
+    "lab-checkout-time-en": {
+      "id": "lab-checkout-time-en",
+      "title": "Did anything stop you from completing your order?",
+      "message": "<p>It takes less than a minute.</p>",
+      "triggers": [
+        {
+          "type": "time_on_page",
+          "value": 3
+        }
+      ],
+      "cooldown": [
+        {
+          "answered": "COMPLETED",
+          "cooldownDays": 30
+        }
+      ],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-right"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ],
+        "path": [
+          "/checkout"
+        ]
+      }
+    },
+    "lab-exit-checkout-es": {
+      "id": "lab-exit-checkout-es",
+      "title": "¿Por qué has salido del checkout?",
+      "message": "<p>Tu opinión nos ayuda a mejorarlo.</p>",
+      "triggers": [
+        {
+          "type": "exit",
+          "value": 2
+        }
+      ],
+      "cooldown": [
+        {
+          "answered": "COMPLETED",
+          "cooldownDays": 30
+        }
+      ],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ],
+        "path": [
+          "/checkout"
+        ]
+      }
+    },
+    "lab-exit-checkout-en": {
+      "id": "lab-exit-checkout-en",
+      "title": "Why did you leave the checkout?",
+      "message": "<p>Your feedback helps us improve it.</p>",
+      "triggers": [
+        {
+          "type": "exit",
+          "value": 2
+        }
+      ],
+      "cooldown": [
+        {
+          "answered": "COMPLETED",
+          "cooldownDays": 30
+        }
+      ],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ],
+        "path": [
+          "/checkout"
+        ]
+      }
+    },
+    "lab-rate-product-es": {
+      "id": "lab-rate-product-es",
+      "title": "Cuéntanos qué te parece este producto",
+      "message": "<p>Cuatro preguntas rápidas.</p>",
+      "triggers": [
+        {
+          "type": "event",
+          "value": "rate_product"
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ]
+      }
+    },
+    "lab-rate-product-en": {
+      "id": "lab-rate-product-en",
+      "title": "Tell us what you think of this product",
+      "message": "<p>Four quick questions.</p>",
+      "triggers": [
+        {
+          "type": "event",
+          "value": "rate_product"
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ]
+      }
+    },
+    "lab-help-click-es": {
+      "id": "lab-help-click-es",
+      "title": "¿Te ayudamos?",
+      "message": "<p>Cuéntanos qué estabas buscando.</p>",
+      "triggers": [
+        {
+          "type": "click",
+          "value": "help-button"
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-right"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ]
+      }
+    },
+    "lab-help-click-en": {
+      "id": "lab-help-click-en",
+      "title": "Can we help?",
+      "message": "<p>Tell us what you were looking for.</p>",
+      "triggers": [
+        {
+          "type": "click",
+          "value": "help-button"
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-right"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ]
+      }
+    },
+    "lab-redisplay-es": {
+      "id": "lab-redisplay-es",
+      "title": "¿Qué tal tu cuenta?",
+      "message": "<p>Solo te lo preguntaremos una vez al día.</p>",
+      "triggers": [
+        {
+          "type": "time_on_page",
+          "value": 2
+        }
+      ],
+      "cooldown": [
+        {
+          "answered": "SHOWED",
+          "cooldownDays": 1
+        },
+        {
+          "answered": "COMPLETED",
+          "cooldownDays": 30
+        }
+      ],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ],
+        "path": [
+          "/account"
+        ]
+      }
+    },
+    "lab-redisplay-en": {
+      "id": "lab-redisplay-en",
+      "title": "How is your account?",
+      "message": "<p>We will only ask once a day.</p>",
+      "triggers": [
+        {
+          "type": "time_on_page",
+          "value": 2
+        }
+      ],
+      "cooldown": [
+        {
+          "answered": "SHOWED",
+          "cooldownDays": 1
+        },
+        {
+          "answered": "COMPLETED",
+          "cooldownDays": 30
+        }
+      ],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ],
+        "path": [
+          "/account"
+        ]
+      }
+    },
+    "lab-not-on-cart-es": {
+      "id": "lab-not-on-cart-es",
+      "title": "¿Te gusta lo que ves?",
+      "message": "<p>Ayúdanos a mejorar NORDLY.</p>",
+      "triggers": [
+        {
+          "type": "time_on_page",
+          "value": 2
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-right"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ],
+        "excludedPaths": [
+          "/cart",
+          "/checkout"
+        ]
+      }
+    },
+    "lab-not-on-cart-en": {
+      "id": "lab-not-on-cart-en",
+      "title": "Like what you see?",
+      "message": "<p>Help us improve NORDLY.</p>",
+      "triggers": [
+        {
+          "type": "time_on_page",
+          "value": 2
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-right"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ],
+        "excludedPaths": [
+          "/cart",
+          "/checkout"
+        ]
+      }
+    }
+  }
+}
