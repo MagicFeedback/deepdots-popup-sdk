@@ -58,6 +58,12 @@ export interface PopupRenderer {
   ): void;
   /** Ocultar popup */
   hide(): void;
+  /**
+   * ¿Hay un popup a la vista ahora mismo? Opcional. Con él, el core no da por mostrado un popup
+   * que el renderer no va a pintar (porque ya hay otro abierto): ni `popup_shown`, ni SHOWED, ni
+   * cooldown gastado. Sin él (renderers del host, RN), el core se comporta como siempre.
+   */
+  isShowing?(): boolean;
 }
 
 /** Renderer que no hace nada (SSR / entornos sin DOM) */
@@ -125,6 +131,10 @@ export class BrowserPopupRenderer implements PopupRenderer {
     void import('../ui/renderPopup').then(({ renderPopup }) => {
       renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService, analyticsFeedbackSessionId, options);
     });
+  }
+
+  isShowing(): boolean {
+    return this.visible;
   }
 
   hide(): void {

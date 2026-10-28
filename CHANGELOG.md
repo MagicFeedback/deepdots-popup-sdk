@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A popup that is not drawn is no longer counted as shown.** The browser renderer shows one
+  popup at a time, but the SDK still emitted `popup_shown`, posted `SHOWED` and started the
+  cooldown for every popup it was asked to show. The same trigger fired again while its popup
+  was open (a host event repeated, an exit popup queued several times by fast navigation) sent
+  duplicate `popup_shown`/`SHOWED`; a second popup due while another was open was reported as
+  shown and lost its cooldown although the user never saw it. Now, while a popup is open, others
+  are skipped without side effects. Renderers can opt in with the new optional
+  `PopupRenderer.isShowing()`; renderers without it (React Native, custom) keep the previous
+  behaviour. Found by the functional regression suite (MF-3245).
+
 ## [1.17.1] — 2026-10-28
 
 ### Added
