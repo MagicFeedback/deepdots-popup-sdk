@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Failure test.
+
 ### Added
 
 - **Compatibility manifest and release gate (MF-3241).** Every release now ships a compatibility
