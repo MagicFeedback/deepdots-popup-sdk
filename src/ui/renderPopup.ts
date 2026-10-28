@@ -213,6 +213,11 @@ export async function renderPopup(
         'top-left':     { justifyContent: 'flex-start', alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
     };
     const pos = positionMap[style?.position ?? 'center'] ?? positionMap['center'];
+    // Sin velo (posiciones de esquina y de borde) el contenedor sigue cubriendo toda la
+    // pantalla para poder alinear la tarjeta, pero es transparente: no puede quedarse con los
+    // clics del host. Solo la tarjeta los recibe. Con velo (`center`) el popup es modal y
+    // tapar la página es lo esperado.
+    const passThrough = pos.background === 'transparent';
 
     // Crear popup base
     const popup = document.createElement('div');
@@ -221,6 +226,7 @@ export async function renderPopup(
     popup.setAttribute('dir', direction);
     popup.style.cssText = `
       position: relative;
+      pointer-events: auto;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -805,7 +811,7 @@ export async function renderPopup(
         // tiempo.
         if (!container.contains(popup)) return;
         container.style.visibility = 'visible';
-        container.style.pointerEvents = '';
+        container.style.pointerEvents = passThrough ? 'none' : '';
         autofocusOnOpen();
     }
 

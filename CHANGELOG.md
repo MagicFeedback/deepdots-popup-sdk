@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A popup in a corner no longer blocks the host page.** With `position` `bottom`, `top` or any
+  corner, the popup container still covered the whole viewport (transparent, so invisible) and
+  took every click: while the popup was open the user saw the page but could not use it. The
+  container now lets clicks through and only the popup card receives them. `center` keeps its
+  backdrop and stays modal. Found by the functional regression suite (MF-3245).
+
 ## [1.17.1] — 2026-10-28
 
 ### Added
