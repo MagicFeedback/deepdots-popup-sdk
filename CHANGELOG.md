@@ -7,14 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.18.0] — 2026-10-28
 
-- **Compatibility manifest and release gate (MF-3241).** Every release now ships a compatibility
-  manifest (`release/compatibility.json`: supported browsers and frameworks, the bundled
-  `@magicfeedback/native`, the configuration schema, known-good popup fixtures and known
-  issues), and its GitHub Release carries the exact tarball published to npm with its
-  `SHA256SUMS` and a `release.json` that records the commit, CI run and approval. The supported
-  versions policy is in `docs/VERSIONING.md`. No change to the SDK code.
+### Added
 
 ## [1.17.0] — 2026-10-26
 
