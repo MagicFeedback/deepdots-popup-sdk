@@ -7,12 +7,12 @@
  *   smoke.mjs <paquete.tgz>
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const tgz = process.argv[2];
-if (!tgz || !existsSync(tgz)) {
+if (!tgz || !tgz.endsWith('.tgz') || !existsSync(tgz) || !statSync(tgz).isFile()) {
   console.error('Uso: smoke.mjs <paquete.tgz>');
   process.exit(2);
 }

@@ -34,3 +34,15 @@ describe('release metadata', () => {
     expect(verifyArtifact({ pack, sha256, tgzSha512: 'sha512-C' }).join()).toMatch(/no es el que dio npm pack/);
   });
 });
+
+describe('salida de npm --json', async () => {
+  const { npmResult } = await import('./pack.mjs');
+  const info = { name: '@magicfeedback/popup-sdk', filename: 'x.tgz', integrity: 'sha512-A' };
+
+  it('acepta las formas de npm 11 (array, objeto) y de npm 12 (por nombre)', () => {
+    expect(npmResult([info])).toEqual(info);
+    expect(npmResult(info)).toEqual(info);
+    expect(npmResult({ '@magicfeedback/popup-sdk': info })).toEqual(info);
+    expect(npmResult({})).toBeNull();
+  });
+});
