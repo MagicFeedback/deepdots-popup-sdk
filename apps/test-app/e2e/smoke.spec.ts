@@ -34,10 +34,12 @@ test.describe(`SDK ${SDK} · smoke`, () => {
   });
 
   test('exit: al salir de /checkout sale el popup en la ruta de destino', async ({ lab, page }) => {
-    await lab.open('/checkout', { scenario: 'exit-checkout' });
+    // FAILURE TEST (MF-3243): el host cambia de pantalla SIN emitir el evento de navegación
+    // (nav=silent: ni pushState ni popstate). Este test debe ponerse en rojo.
+    await lab.open('/checkout', { scenario: 'exit-checkout', nav: 'silent' });
     await page.waitForTimeout(500);
     await lab.clickNav('nav-account');
-    await expect(page).toHaveURL(/\/account/);
+    await expect(page.getByRole('heading', { name: 'Mi cuenta' })).toBeVisible();
     await lab.expectPopupShown('lab-exit-checkout-es');
     await expect(lab.popup).toContainText('¿Por qué has salido del checkout?');
   });
