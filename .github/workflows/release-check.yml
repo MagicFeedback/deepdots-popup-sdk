@@ -53,7 +53,8 @@ jobs:
   dry-run:
     name: Release dry run
     needs: version
-    if: needs.version.outputs.kind == 'release'
+    # Tambien cuando "Version & changelog" falla: asi se ve que el gate de publicacion bloquea igual.
+    if: ${{ !cancelled() && needs.version.outputs.kind == 'release' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -70,7 +71,7 @@ jobs:
       - run: npm ci
 
       - name: Release gate
-        run: node scripts/release/check.mjs release --tag "v${{ needs.version.outputs.version }}" --notes-out "$RUNNER_TEMP/notes.md"
+        run: node scripts/release/check.mjs release --tag "v${{ needs.version.outputs.version }}" --notes-out "$RUNNER_TEMP/notes.md" --new-tag
 
       - name: Unit tests
         run: npm test

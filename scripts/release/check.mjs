@@ -7,9 +7,10 @@
  *     [Unreleased] (hacia dev) o sube la version (PR de release, o hotfix hacia main); y el
  *     manifiesto de compatibilidad es valido. En local: npm run release:check
  *
- *   check.mjs release --tag vX.Y.Z [--notes-out file]
+ *   check.mjs release --tag vX.Y.Z [--notes-out file] [--new-tag]
  *     Antes de `npm publish` en release.yml (y en el dry-run de las PRs de release): tag =
  *     version, bump respecto a lo publicado, CHANGELOG con notas y manifiesto valido.
+ *     --new-tag (dry-run): ademas, el tag no puede existir todavia.
  *
  *   check.mjs schema [--write]
  *     Regenera release/config.schema.json desde src/types (npm run release:schema).
@@ -160,6 +161,10 @@ function release() {
   const head = snapshot(null);
   const previousTags = (tryGit('tag', '--list', 'v*') ?? '').split('\n').filter(Boolean).filter((t) => t !== tag);
   const { errors, distTag } = checkRelease({ tag, pkg: head.pkg, changelog: head.changelog, previousTags });
+  // En el dry-run de la PR el tag aun no existe; si ya existe, esa version esta publicada.
+  if (flag('new-tag') && tryGit('rev-parse', '--verify', '--quiet', `refs/tags/${tag}`) != null) {
+    errors.unshift(`Sin bump: ${tag} ya existe, esa version ya esta publicada.`);
+  }
   const manifest = manifestErrors();
 
   const notesOut = option('notes-out');
