@@ -565,7 +565,14 @@ npm run build
 npm run build:watch
 npm run lint
 npm test
+npm run release:check   # the pull request release gate, locally
 ```
+
+## Versioning & supported versions
+
+Releases follow semver and are published only by CI, each with release notes, a `vX.Y.Z` tag,
+a compatibility manifest (`release/compatibility.json`) and the exact tested tarball attached to
+its GitHub Release. Which versions get fixes, and for how long: [docs/VERSIONING.md](docs/VERSIONING.md).
 
 ## License
 

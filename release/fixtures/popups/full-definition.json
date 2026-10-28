@@ -1,0 +1,30 @@
+[
+  {
+    "id": "fixture-full",
+    "title": "Tell us about your visit",
+    "message": "<p>It takes less than a minute.</p>",
+    "triggers": [
+      { "type": "event", "value": "fixture_full" },
+      { "type": "time_on_page", "value": 30 }
+    ],
+    "cooldown": [
+      { "answered": "COMPLETED", "cooldownDays": 30 },
+      { "answered": "SHOWED", "cooldownDays": 1 }
+    ],
+    "actions": {
+      "accept": { "label": "Start", "surveyId": "survey-fixture-2" },
+      "decline": { "label": "Not now", "cooldownDays": 7 },
+      "start": { "label": "Start survey" },
+      "back": { "label": "Back" }
+    },
+    "surveyId": "survey-fixture-2",
+    "productId": "product-fixture-2",
+    "style": {
+      "theme": "light",
+      "position": "bottom-right",
+      "imageUrl": null,
+      "font": { "family": "Inter", "url": "https://fonts.example.com/inter.woff2" }
+    },
+    "segments": { "lang": ["en", "da"], "path": ["/"], "excludedPaths": ["/cart"] }
+  }
+]

@@ -3,10 +3,16 @@ name: Release
 # Publica en npm al subir un tag `vX.Y.Z`. Sustituye al `npm run release` desde el portatil
 # (que dependia de un NPM_TOKEN en `.npm.env` y de la linea de auth del `~/.npmrc`).
 #
-# Flujo de release:
-#   1. En `dev`: subir `version` en package.json + seccion `## [X.Y.Z]` en CHANGELOG.md,
-#      commit `chore(release): X.Y.Z`.
-#   2. `git tag vX.Y.Z && git push origin vX.Y.Z`
+# Flujo de release (docs/VERSIONING.md):
+#   1. `npm run release:prepare -- patch|minor|major`: PR a dev con la version, la seccion
+#      `## [X.Y.Z]` del CHANGELOG y release/compatibility.json. Su "Release dry run" corre este
+#      mismo gate y prueba el tarball antes de que exista el tag.
+#   2. Fusionada la PR: `npm run release:tag` (sube el tag vX.Y.Z).
+#
+# Antes de publicar, el gate (scripts/release/check.mjs release) bloquea si falta el bump, las
+# release notes o el manifiesto de compatibilidad es invalido. El tarball se empaqueta una vez,
+# se prueba y se publica ESE fichero; la GitHub Release lleva el tarball, SHA256SUMS,
+# release.json (commit, hashes, CI, aprobacion) y el manifiesto.
 #
 # Autenticacion: npm Trusted Publishing (OIDC), sin token guardado. Se configura UNA vez en
 # npmjs.com > @magicfeedback/popup-sdk > Settings > Trusted publisher:
@@ -23,6 +29,7 @@ permissions:
   contents: write # crear la GitHub Release
   id-token: write # OIDC para npm Trusted Publishing
   pull-requests: write # PR de respaldo si el merge en main da conflicto
+  actions: read # metadata.mjs lee el CI del commit etiquetado
 
 concurrency:
   group: release
@@ -38,38 +45,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify tag, version and changelog
-        id: meta
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
-          PKG_VERSION="$(node -p "require('./package.json').version")"
-          if [ "$VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::El tag $TAG no coincide con package.json ($PKG_VERSION)."
-            exit 1
-          fi
-          # Se releasea desde dev: un tag sobre un commit que no esta en dev es un error.
-          git fetch --no-tags origin dev
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/dev; then
-            echo "::error::El commit del tag $TAG no esta en origin/dev."
-            exit 1
-          fi
-          if ! grep -qE "^## \[${VERSION//./\\.}\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md no tiene seccion '## [$VERSION]'."
-            exit 1
-          fi
-          # Seccion del CHANGELOG para las notas de la GitHub Release.
-          awk -v v="$VERSION" '
-            index($0, "## [" v "]") == 1 { on = 1; next }
-            on && /^## \[/ { exit }
-            on { print }
-          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
-          # Un X.Y.Z-algo va al dist-tag `next`, para no moverle el `latest` a nadie.
-          if [[ "$VERSION" == *-* ]]; then DIST_TAG=next; else DIST_TAG=latest; fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "dist_tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -78,12 +53,29 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # Trusted Publishing necesita npm >= 11.5.1.
+      # Trusted Publishing necesita npm >= 11.5.1. Fijado a la 11: con `npm@latest` la 1.17.1
+      # cogio npm 12, que cambio la salida de `npm pack --json`, y la release fallo al empaquetar.
+      # El dry-run de release-check.yml usa la misma version.
       - name: Update npm
-        run: npm install -g npm@latest && npm --version
+        run: npm install -g npm@11 && npm --version
 
       - name: Install dependencies
         run: npm ci
+
+      # Gate de release (MF-3241, docs/VERSIONING.md). Si falla, no se publica nada:
+      # tag = version, bump respecto a lo publicado en su linea, notas en el CHANGELOG y
+      # manifiesto de compatibilidad valido (schema, version, renderer, config schema, fixtures).
+      - name: Release gate
+        id: meta
+        run: |
+          set -euo pipefail
+          # Se releasea desde dev: un tag sobre un commit que no esta en dev es un error.
+          git fetch --no-tags origin dev
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/dev; then
+            echo "::error::El commit del tag $GITHUB_REF_NAME no esta en origin/dev."
+            exit 1
+          fi
+          node scripts/release/check.mjs release --tag "$GITHUB_REF_NAME" --notes-out "$RUNNER_TEMP/notes.md"
 
       - name: Unit tests
         run: npm test
@@ -94,6 +86,15 @@ jobs:
       - name: Check package layout
         run: npm run check:layout
 
+      # El artefacto se empaqueta UNA vez. Ese .tgz es el que se prueba, el que se publica
+      # (npm publish <tgz> no reconstruye: no corre prepublishOnly) y el que se adjunta a la Release.
+      - name: Pack
+        id: pack
+        run: node scripts/release/pack.mjs --out "$RUNNER_TEMP/out" --json "$RUNNER_TEMP/pack.json"
+
+      - name: Smoke test the tarball
+        run: node scripts/release/smoke.mjs "${{ steps.pack.outputs.tgz }}"
+
       # Re-ejecutar el workflow no debe fallar si npm ya tiene la version.
       - name: Check if already published
         id: published
@@ -101,14 +102,39 @@ jobs:
           if npm view "@magicfeedback/popup-sdk@${{ steps.meta.outputs.version }}" version >/dev/null 2>&1; then
             echo "already=true" >> "$GITHUB_OUTPUT"
             echo "::notice::@magicfeedback/popup-sdk@${{ steps.meta.outputs.version }} ya esta en npm; no se republica."
+            NPM_INTEGRITY="$(npm view "@magicfeedback/popup-sdk@${{ steps.meta.outputs.version }}" dist.integrity)"
+            if [ "$NPM_INTEGRITY" != "${{ steps.pack.outputs.integrity }}" ]; then
+              echo "::warning::El tarball de esta ejecucion no es el publicado ($NPM_INTEGRITY). La metadata describe este; el bueno es el de npm."
+            fi
           else
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish to npm
         if: steps.published.outputs.already == 'false'
-        run: npm publish --access public --tag "${{ steps.meta.outputs.dist_tag }}"
+        run: |
+          set -euo pipefail
+          npm publish "${{ steps.pack.outputs.tgz }}" --access public --tag "${{ steps.meta.outputs.dist_tag }}" --json > "$RUNNER_TEMP/publish.json"
+          cat "$RUNNER_TEMP/publish.json"
 
+      # release.json: commit, sha256 + integrity del tarball (contrastada con lo que guardo npm),
+      # CI del commit (tiene que estar en verde), PR de release con sus aprobaciones y quien etiqueto.
+      - name: Release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          PUBLISH=()
+          if [ -f "$RUNNER_TEMP/publish.json" ]; then PUBLISH=(--publish "$RUNNER_TEMP/publish.json"); fi
+          node scripts/release/metadata.mjs --require-ci --tag "$GITHUB_REF_NAME" \
+            --tgz "${{ steps.pack.outputs.tgz }}" --pack "$RUNNER_TEMP/pack.json" "${PUBLISH[@]}" \
+            --out "$RUNNER_TEMP/out/release.json"
+          cp release/compatibility.json release/config.schema.json "$RUNNER_TEMP/out/"
+          (cd "$RUNNER_TEMP/out" && sha256sum -- *.tgz > SHA256SUMS && cat SHA256SUMS)
+
+      # La Release se crea de una vez con sus ficheros: con releases inmutables no se pueden
+      # anadir despues.
       - name: GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -118,12 +144,17 @@ jobs:
             echo "::notice::La GitHub Release $GITHUB_REF_NAME ya existe."
             exit 0
           fi
-          PRERELEASE=()
-          if [ "${{ steps.meta.outputs.dist_tag }}" = "next" ]; then PRERELEASE=(--prerelease); fi
+          FLAGS=()
+          if [ "${{ steps.meta.outputs.dist_tag }}" = "next" ]; then FLAGS+=(--prerelease); fi
+          if [ "${{ steps.meta.outputs.dist_tag }}" != "latest" ]; then FLAGS+=(--latest=false); fi
+          OUT="$RUNNER_TEMP/out"
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/notes.md" \
-            --verify-tag "${PRERELEASE[@]}"
+            --verify-tag "${FLAGS[@]}" \
+            "${{ steps.pack.outputs.tgz }}" "$OUT/SHA256SUMS" "$OUT/release.json" \
+            "$OUT/compatibility.json" "$OUT/config.schema.json"
+          echo "Publicada [$GITHUB_REF_NAME]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME)" >> "$GITHUB_STEP_SUMMARY"
 
       # Politica: tras cada release, `main` recibe lo publicado. Se fusiona el commit del TAG
       # (no la punta de dev, que puede ir por delante). Si hay conflicto, no se fuerza nada:

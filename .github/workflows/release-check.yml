@@ -1,0 +1,105 @@
+name: Release check
+
+# Gate de release en las PRs (MF-3241). Reglas en scripts/release/rules.mjs y docs/VERSIONING.md.
+#
+# - "Version & changelog": un cambio del paquete trae release notes en [Unreleased] (hacia dev)
+#   o sube la version (PR de release; hacia main, cualquier cambio del paquete); y el manifiesto
+#   de compatibilidad (release/compatibility.json) es valido. En local: npm run release:check
+# - "Release dry run": solo en las PRs que suben la version. Corre el mismo gate que release.yml,
+#   empaqueta el tarball, le pasa la prueba de humo y genera su release.json, sin publicar nada.
+
+on:
+  pull_request:
+    branches: [dev, main]
+    # edited: cambiar la base de la PR cambia contra que se compara.
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  actions: read # metadata.mjs lee el CI del commit
+
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: Version & changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      kind: ${{ steps.gate.outputs.kind }}
+      version: ${{ steps.gate.outputs.version }}
+    steps:
+      # Historial y tags completos: la rama base para comparar y los vX.Y.Z publicados.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # El manifiesto se valida con ajv y el schema de configuracion se regenera desde src/types.
+      - run: npm ci
+
+      # HEAD es la PR fusionada sobre su base: el diff es justo lo que cambiaria el merge.
+      - name: Check version, changelog and manifest
+        id: gate
+        run: node scripts/release/check.mjs pr --base "origin/${{ github.base_ref }}"
+
+  dry-run:
+    name: Release dry run
+    needs: version
+    # Tambien cuando "Version & changelog" falla: asi se ve que el gate de publicacion bloquea igual.
+    if: ${{ !cancelled() && needs.version.outputs.kind == 'release' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Misma npm que release.yml, para que el dry-run pruebe lo mismo que la publicacion.
+      - name: Update npm
+        run: npm install -g npm@11 && npm --version
+
+      - run: npm ci
+
+      - name: Release gate
+        run: node scripts/release/check.mjs release --tag "v${{ needs.version.outputs.version }}" --notes-out "$RUNNER_TEMP/notes.md" --new-tag
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check package layout
+        run: npm run check:layout
+
+      - name: Pack and smoke test
+        run: |
+          set -euo pipefail
+          node scripts/release/pack.mjs --out "$RUNNER_TEMP/out" --json "$RUNNER_TEMP/pack.json" | tee "$RUNNER_TEMP/pack.log"
+          TGZ="$RUNNER_TEMP/out/$(cut -d' ' -f1 "$RUNNER_TEMP/pack.log")"
+          node scripts/release/smoke.mjs "$TGZ"
+          RELEASE_SHA="${{ github.event.pull_request.head.sha }}" GH_TOKEN="${{ github.token }}" \
+            node scripts/release/metadata.mjs --dry-run --tag "v${{ needs.version.outputs.version }}" \
+              --tgz "$TGZ" --pack "$RUNNER_TEMP/pack.json" --out "$RUNNER_TEMP/out/release.json"
+          cp release/compatibility.json release/config.schema.json "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP/out/"
+          (cd "$RUNNER_TEMP/out" && sha256sum -- *.tgz > SHA256SUMS && cat SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dry-run-v${{ needs.version.outputs.version }}
+          path: ${{ runner.temp }}/out/
+          retention-days: 14

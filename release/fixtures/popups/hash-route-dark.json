@@ -1,0 +1,13 @@
+[
+  {
+    "id": "fixture-hash-route",
+    "title": "Game feedback",
+    "message": "",
+    "triggers": [{ "type": "event", "value": "fixture_hash" }],
+    "actions": {},
+    "surveyId": "survey-fixture-3",
+    "productId": "product-fixture-3",
+    "style": { "theme": "dark", "position": "center" },
+    "segments": { "path": ["/#/game"] }
+  }
+]

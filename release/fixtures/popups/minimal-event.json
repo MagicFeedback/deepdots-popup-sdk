@@ -1,0 +1,10 @@
+[
+  {
+    "id": "fixture-minimal",
+    "title": "Quick question",
+    "message": "<p>Do you have a minute?</p>",
+    "triggers": [{ "type": "event", "value": "fixture_minimal" }],
+    "surveyId": "survey-fixture-1",
+    "productId": "product-fixture-1"
+  }
+]

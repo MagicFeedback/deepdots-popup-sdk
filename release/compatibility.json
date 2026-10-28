@@ -1,0 +1,79 @@
+{
+  "$schema": "./compatibility.schema.json",
+  "schemaVersion": 1,
+  "package": "@magicfeedback/popup-sdk",
+  "platform": "web",
+  "version": "1.17.1",
+  "surveyRenderer": {
+    "package": "@magicfeedback/native",
+    "version": "2.2.33",
+    "cdnVersion": "2.2.33"
+  },
+  "hosts": {
+    "buildTarget": "es2020",
+    "browsers": [
+      { "name": "chrome", "min": "90", "tested": true, "notes": "La suite E2E (Playwright) corre en Chromium." },
+      { "name": "edge", "min": "90", "tested": false },
+      { "name": "firefox", "min": "90", "tested": false },
+      { "name": "safari", "min": "14", "tested": false },
+      { "name": "ios_safari", "min": "14", "tested": false },
+      { "name": "samsung", "min": "15", "tested": false },
+      { "name": "android_webview", "min": "90", "tested": false, "notes": "Ruta React Native (WebView)." },
+      { "name": "ios_wkwebview", "min": "14", "tested": false, "notes": "Ruta React Native (WebView)." }
+    ],
+    "frameworks": [
+      { "name": "vanilla", "support": "supported", "entry": "@magicfeedback/popup-sdk" },
+      { "name": "react", "support": "supported", "range": ">=17", "entry": "@magicfeedback/popup-sdk" },
+      { "name": "angular", "support": "supported", "entry": "@magicfeedback/popup-sdk", "notes": "Con CSP estricta, pasar cspNonce (token CSP_NONCE)." },
+      { "name": "vue", "support": "best-effort", "entry": "@magicfeedback/popup-sdk" },
+      { "name": "react-native", "support": "supported", "range": ">=0.70", "entry": "@magicfeedback/popup-sdk/react-native", "notes": "Peers opcionales: react-native-webview >=11, react-native-mmkv >=2, react-native-device-info >=10." },
+      { "name": "react-native-web", "support": "unsupported", "notes": "No se prueba ni se empaqueta para RN-web; en web usar la entrada principal." }
+    ]
+  },
+  "configSchema": {
+    "path": "release/config.schema.json",
+    "generatedFrom": "src/types/index.ts (DeepdotsInitParams, PopupDefinition)"
+  },
+  "fixtures": [
+    {
+      "id": "minimal-event",
+      "path": "release/fixtures/popups/minimal-event.json",
+      "trigger": { "event": "fixture_minimal" },
+      "covers": ["campos obligatorios", "trigger event", "sin actions/style/segments"]
+    },
+    {
+      "id": "full-definition",
+      "path": "release/fixtures/popups/full-definition.json",
+      "trigger": { "event": "fixture_full", "href": "http://localhost:3000/products" },
+      "covers": ["actions completas", "cooldown", "style.font", "segments.lang", "segments.path", "segments.excludedPaths"]
+    },
+    {
+      "id": "hash-route-dark",
+      "path": "release/fixtures/popups/hash-route-dark.json",
+      "trigger": { "event": "fixture_hash", "href": "http://localhost:3000/#/game" },
+      "covers": ["ruta con hash", "theme dark", "actions vacio"]
+    }
+  ],
+  "knownIssues": [
+    {
+      "id": "rn-path-segments-not-evaluated",
+      "summary": "En React Native no se evaluan segments.path ni segments.excludedPaths (no hay window.location): el popup se muestra en cualquier pantalla.",
+      "affects": ["react-native"],
+      "detected": "2026-09-18",
+      "workaround": "Disparar el popup solo desde las pantallas donde debe salir."
+    },
+    {
+      "id": "analytics-session-close-opportunistic",
+      "summary": "El lote de cierre de sesion (completed:true) no sale si el navegador o la app mueren sin pagehide/background; el backend cierra esas sesiones por inactividad.",
+      "affects": ["all"],
+      "detected": "2026-07-30"
+    },
+    {
+      "id": "web-back-keeps-validation-hint",
+      "summary": "En el popup DOM web, volver atras no limpia el aviso de validacion de la pantalla anterior.",
+      "affects": ["web"],
+      "detected": "2026-09-14"
+    }
+  ],
+  "supportPolicy": "docs/VERSIONING.md"
+}
