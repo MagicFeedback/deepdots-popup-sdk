@@ -30,7 +30,8 @@ export const KNOWN_BUGS = {
     summary: 'popup en esquina: el contenedor a pantalla completa (transparente) se come los clics del host',
   },
   'duplicate-shown': {
-    fixedIn: null as string | null,
+    // [failure test · do not merge] se declara arreglado SIN el arreglo: el test tiene que fallar.
+    fixedIn: 'local' as string | null,
     summary: 'el mismo popup disparado otra vez mientras está abierto emite popup_shown y POST SHOWED de nuevo',
   },
   'phantom-shown': {
