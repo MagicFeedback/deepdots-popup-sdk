@@ -1,0 +1,91 @@
+/* UI del laboratorio. Todo acotado a #lab-toolbar / #lab-devtools y con valores explícitos:
+   el CSS "hostil" del host (competing.css) no debe deformarla. */
+
+#lab-toolbar, #lab-devtools {
+  --lab-bg: #0f1115;
+  --lab-bg-2: #1a1d23;
+  --lab-line: #23262d;
+  --lab-line-2: #2c3039;
+  --lab-fg: #c9ccd3;
+  --lab-fg-strong: #f3f4f6;
+  --lab-dim: #8b909b;
+  --lab-accent: #7aa2ff;
+  --lab-bad: #fca5a5;
+  font: 12px/1.4 Inter, system-ui, -apple-system, sans-serif !important;
+  color: var(--lab-fg) !important;
+  background: var(--lab-bg) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+#lab-toolbar *, #lab-devtools * { box-sizing: border-box !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important; }
+
+#lab-toolbar { position: relative; z-index: 999991; border-bottom: 1px solid var(--lab-line); }
+.lab-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-height: 40px; padding: 6px 14px; }
+.lab-bar strong { color: var(--lab-fg-strong); font-weight: 600; }
+.lab-grow { flex: 1 1 auto; }
+.lab-dim { color: var(--lab-dim) !important; }
+.lab-mono, .lab-body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; }
+.lab-bad { color: var(--lab-bad) !important; }
+.lab-version, .lab-env, .lab-fault {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 5px;
+  border: 1px solid var(--lab-line-2); background: var(--lab-bg-2); color: #e5e7eb;
+}
+.lab-env { background: #0e2a1b; color: #6ee7a8; border-color: #14532d; }
+.lab-fault { background: #2a1215; color: var(--lab-bad); border-color: #7f1d1d; }
+
+.lab-config { position: relative; }
+.lab-config > summary {
+  list-style: none; cursor: pointer; height: 26px; display: inline-flex; align-items: center;
+  padding: 0 10px; border: 1px solid var(--lab-line-2); border-radius: 5px; background: var(--lab-bg-2); color: #e5e7eb;
+}
+.lab-config > summary::-webkit-details-marker { display: none; }
+.lab-form {
+  position: absolute; top: 32px; left: 0; z-index: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px; width: 420px; max-width: calc(100vw - 32px); padding: 14px; border-radius: 8px;
+  background: var(--lab-bg-2); border: 1px solid var(--lab-line-2); box-shadow: 0 12px 30px rgba(0,0,0,.4);
+}
+.lab-field { display: flex; flex-direction: column; gap: 4px; color: var(--lab-dim); }
+.lab-field select, .lab-field input {
+  height: 28px; padding: 0 6px; border-radius: 5px; border: 1px solid var(--lab-line-2) !important;
+  background: var(--lab-bg) !important; color: var(--lab-fg-strong) !important; font: inherit !important; width: 100%;
+}
+.lab-form .lab-btn { grid-column: span 2; height: 32px; }
+.lab-btn {
+  all: unset; display: inline-flex !important; align-items: center; justify-content: center; height: 26px; padding: 0 10px !important;
+  border: 1px solid var(--lab-line-2) !important; border-radius: 5px !important; color: var(--lab-fg) !important; cursor: pointer;
+  font: inherit !important;
+}
+.lab-btn:focus-visible, .lab-config > summary:focus-visible, .lab-tabs [role=tab]:focus-visible { outline: 2px solid var(--lab-accent); outline-offset: 1px; }
+.lab-primary { background: #3b6cf6 !important; border-color: #3b6cf6 !important; color: #fff !important; }
+.lab-icon { width: 26px; padding: 0 !important; }
+
+#lab-devtools {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 999990; height: var(--lab-panel-h);
+  display: flex; flex-direction: column; border-top: 1px solid var(--lab-line);
+}
+#lab-devtools.lab-collapsed { height: 33px; }
+:root { --lab-panel-h: 220px; }
+:root:has(#lab-devtools.lab-collapsed) { --lab-panel-h: 33px; }
+.lab-tabs { display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 10px; border-bottom: 1px solid var(--lab-line); flex: none; }
+.lab-tabs [role=tab] {
+  all: unset; height: 32px; padding: 0 12px !important; cursor: pointer; color: var(--lab-dim) !important; font: inherit !important;
+  border-bottom: 2px solid transparent !important;
+}
+.lab-tabs [role=tab][aria-selected=true] { color: var(--lab-fg-strong) !important; background: var(--lab-bg-2) !important; border-bottom-color: var(--lab-accent) !important; }
+.lab-status { font-size: 11px; margin-right: 8px; }
+.lab-body { flex: 1; overflow: auto; padding: 6px 14px; }
+.lab-row { display: flex; gap: 12px; padding: 1px 0; white-space: nowrap; }
+.lab-net > :nth-child(1) { width: 48px; } .lab-net > :nth-child(2) { width: 48px; } .lab-net > :nth-child(4) { width: 60px; text-align: right; }
+.lab-head > :nth-child(1) { width: 48px; } .lab-head > :nth-child(2) { width: 48px; } .lab-head > :nth-child(3) { flex: 1; }
+.lab-url { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.lab-kind { width: 44px; flex: none; }
+.lab-k-host, .lab-k-route { color: #c4b5fd; }
+.lab-k-sdk { color: var(--lab-accent); }
+.lab-k-event { color: #6ee7a8; }
+.lab-k-error { color: var(--lab-bad); }
+.lab-key { width: 280px; flex: none; overflow: hidden; text-overflow: ellipsis; }
+.lab-pre { margin: 0; white-space: pre-wrap; color: var(--lab-fg); }
+
+/* La tienda no queda tapada por el panel. */
+#host-root { padding-bottom: calc(var(--lab-panel-h) + 20px); }
+@media (max-width: 640px) { .lab-status { display: none; } .lab-form { grid-template-columns: minmax(0, 1fr); } .lab-form .lab-btn { grid-column: auto; } }

@@ -1,0 +1,24 @@
+/* CSS que compite con el del popup. Es lo que se encuentra en webs reales (temas de
+   WordPress/Shopify, resets de frameworks, CSS de terceros): selectores de etiqueta sueltos,
+   !important y z-index altos. Si algo de aquí cambia el aspecto del popup o del survey, es un
+   bug de aislamiento del SDK. ?css=clean lo desactiva para comparar. */
+
+html { font-size: 62.5%; }                                 /* rem = 10px: rompe tamaños en rem */
+body { font-size: 1.5rem; }
+div { line-height: 1.9 !important; }
+p { margin: 1.6em 0 !important; letter-spacing: 0.01em; }
+h2 { font-size: 3.2rem !important; text-transform: uppercase; }
+button { text-transform: uppercase; letter-spacing: 0.06em; }
+input, textarea, select { border-radius: 0 !important; font-size: 1.3rem; }
+label { font-weight: 700; }
+img { max-width: 50% !important; }
+svg { vertical-align: -0.3em; }
+ul, ol { list-style: square inside; }
+textarea { min-height: 200px; }
+[role="dialog"] { outline: 3px solid #fbbf24; }
+*:focus { outline: 2px dashed #db2777 !important; }
+
+/* Lo que la tienda necesita para seguir viéndose bien con lo anterior encima. */
+.site-header, .lines, main { line-height: 1.5 !important; }
+.btn, .lang-switch button, .size { text-transform: none; letter-spacing: normal; }
+.host-modal-card p, .hero p { margin: 0 0 1em !important; }

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NORDLY · SDK Lab</title>
+  <link rel="stylesheet" href="/app/styles/host.css" />
+  <!-- CSS del host que compite con el del popup (reset global, !important, z-index altos).
+       ?css=clean lo quita para comparar. -->
+  <link rel="stylesheet" href="/app/styles/competing.css" id="competing-css" />
+  <link rel="stylesheet" href="/app/styles/lab.css" />
+</head>
+<body>
+  <div id="lab-toolbar" data-testid="lab-toolbar"></div>
+  <div id="host-root" data-testid="host-root"></div>
+  <div id="lab-devtools" data-testid="lab-devtools"></div>
+  <script type="module" src="/app/main.js"></script>
+</body>
+</html>
