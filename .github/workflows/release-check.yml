@@ -68,6 +68,10 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # Misma npm que release.yml, para que el dry-run pruebe lo mismo que la publicacion.
+      - name: Update npm
+        run: npm install -g npm@11 && npm --version
+
       - run: npm ci
 
       - name: Release gate
@@ -85,9 +89,8 @@ jobs:
       - name: Pack and smoke test
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/out"
-          npm pack --json --pack-destination "$RUNNER_TEMP/out" > "$RUNNER_TEMP/pack.json"
-          TGZ="$RUNNER_TEMP/out/$(node -p "require('$RUNNER_TEMP/pack.json')[0].filename")"
+          node scripts/release/pack.mjs --out "$RUNNER_TEMP/out" --json "$RUNNER_TEMP/pack.json" | tee "$RUNNER_TEMP/pack.log"
+          TGZ="$RUNNER_TEMP/out/$(cut -d' ' -f1 "$RUNNER_TEMP/pack.log")"
           node scripts/release/smoke.mjs "$TGZ"
           RELEASE_SHA="${{ github.event.pull_request.head.sha }}" GH_TOKEN="${{ github.token }}" \
             node scripts/release/metadata.mjs --dry-run --tag "v${{ needs.version.outputs.version }}" \

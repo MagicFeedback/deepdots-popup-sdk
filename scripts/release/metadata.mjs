@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { npmResult } from './pack.mjs';
 
 /** Ultima revision de cada revisor; aprobada si la ultima es APPROVED. */
 export function approvalsFrom(reviews = []) {
@@ -71,10 +72,9 @@ function main() {
     process.exit(2);
   }
 
-  // `npm pack --json` y `npm publish --json` devuelven un array (pack) o un objeto (publish).
-  const one = (v) => (Array.isArray(v) ? v[0] : v);
-  const pack = one(JSON.parse(readFileSync(option('pack'), 'utf8')));
-  const publish = option('publish') ? one(JSON.parse(readFileSync(option('publish'), 'utf8'))) : null;
+  // La forma de `npm pack --json` / `npm publish --json` cambia entre versiones de npm.
+  const pack = npmResult(JSON.parse(readFileSync(option('pack'), 'utf8')));
+  const publish = option('publish') ? npmResult(JSON.parse(readFileSync(option('publish'), 'utf8'))) : null;
   const bytes = readFileSync(tgz);
   const sha256 = createHash('sha256').update(bytes).digest('hex');
   const tgzSha512 = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;

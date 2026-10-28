@@ -53,9 +53,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # Trusted Publishing necesita npm >= 11.5.1.
+      # Trusted Publishing necesita npm >= 11.5.1. Fijado a la 11: con `npm@latest` la 1.17.1
+      # cogio npm 12, que cambio la salida de `npm pack --json`, y la release fallo al empaquetar.
+      # El dry-run de release-check.yml usa la misma version.
       - name: Update npm
-        run: npm install -g npm@latest && npm --version
+        run: npm install -g npm@11 && npm --version
 
       - name: Install dependencies
         run: npm ci
@@ -88,12 +90,7 @@ jobs:
       # (npm publish <tgz> no reconstruye: no corre prepublishOnly) y el que se adjunta a la Release.
       - name: Pack
         id: pack
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/out"
-          npm pack --json --pack-destination "$RUNNER_TEMP/out" > "$RUNNER_TEMP/pack.json"
-          echo "tgz=$RUNNER_TEMP/out/$(node -p "require('$RUNNER_TEMP/pack.json')[0].filename")" >> "$GITHUB_OUTPUT"
-          echo "integrity=$(node -p "require('$RUNNER_TEMP/pack.json')[0].integrity")" >> "$GITHUB_OUTPUT"
+        run: node scripts/release/pack.mjs --out "$RUNNER_TEMP/out" --json "$RUNNER_TEMP/pack.json"
 
       - name: Smoke test the tarball
         run: node scripts/release/smoke.mjs "${{ steps.pack.outputs.tgz }}"
