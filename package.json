@@ -35,7 +35,9 @@
     "prepublishOnly": "npm run build && npm run check:layout",
     "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public",
     "release:prepare": "node scripts/release.mjs prepare",
-    "release:tag": "node scripts/release.mjs tag"
+    "release:tag": "node scripts/release.mjs tag",
+    "release:check": "node scripts/release/check.mjs pr",
+    "release:schema": "node scripts/release/check.mjs schema --write"
   },
   "keywords": [
     "survey",
@@ -84,10 +86,12 @@
     "@types/react": "^18.3.31",
     "@typescript-eslint/eslint-plugin": "^8.66.0",
     "@typescript-eslint/parser": "^8.66.0",
+    "ajv": "^8.20.0",
     "eslint": "^8.54.0",
     "happy-dom": "^20.11.1",
     "jsdom": "^27.1.0",
     "react": "^18.3.1",
+    "ts-json-schema-generator": "^2.9.0",
     "tsup": "^8.0.1",
     "typescript": "^5.3.2",
     "vitest": "^4.1.10"

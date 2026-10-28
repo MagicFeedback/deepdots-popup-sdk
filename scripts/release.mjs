@@ -2,7 +2,8 @@
 // Release de @magicfeedback/popup-sdk en dos pasos, uno a cada lado de la PR:
 //
 //   npm run release:prepare -- <X.Y.Z|patch|minor|major> [--dry-run]
-//     Desde origin/dev: rama release/X.Y.Z, version en package.json + package-lock.json,
+//     Desde origin/dev: rama release/X.Y.Z, version en package.json + package-lock.json +
+//     release/compatibility.json,
 //     la seccion [Unreleased] del CHANGELOG pasa a [X.Y.Z], commit, push y PR a dev.
 //     Trabaja en un worktree temporal: tu checkout no se toca.
 //
@@ -23,6 +24,7 @@ import { createInterface } from 'node:readline/promises';
 const PKG = '@magicfeedback/popup-sdk';
 const BASE = 'dev';
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+const MANIFEST = 'release/compatibility.json';
 
 // ---------- utilidades ----------
 
@@ -88,6 +90,13 @@ export function versionBody(changelog, version) {
   return (m && m[1].trim()) || null;
 }
 
+/** Cambia solo `"version"` del manifiesto, sin reformatear el resto del fichero. */
+export function setManifestVersion(text, version) {
+  const re = /^(\s*"version":\s*")[^"]*(")/m;
+  if (!re.test(text)) throw new Error(`${MANIFEST} no tiene "version".`);
+  return text.replace(re, `$1${version}$2`);
+}
+
 // ---------- versiones ----------
 
 export function nextVersion(current, bump) {
@@ -137,7 +146,10 @@ async function prepare(bump, { dryRun }) {
     const date = new Date().toISOString().slice(0, 10);
     writeFileSync(join(dir, 'CHANGELOG.md'), promoteUnreleased(changelog, version, date));
     run('npm', ['version', version, '--no-git-tag-version', '--ignore-scripts'], { cwd: dir });
-    run('git', ['add', 'CHANGELOG.md', 'package.json', 'package-lock.json'], { cwd: dir });
+    // El manifiesto de compatibilidad promete esta version (MF-3241); el resto (hosts, known
+    // issues...) se revisa en la PR de release.
+    writeFileSync(join(dir, MANIFEST), setManifestVersion(showFile(`origin/${BASE}`, MANIFEST), version));
+    run('git', ['add', 'CHANGELOG.md', 'package.json', 'package-lock.json', MANIFEST], { cwd: dir });
     run('git', ['commit', '--quiet', '-m', `chore(release): ${version}`], { cwd: dir });
     console.log(`\n${run('git', ['show', '--stat', '--format=%h %s', 'HEAD'], { cwd: dir })}\n`);
 
@@ -186,6 +198,8 @@ async function tagRelease({ yes, watch }) {
   if (npmHasVersion(version)) fail(`${PKG}@${version} ya esta en npm. ¿Falta subir la version con release:prepare?`);
   if (!versionBody(showFile(sha, 'CHANGELOG.md'), version))
     fail(`El CHANGELOG de ${BASE} no tiene la seccion ## [${version}] (o esta vacia).`);
+  const manifestVersion = JSON.parse(showFile(sha, MANIFEST)).version;
+  if (manifestVersion !== version) fail(`${MANIFEST} de ${BASE} dice ${manifestVersion}, no ${version}.`);
 
   // Si hay una PR de release para esta version, tiene que estar fusionada.
   const pr = tryRun('gh', ['pr', 'list', '--head', `release/${version}`, '--state', 'all', '--json', 'number,state', '--jq', '.[0] // empty']);
