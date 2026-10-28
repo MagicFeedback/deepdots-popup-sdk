@@ -55,3 +55,5 @@ export type { PopupLabels, PopupLocale, ResolvedActionLabels } from './i18n/labe
 // React Native: auto-wiring en una llamada (storage MMKV + device + platform + lifecycle).
 export { setupReactNative, mmkvStorage, collectRnDevice } from './react-native/setup';
 export type { ReactNativeSetupDeps, MmkvLike, DeviceInfoLike, AppStateLike } from './react-native/setup';
+
+// failure test MF-3241
