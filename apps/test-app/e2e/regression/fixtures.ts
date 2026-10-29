@@ -26,19 +26,19 @@ import type { Page, TestInfo } from '@playwright/test';
  */
 export const KNOWN_BUGS = {
   'corner-overlay': {
-    fixedIn: 'local' as string | null,
+    fixedIn: '1.17.2' as string | null,
     summary: 'popup en esquina: el contenedor a pantalla completa (transparente) se come los clics del host',
   },
   'duplicate-shown': {
-    fixedIn: 'local' as string | null,
+    fixedIn: '1.17.2' as string | null,
     summary: 'el mismo popup disparado otra vez mientras está abierto emite popup_shown y POST SHOWED de nuevo',
   },
   'chunk-load-failure': {
-    fixedIn: 'local' as string | null,
+    fixedIn: '1.17.2' as string | null,
     summary: 'si el chunk del renderer no se descarga: error sin capturar en la página y ningún popup más en esa carga',
   },
   'phantom-shown': {
-    fixedIn: 'local' as string | null,
+    fixedIn: '1.17.2' as string | null,
     summary: 'otro popup que toca con uno abierto emite popup_shown + SHOWED y gasta su cooldown sin pintarse',
   },
 } as const;
