@@ -26,7 +26,7 @@ import type { Page, TestInfo } from '@playwright/test';
  */
 export const KNOWN_BUGS = {
   'corner-overlay': {
-    fixedIn: null as string | null,
+    fixedIn: 'local' as string | null,
     summary: 'popup en esquina: el contenedor a pantalla completa (transparente) se come los clics del host',
   },
   'duplicate-shown': {

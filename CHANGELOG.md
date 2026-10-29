@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failed `import()` surfaced as an uncaught error in the host page and the browser renderer
   stayed "open": no other popup showed for the rest of the page load. The error is now caught
   (logged as a warning), the renderer is released, and the next trigger tries again.
+- **A popup in a corner no longer blocks the host page.** With `position` `bottom`, `top` or any
+  corner, the popup container still covered the whole viewport (transparent, so invisible) and
+  took every click: while the popup was open the user saw the page but could not use it. The
+  container now lets clicks through and only the popup card receives them. `center` keeps its
+  backdrop and stays modal. Found by the functional regression suite (MF-3245).
 
 ## [1.17.1] — 2026-10-28
 
