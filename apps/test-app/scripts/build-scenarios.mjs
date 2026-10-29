@@ -28,6 +28,10 @@ const COPY = {
     es: { title: '¿Qué tal tu cuenta?', message: '<p>Solo te lo preguntaremos una vez al día.</p>' },
     en: { title: 'How is your account?', message: '<p>We will only ask once a day.</p>' },
   },
+  scroll: {
+    es: { title: '¿Encuentras lo que buscas?', message: '<p>Dinos qué echas en falta.</p>' },
+    en: { title: 'Finding what you need?', message: '<p>Tell us what is missing.</p>' },
+  },
   notOnCart: {
     es: { title: '¿Te gusta lo que ves?', message: '<p>Ayúdanos a mejorar NORDLY.</p>' },
     en: { title: 'Like what you see?', message: '<p>Help us improve NORDLY.</p>' },
@@ -49,9 +53,10 @@ const BASE = {
     cooldown: [{ answered: 'SHOWED', cooldownDays: 1 }, { answered: 'COMPLETED', cooldownDays: 30 }],
   },
   notOnCart: { survey: 'simple', triggers: [{ type: 'time_on_page', value: 2 }], segments: { excludedPaths: ['/cart', '/checkout'] }, position: 'bottom-right', cooldown: [] },
+  scroll: { survey: 'simple', triggers: [{ type: 'scroll', value: 50 }], segments: { path: ['/products'] }, position: 'bottom-left', cooldown: [] },
 };
 
-const SCENARIO_OF = { checkout: 'checkout-time', exit: 'exit-checkout', rate: 'rate-product', help: 'help-click', redisplay: 'redisplay', notOnCart: 'not-on-cart' };
+const SCENARIO_OF = { checkout: 'checkout-time', exit: 'exit-checkout', rate: 'rate-product', help: 'help-click', redisplay: 'redisplay', notOnCart: 'not-on-cart', scroll: 'scroll-products' };
 
 const popups = {};
 for (const [key, base] of Object.entries(BASE)) {
@@ -77,8 +82,10 @@ const scenarios = {};
 for (const [key, name] of Object.entries(SCENARIO_OF)) {
   scenarios[name] = { popups: [`lab-${name}-es`, `lab-${name}-en`] };
 }
-// `all` = todo menos not-on-cart (salta en cualquier página y taparía a los demás).
-scenarios.all = { popups: Object.keys(popups).filter((id) => !id.startsWith('lab-not-on-cart')) };
+// `all` = la config "SDK Test App" de DEV: todo menos not-on-cart (salta en cualquier página y
+// taparía a los demás) y los escenarios de la regresión (MF-3245), que solo existen en fixture.
+const NOT_IN_ALL = ['lab-not-on-cart', 'lab-scroll-products'];
+scenarios.all = { popups: Object.keys(popups).filter((id) => !NOT_IN_ALL.some((p) => id.startsWith(p))) };
 
 const out = fileURLToPath(new URL('../app/scenarios.json', import.meta.url));
 writeFileSync(out, JSON.stringify({ $comment: 'Generado por scripts/build-scenarios.mjs. No editar a mano.', scenarios, popups }, null, 2) + '\n');

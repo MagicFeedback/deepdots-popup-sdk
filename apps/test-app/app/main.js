@@ -118,6 +118,13 @@ async function startSdk(reason) {
     sdk.on('popup_clicked', (e) => lab.log('event', 'popup_clicked', pick(e)));
     sdk.on('survey_completed', (e) => lab.log('event', 'survey_completed', pick(e)));
     sdk.autoLaunch();
+    if (params.init === 'twice') {
+      // Host que inicializa dos veces (React StrictMode, un efecto sin guarda, un segundo
+      // bundle…): el SDK tiene que ignorar el segundo init/autoLaunch sin duplicar nada.
+      sdk.init(config);
+      sdk.autoLaunch();
+      lab.log('host', 'init + autoLaunch called twice');
+    }
 
     lab.sdk = sdk;
     window.deepdots = sdk;

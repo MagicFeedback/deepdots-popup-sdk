@@ -37,6 +37,12 @@
         "lab-not-on-cart-en"
       ]
     },
+    "scroll-products": {
+      "popups": [
+        "lab-scroll-products-es",
+        "lab-scroll-products-en"
+      ]
+    },
     "all": {
       "popups": [
         "lab-checkout-time-es",
@@ -402,6 +408,60 @@
         "excludedPaths": [
           "/cart",
           "/checkout"
+        ]
+      }
+    },
+    "lab-scroll-products-es": {
+      "id": "lab-scroll-products-es",
+      "title": "¿Encuentras lo que buscas?",
+      "message": "<p>Dinos qué echas en falta.</p>",
+      "triggers": [
+        {
+          "type": "scroll",
+          "value": 50
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-left"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ],
+        "path": [
+          "/products"
+        ]
+      }
+    },
+    "lab-scroll-products-en": {
+      "id": "lab-scroll-products-en",
+      "title": "Finding what you need?",
+      "message": "<p>Tell us what is missing.</p>",
+      "triggers": [
+        {
+          "type": "scroll",
+          "value": 50
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "bottom-left"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ],
+        "path": [
+          "/products"
         ]
       }
     }

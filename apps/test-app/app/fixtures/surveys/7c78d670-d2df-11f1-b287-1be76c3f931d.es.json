@@ -1,0 +1,388 @@
+{
+  "id": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+  "name": "SDK Test App · Complex",
+  "description": "MF-3243 · popup-sdk test app (apps/test-app). Do not delete: CI uses it.",
+  "type": "SURVEY",
+  "lang": [
+    "es",
+    "en"
+  ],
+  "identity": "MAGICSURVEY",
+  "status": "ACTIVE",
+  "processingState": "IDLE",
+  "updatedAt": "2026-10-28T14:54:33.302Z",
+  "toUpdate": true,
+  "favorite": false,
+  "mode": "STATIC",
+  "agentBrief": null,
+  "agentMaxTurns": 6,
+  "oneTimeCompletionParam": null,
+  "followUpVersion": "v3",
+  "productId": "MAGICFEEDBACK_DEV_GENERAL",
+  "setting": null,
+  "conf": {},
+  "wizardId": null,
+  "product": {
+    "id": "MAGICFEEDBACK_DEV_GENERAL",
+    "customIcons": true,
+    "originAllowed": [
+      "*"
+    ]
+  },
+  "pages": [
+    {
+      "id": "7d44d900-d2df-11f1-b287-1be76c3f931d",
+      "position": 1,
+      "generatedAt": "2026-10-28T14:54:34.640Z",
+      "updatedAt": "2026-10-28T14:54:34.640Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "integrationQuestions": [
+        {
+          "id": "7fa36270-d2df-11f1-b287-1be76c3f931d",
+          "title": "¿Encontraste lo que buscabas?",
+          "ref": "found",
+          "refMetric": "search satisfaction",
+          "require": true,
+          "external_id": "",
+          "value": [
+            "Sí, del todo",
+            "En parte",
+            "No"
+          ],
+          "defaultValue": "",
+          "position": 0,
+          "followup": false,
+          "assets": {
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:35.230Z",
+          "updatedAt": "2026-10-28T14:54:35.230Z",
+          "status": "ACTIVE",
+          "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+          "type": "RADIO",
+          "integrationPageId": "7d44d900-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "7fe5c2a0-d2df-11f1-b287-1be76c3f931d",
+      "position": 2,
+      "generatedAt": "2026-10-28T14:54:39.050Z",
+      "updatedAt": "2026-10-28T14:54:39.050Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "integrationQuestions": [
+        {
+          "id": "81cc5cf0-d2df-11f1-b287-1be76c3f931d",
+          "title": "Valora la ficha de producto",
+          "ref": "pdp_stars",
+          "refMetric": "pdp rating",
+          "require": true,
+          "external_id": "",
+          "value": [],
+          "defaultValue": "",
+          "position": 1,
+          "followup": false,
+          "assets": {
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:39.383Z",
+          "updatedAt": "2026-10-28T14:54:39.383Z",
+          "status": "ACTIVE",
+          "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+          "type": "RATING_STAR",
+          "integrationPageId": "7fe5c2a0-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          }
+        },
+        {
+          "id": "83146d50-d2df-11f1-b287-1be76c3f931d",
+          "title": "¿Qué información echaste en falta?",
+          "ref": "missing",
+          "refMetric": "missing information",
+          "require": false,
+          "external_id": "",
+          "value": [
+            "Tallas",
+            "Materiales",
+            "Fotos",
+            "Opiniones"
+          ],
+          "defaultValue": "",
+          "position": 2,
+          "followup": false,
+          "assets": {
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:42.598Z",
+          "updatedAt": "2026-10-28T14:54:42.598Z",
+          "status": "ACTIVE",
+          "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+          "type": "MULTIPLECHOICE",
+          "integrationPageId": "7fe5c2a0-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "83496000-d2df-11f1-b287-1be76c3f931d",
+      "position": 3,
+      "generatedAt": "2026-10-28T14:54:44.736Z",
+      "updatedAt": "2026-10-28T14:54:44.736Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "integrationQuestions": [
+        {
+          "id": "8559f080-d2df-11f1-b287-1be76c3f931d",
+          "title": "¿Volverías a comprar en NORDLY?",
+          "ref": "again",
+          "refMetric": "buy again",
+          "require": true,
+          "external_id": "",
+          "value": [],
+          "defaultValue": "",
+          "position": 3,
+          "followup": false,
+          "assets": {
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:45.187Z",
+          "updatedAt": "2026-10-28T14:54:45.187Z",
+          "status": "ACTIVE",
+          "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+          "type": "BOOLEAN",
+          "integrationPageId": "83496000-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          }
+        },
+        {
+          "id": "86ab0190-d2df-11f1-b287-1be76c3f931d",
+          "title": "Email (opcional)",
+          "ref": "email",
+          "refMetric": "email",
+          "require": false,
+          "external_id": "",
+          "value": [],
+          "defaultValue": "",
+          "position": 4,
+          "followup": false,
+          "assets": {
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:48.658Z",
+          "updatedAt": "2026-10-28T14:54:48.658Z",
+          "status": "ACTIVE",
+          "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+          "type": "EMAIL",
+          "integrationPageId": "83496000-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "86e94310-d2df-11f1-b287-1be76c3f931d",
+      "position": 4,
+      "generatedAt": "2026-10-28T14:54:50.817Z",
+      "updatedAt": "2026-10-28T14:54:50.817Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "integrationQuestions": [
+        {
+          "id": "888e4080-d2df-11f1-b287-1be76c3f931d",
+          "title": "¿Algo más que quieras contarnos?",
+          "ref": "final",
+          "refMetric": "additional comments",
+          "require": false,
+          "external_id": "",
+          "value": [],
+          "defaultValue": "",
+          "position": 5,
+          "followup": false,
+          "assets": {
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:51.258Z",
+          "updatedAt": "2026-10-28T14:54:51.258Z",
+          "status": "ACTIVE",
+          "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+          "type": "LONGTEXT",
+          "integrationPageId": "86e94310-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          }
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "7fa36270-d2df-11f1-b287-1be76c3f931d",
+      "title": "¿Encontraste lo que buscabas?",
+      "ref": "found",
+      "refMetric": "search satisfaction",
+      "require": true,
+      "external_id": "",
+      "value": [
+        "Sí, del todo",
+        "En parte",
+        "No"
+      ],
+      "defaultValue": "",
+      "position": 0,
+      "followup": false,
+      "assets": {
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:35.230Z",
+      "updatedAt": "2026-10-28T14:54:35.230Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "type": "RADIO",
+      "integrationPageId": "7d44d900-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      }
+    },
+    {
+      "id": "81cc5cf0-d2df-11f1-b287-1be76c3f931d",
+      "title": "Valora la ficha de producto",
+      "ref": "pdp_stars",
+      "refMetric": "pdp rating",
+      "require": true,
+      "external_id": "",
+      "value": [],
+      "defaultValue": "",
+      "position": 1,
+      "followup": false,
+      "assets": {
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:39.383Z",
+      "updatedAt": "2026-10-28T14:54:39.383Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "type": "RATING_STAR",
+      "integrationPageId": "7fe5c2a0-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      }
+    },
+    {
+      "id": "83146d50-d2df-11f1-b287-1be76c3f931d",
+      "title": "¿Qué información echaste en falta?",
+      "ref": "missing",
+      "refMetric": "missing information",
+      "require": false,
+      "external_id": "",
+      "value": [
+        "Tallas",
+        "Materiales",
+        "Fotos",
+        "Opiniones"
+      ],
+      "defaultValue": "",
+      "position": 2,
+      "followup": false,
+      "assets": {
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:42.598Z",
+      "updatedAt": "2026-10-28T14:54:42.598Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "type": "MULTIPLECHOICE",
+      "integrationPageId": "7fe5c2a0-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      }
+    },
+    {
+      "id": "8559f080-d2df-11f1-b287-1be76c3f931d",
+      "title": "¿Volverías a comprar en NORDLY?",
+      "ref": "again",
+      "refMetric": "buy again",
+      "require": true,
+      "external_id": "",
+      "value": [],
+      "defaultValue": "",
+      "position": 3,
+      "followup": false,
+      "assets": {
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:45.187Z",
+      "updatedAt": "2026-10-28T14:54:45.187Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "type": "BOOLEAN",
+      "integrationPageId": "83496000-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      }
+    },
+    {
+      "id": "86ab0190-d2df-11f1-b287-1be76c3f931d",
+      "title": "Email (opcional)",
+      "ref": "email",
+      "refMetric": "email",
+      "require": false,
+      "external_id": "",
+      "value": [],
+      "defaultValue": "",
+      "position": 4,
+      "followup": false,
+      "assets": {
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:48.658Z",
+      "updatedAt": "2026-10-28T14:54:48.658Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "type": "EMAIL",
+      "integrationPageId": "83496000-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      }
+    },
+    {
+      "id": "888e4080-d2df-11f1-b287-1be76c3f931d",
+      "title": "¿Algo más que quieras contarnos?",
+      "ref": "final",
+      "refMetric": "additional comments",
+      "require": false,
+      "external_id": "",
+      "value": [],
+      "defaultValue": "",
+      "position": 5,
+      "followup": false,
+      "assets": {
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:51.258Z",
+      "updatedAt": "2026-10-28T14:54:51.258Z",
+      "status": "ACTIVE",
+      "integrationId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "type": "LONGTEXT",
+      "integrationPageId": "86e94310-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      }
+    }
+  ],
+  "servedLang": "es",
+  "frontend": {
+    "version": "3.2.1",
+    "preference": "latest",
+    "status": "stable"
+  }
+}
