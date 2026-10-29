@@ -1,6 +1,6 @@
 {
   "name": "@magicfeedback/popup-sdk",
-  "version": "1.17.1",
+  "version": "1.17.2",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -32,6 +32,8 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:report": "playwright show-report",
+    "test-app": "node apps/test-app/server.mjs",
+    "test-app:e2e": "playwright test -c apps/test-app/playwright.config.ts",
     "prepublishOnly": "npm run build && npm run check:layout",
     "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public",
     "release:prepare": "node scripts/release.mjs prepare",

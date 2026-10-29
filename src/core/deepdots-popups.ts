@@ -1096,6 +1096,14 @@ export class DeepdotsPopups {
     }
 
     private showDefinition(def: PopupDefinition): void {
+        // Con un popup ya abierto el renderer no pintaría este (no se apilan). Antes se daba por
+        // mostrado igual: `popup_shown` y POST SHOWED de un popup que nadie vio, y su cooldown
+        // gastado. Pasaba con el mismo trigger repetido (evento del host, exit encolado varias
+        // veces al navegar rápido) y con dos popups que tocan a la vez (MF-3245).
+        if (this.renderer.isShowing?.()) {
+            this.debug('Popup skipped: another popup is already open', def.id);
+            return;
+        }
         this.log('Showing popup (definition)', def);
         this.surveyToPopupId.set(def.surveyId, def.id);
         this.lastShown.set(def.id, Date.now());

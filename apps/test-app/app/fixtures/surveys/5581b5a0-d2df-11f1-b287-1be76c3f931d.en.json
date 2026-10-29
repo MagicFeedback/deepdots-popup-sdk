@@ -1,0 +1,176 @@
+{
+  "id": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+  "name": "SDK Test App · Simple",
+  "description": "MF-3243 · popup-sdk test app (apps/test-app). Do not delete: CI uses it.",
+  "type": "SURVEY",
+  "lang": [
+    "es",
+    "en"
+  ],
+  "identity": "MAGICSURVEY",
+  "status": "ACTIVE",
+  "processingState": "IDLE",
+  "updatedAt": "2026-10-28T14:53:27.929Z",
+  "toUpdate": true,
+  "favorite": false,
+  "mode": "STATIC",
+  "agentBrief": null,
+  "agentMaxTurns": 6,
+  "oneTimeCompletionParam": null,
+  "followUpVersion": "v3",
+  "productId": "MAGICFEEDBACK_DEV_GENERAL",
+  "setting": null,
+  "conf": {},
+  "wizardId": null,
+  "product": {
+    "id": "MAGICFEEDBACK_DEV_GENERAL",
+    "customIcons": true,
+    "originAllowed": [
+      "*"
+    ]
+  },
+  "pages": [
+    {
+      "id": "5c8f2120-d2df-11f1-b287-1be76c3f931d",
+      "position": 1,
+      "generatedAt": "2026-10-28T14:53:39.670Z",
+      "updatedAt": "2026-10-28T14:53:39.670Z",
+      "status": "ACTIVE",
+      "integrationId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "integrationQuestions": [
+        {
+          "id": "70ddf390-d2df-11f1-b287-1be76c3f931d",
+          "title": "How likely are you to recommend NORDLY to a friend?",
+          "ref": "nps",
+          "refMetric": "recommendation likelihood",
+          "require": true,
+          "external_id": "",
+          "value": [],
+          "defaultValue": "",
+          "position": 0,
+          "followup": false,
+          "assets": {
+            "min": 0,
+            "max": 10,
+            "minPlaceholder": "Not likely",
+            "maxPlaceholder": "Very likely",
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:08.079Z",
+          "updatedAt": "2026-10-28T14:54:08.079Z",
+          "status": "ACTIVE",
+          "integrationId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+          "type": "RATING_NUMBER",
+          "integrationPageId": "5c8f2120-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          },
+          "baseValue": [],
+          "baseDefaultValue": ""
+        }
+      ]
+    },
+    {
+      "id": "712cd6e0-d2df-11f1-b287-1be76c3f931d",
+      "position": 2,
+      "generatedAt": "2026-10-28T14:54:14.350Z",
+      "updatedAt": "2026-10-28T14:54:14.350Z",
+      "status": "ACTIVE",
+      "integrationId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "integrationQuestions": [
+        {
+          "id": "734ad4e0-d2df-11f1-b287-1be76c3f931d",
+          "title": "What could we improve?",
+          "ref": "improve",
+          "refMetric": "improvement areas",
+          "require": false,
+          "external_id": "",
+          "value": [],
+          "defaultValue": "",
+          "position": 1,
+          "followup": false,
+          "assets": {
+            "maxCharacters": 500,
+            "randomPosition": false
+          },
+          "generatedAt": "2026-10-28T14:54:14.872Z",
+          "updatedAt": "2026-10-28T14:54:14.872Z",
+          "status": "ACTIVE",
+          "integrationId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+          "type": "LONGTEXT",
+          "integrationPageId": "712cd6e0-d2df-11f1-b287-1be76c3f931d",
+          "questionType": {
+            "conf": null
+          },
+          "baseValue": [],
+          "baseDefaultValue": ""
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "70ddf390-d2df-11f1-b287-1be76c3f931d",
+      "title": "How likely are you to recommend NORDLY to a friend?",
+      "ref": "nps",
+      "refMetric": "recommendation likelihood",
+      "require": true,
+      "external_id": "",
+      "value": [],
+      "defaultValue": "",
+      "position": 0,
+      "followup": false,
+      "assets": {
+        "min": 0,
+        "max": 10,
+        "minPlaceholder": "Not likely",
+        "maxPlaceholder": "Very likely",
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:08.079Z",
+      "updatedAt": "2026-10-28T14:54:08.079Z",
+      "status": "ACTIVE",
+      "integrationId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "type": "RATING_NUMBER",
+      "integrationPageId": "5c8f2120-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      },
+      "baseValue": [],
+      "baseDefaultValue": ""
+    },
+    {
+      "id": "734ad4e0-d2df-11f1-b287-1be76c3f931d",
+      "title": "What could we improve?",
+      "ref": "improve",
+      "refMetric": "improvement areas",
+      "require": false,
+      "external_id": "",
+      "value": [],
+      "defaultValue": "",
+      "position": 1,
+      "followup": false,
+      "assets": {
+        "maxCharacters": 500,
+        "randomPosition": false
+      },
+      "generatedAt": "2026-10-28T14:54:14.872Z",
+      "updatedAt": "2026-10-28T14:54:14.872Z",
+      "status": "ACTIVE",
+      "integrationId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "type": "LONGTEXT",
+      "integrationPageId": "712cd6e0-d2df-11f1-b287-1be76c3f931d",
+      "questionType": {
+        "conf": null
+      },
+      "baseValue": [],
+      "baseDefaultValue": ""
+    }
+  ],
+  "servedLang": "en",
+  "frontend": {
+    "version": "3.2.1",
+    "preference": "latest",
+    "status": "stable"
+  }
+}

@@ -1,0 +1,156 @@
+name: Test app
+
+# Test app de MF-3243 (apps/test-app): una tienda de prueba que carga el SDK PUBLICADO en npm
+# (o la build de este commit) contra DEV, y una suite de Playwright encima: el smoke (MF-3243) y
+# la regresión funcional (MF-3245, e2e/regression, escritorio + móvil). Un job por versión:
+#
+#   local   la build de este commit (lo que se va a publicar)
+#   latest  la `latest` de npm (lo que tienen hoy los clientes)
+#   1.16.1  la versión anterior soportada
+#
+# A mano (Run workflow) se puede pasar cualquier lista de versiones, p. ej. "1.14.0 1.17.1".
+# Los lunes corre solo con una lista más amplia de versiones publicadas.
+# Todo va contra api-dev.deepdots.com con la compañía MAGICFEEDBACK_DEV; la app bloquea
+# cualquier petición a producción y la suite falla si alguna sale.
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - 'apps/test-app/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/test-app.yml'
+  push:
+    branches: [dev]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: 'SDK versions separated by spaces (local, latest, X.Y.Z)'
+        required: false
+        default: 'local latest 1.16.1'
+      record:
+        description: 'Record a video of every test'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    name: Versions
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.pick.outputs.versions }}
+    steps:
+      - id: pick
+        env:
+          INPUT: ${{ github.event.inputs.versions }}
+          SCHEDULED: ${{ github.event_name == 'schedule' }}
+        run: |
+          default="local latest 1.16.1"
+          [ "$SCHEDULED" = "true" ] && default="local latest 1.16.1 1.15.0"
+          list="${INPUT:-$default}"
+          json=$(printf '%s\n' $list | jq -R . | jq -cs .)
+          echo "versions=$json" >> "$GITHUB_OUTPUT"
+          echo "SDK versions: $list"
+
+  smoke:
+    name: Smoke + regression · SDK ${{ matrix.sdk }}
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: ${{ fromJson(needs.matrix.outputs.versions) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # Solo hace falta para ?sdk=local; el resto carga el paquete publicado desde jsDelivr.
+      - name: Build SDK
+        if: matrix.sdk == 'local'
+        run: npm run build
+
+      - name: Resolve SDK version
+        id: version
+        env:
+          SDK: ${{ matrix.sdk }}
+        run: |
+          case "$SDK" in
+            local) v="$(node -p "require('./package.json').version")-local" ;;
+            [0-9]*) v="$SDK" ;;
+            *) v="$(npm view @magicfeedback/popup-sdk@"$SDK" version)" ;;
+          esac
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "### SDK under test: \`$v\` (\`$SDK\`) · env DEV (api-dev.deepdots.com)" >> "$GITHUB_STEP_SUMMARY"
+          echo "SDK under test: $v ($SDK) · env DEV"
+
+      - name: Run smoke + regression
+        working-directory: apps/test-app
+        env:
+          SDK_VERSION: ${{ matrix.sdk }}
+          RECORD_VIDEO: ${{ github.event.inputs.record == 'true' && '1' || '' }}
+        run: npx playwright test -c playwright.config.ts
+
+      - name: Summary
+        if: always()
+        working-directory: apps/test-app
+        run: |
+          node -e '
+            const r = require("./test-results/results.json");
+            const s = r.stats;
+            const rows = {};
+            const known = new Set();
+            const walk = (suite) => {
+              (suite.suites || []).forEach(walk);
+              for (const spec of suite.specs || []) {
+                for (const t of spec.tests) {
+                  const row = (rows[t.projectName] ??= { passed: 0, failed: 0, knownBug: 0, skipped: 0 });
+                  if (t.status === "skipped") row.skipped++;
+                  else if (t.status !== "expected") row.failed++;
+                  else if (t.expectedStatus === "failed") row.knownBug++;
+                  else row.passed++;
+                  for (const a of t.annotations || []) if (a.type === "known-bug") known.add(a.description.replace(/ \(.*$/, ""));
+                }
+              }
+            };
+            r.suites.forEach(walk);
+            console.log(`expected ${s.expected} · unexpected ${s.unexpected} · flaky ${s.flaky} · skipped ${s.skipped}\n`);
+            console.log("| project (platform · SDK) | passed | known bug (test.fail) | failed | skipped |");
+            console.log("|---|---|---|---|---|");
+            for (const [p, x] of Object.entries(rows)) console.log(`| ${p} | ${x.passed} | ${x.knownBug} | ${x.failed} | ${x.skipped} |`);
+            if (known.size) console.log("\nKnown SDK bugs detected:\n" + [...known].map((k) => `- ${k}`).join("\n"));
+          ' | tee -a "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-app-report-${{ matrix.sdk }}
+          path: |
+            apps/test-app/playwright-report/
+            apps/test-app/test-results/
+          retention-days: 14
