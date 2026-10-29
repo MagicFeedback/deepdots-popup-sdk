@@ -1,0 +1,83 @@
+name: Slack release notice
+
+# Aviso en Slack (#sdk-releases) de una version YA publicada (MF-3266). Tres entradas:
+#   - workflow_call: lo llama release.yml cuando npm y la GitHub Release estan hechos. Los
+#     dry-run (release-check.yml) no lo llaman y una release fallida no llega hasta aqui.
+#   - workflow_dispatch: prueba manual. Manda el aviso de una release ya publicada (por defecto
+#     la ultima) con el prefijo "🧪 TEST —".
+#   - pull_request: si cambia el aviso, lo pinta en el log con la ultima release, sin enviarlo.
+#
+# Webhook: secret SDK_RELEASES_SLACK_WEBHOOK_URL (app de Slack propia). Sin el secret, el job
+# avisa con ::warning y termina en verde: el aviso no puede romper una release ya publicada.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag publicado (vX.Y.Z)
+        type: string
+        required: true
+    secrets:
+      SDK_RELEASES_SLACK_WEBHOOK_URL:
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag publicado (vX.Y.Z). Vacio = la ultima release.
+        type: string
+        required: false
+  pull_request:
+    branches: ["dev", "main"]
+    paths:
+      - .github/workflows/slack-notify.yml
+      - scripts/release/slack-notify.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/release
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Send
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SDK_RELEASES_SLACK_WEBHOOK_URL }}
+          INPUT_TAG: ${{ inputs.tag }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          TAG="${INPUT_TAG:-}"
+          if [ -z "$TAG" ]; then
+            TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
+          fi
+          VERSION="${TAG#v}"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::No hay GitHub Release $TAG (la release no llego a publicarse): no se avisa."
+            exit 0
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q .body > "$RUNNER_TEMP/notes.md"
+          FLAGS=()
+          case "$EVENT" in
+            workflow_dispatch) FLAGS+=(--test) ;;
+            pull_request) FLAGS+=(--test --print) ;;
+          esac
+          node scripts/release/slack-notify.mjs "${FLAGS[@]}" \
+            --title "@magicfeedback/popup-sdk $VERSION" \
+            --platform "Web (npm)" \
+            --actor "$GITHUB_ACTOR" \
+            --link "GitHub Release=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" \
+            --link "npm=https://www.npmjs.com/package/@magicfeedback/popup-sdk/v/$VERSION" \
+            --notes "$RUNNER_TEMP/notes.md"
