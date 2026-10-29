@@ -34,7 +34,7 @@ export const KNOWN_BUGS = {
     summary: 'el mismo popup disparado otra vez mientras está abierto emite popup_shown y POST SHOWED de nuevo',
   },
   'chunk-load-failure': {
-    fixedIn: null as string | null,
+    fixedIn: 'local' as string | null,
     summary: 'si el chunk del renderer no se descarga: error sin capturar en la página y ningún popup más en esa carga',
   },
   'phantom-shown': {

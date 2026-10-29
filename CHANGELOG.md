@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are skipped without side effects. Renderers can opt in with the new optional
   `PopupRenderer.isShowing()`; renderers without it (React Native, custom) keep the previous
   behaviour. Found by the functional regression suite (MF-3245).
+- **The SDK recovers when the popup renderer fails to download.** If the lazy `renderPopup`
+  chunk could not be fetched (network lost before the idle preload finished, CDN error), the
+  failed `import()` surfaced as an uncaught error in the host page and the browser renderer
+  stayed "open": no other popup showed for the rest of the page load. The error is now caught
+  (logged as a warning), the renderer is released, and the next trigger tries again.
 
 ## [1.17.1] — 2026-10-28
 

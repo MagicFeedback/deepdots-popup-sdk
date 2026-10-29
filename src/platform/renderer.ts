@@ -1,6 +1,7 @@
 import {DeepdotsEventType, PopupActions, PopupStyle} from '../types';
 import { isReactNativeEnv, createReactNativeRenderer } from './react-native-renderer';
 import { schedulePreloadRenderPopup } from '../ui/preload';
+import { sdkWarn } from '../util/logger';
 // renderPopup (DOM + @magicfeedback/native) se carga PEREZOSAMENTE solo al mostrar
 // un popup en navegador, para que importar el SDK sea seguro en React Native/SSR.
 
@@ -128,9 +129,18 @@ export class BrowserPopupRenderer implements PopupRenderer {
     if (!this.container) return; // aún sin DOM
     this.visible = true;
     const container = this.container;
-    void import('../ui/renderPopup').then(({ renderPopup }) => {
-      renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService, analyticsFeedbackSessionId, options);
-    });
+    void import('../ui/renderPopup').then(
+      ({ renderPopup }) => {
+        renderPopup(container, surveyId, productId, actions, emit, onClose, env, userId, style, sessionId, miniService, analyticsFeedbackSessionId, options);
+      },
+      (error) => {
+        // El chunk del popup no llegó (red caída antes de la precarga, CDN que falla). Sin esto
+        // el rechazo acababa sin capturar en la página del host y `visible` se quedaba a true:
+        // ningún popup más en esta carga. Se libera para que el siguiente trigger lo reintente.
+        this.visible = false;
+        sdkWarn('[Deepdots] popup renderer failed to load:', error);
+      },
+    );
   }
 
   isShowing(): boolean {
