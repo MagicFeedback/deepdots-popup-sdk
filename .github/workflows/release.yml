@@ -190,3 +190,16 @@ jobs:
               exit 1
             fi
           fi
+
+  # Aviso en Slack (#sdk-releases, MF-3266). Corre aunque falle el ultimo paso (merge en main),
+  # pero slack-notify.yml solo avisa si la GitHub Release existe, y esa se crea despues de que
+  # npm tenga la version: una release que falla antes de publicar no avisa.
+  notify:
+    name: Slack release notice
+    needs: publish
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/slack-notify.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      SDK_RELEASES_SLACK_WEBHOOK_URL: ${{ secrets.SDK_RELEASES_SLACK_WEBHOOK_URL }}

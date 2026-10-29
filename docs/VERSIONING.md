@@ -52,6 +52,7 @@ release PR ──► dev            version bump + "## [X.Y.Z] — date"      (V
                               + release/compatibility.json version     + Release dry run)
 npm run release:tag           tag vX.Y.Z on dev
 release.yml                   gate ─► pack ─► smoke ─► publish that tarball ─► GitHub Release ─► merge to main
+                              └─► Slack notice in #sdk-releases (slack-notify.yml)
 ```
 
 - A pull request to `dev` that changes the package (`src/`, the build config, published
@@ -63,6 +64,11 @@ release.yml                   gate ─► pack ─► smoke ─► publish that 
   add its own changelog section.
 - If the configuration types change, regenerate the schema with `npm run release:schema`.
 - Run the pull request check locally with `npm run release:check`.
+- Once the GitHub Release exists, `slack-notify.yml` posts the version, links and up to six
+  changelog entries to #sdk-releases. The webhook is the `SDK_RELEASES_SLACK_WEBHOOK_URL`
+  secret; without it the job only warns. Dry runs and releases that fail before publishing post
+  nothing. To test it, run the workflow by hand ("Run workflow"): it posts the latest release
+  with a "🧪 TEST" prefix.
 
 ## Supported versions
 
