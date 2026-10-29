@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A popup that is not drawn is no longer counted as shown.** The browser renderer shows one
+  popup at a time, but the SDK still emitted `popup_shown`, posted `SHOWED` and started the
+  cooldown for every popup it was asked to show. The same trigger fired again while its popup
+  was open (a host event repeated, an exit popup queued several times by fast navigation) sent
+  duplicate `popup_shown`/`SHOWED`; a second popup due while another was open was reported as
+  shown and lost its cooldown although the user never saw it. Now, while a popup is open, others
+  are skipped without side effects. Renderers can opt in with the new optional
+  `PopupRenderer.isShowing()`; renderers without it (React Native, custom) keep the previous
+  behaviour. Found by the functional regression suite (MF-3245).
+- **The SDK recovers when the popup renderer fails to download.** If the lazy `renderPopup`
+  chunk could not be fetched (network lost before the idle preload finished, CDN error), the
+  failed `import()` surfaced as an uncaught error in the host page and the browser renderer
+  stayed "open": no other popup showed for the rest of the page load. The error is now caught
+  (logged as a warning), the renderer is released, and the next trigger tries again.
 - **A popup in a corner no longer blocks the host page.** With `position` `bottom`, `top` or any
   corner, the popup container still covered the whole viewport (transparent, so invisible) and
   took every click: while the popup was open the user saw the page but could not use it. The

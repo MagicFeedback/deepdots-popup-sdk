@@ -87,6 +87,11 @@ test.describe(`SDK ${SDK} · host safety`, () => {
     rlab.expectPopups('lab-rate-product-es');
     await rlab.open('/products/42', { scenario: 'rate-product' });
     await rlab.popupsLoaded();
+    // La red cae con el SDK ya listo: definiciones cargadas y el chunk del renderer precargado.
+    // (Si cae ANTES de la precarga es otro caso: el test de `fault=chunk` de abajo.)
+    await expect
+      .poll(async () => (await rlab.network()).some((n) => /\/renderPopup-/.test(n.path) && n.status === 200), { message: 'renderer chunk preloaded' })
+      .toBe(true);
     await context.setOffline(true);
     await page.getByTestId('rate-product').click();
     await rlab.expectPopupShown('lab-rate-product-es');
@@ -94,6 +99,25 @@ test.describe(`SDK ${SDK} · host safety`, () => {
     await rlab.closePopup();
     await rlab.expectHostUsable();
     await context.setOffline(false);
+  });
+
+  test('el chunk del renderer no se descarga: sin errores en la página, y el SDK no se queda bloqueado', async ({ rlab, page }) => {
+    // Dos disparos del mismo evento: los dos tienen que intentarse (el renderer no puede quedarse
+    // creyendo que hay un popup abierto) y ninguno puede dejar un error sin capturar en la página.
+    rlab.expectPopups('lab-rate-product-es', 'lab-rate-product-es');
+    await rlab.open('/products/42', { scenario: 'rate-product', fault: 'chunk' });
+    await rlab.popupsLoaded();
+    await rlab.knownBug('chunk-load-failure');
+    await page.getByTestId('rate-product').click();
+    await expect
+      .poll(async () => (await rlab.network()).filter((n) => /\/renderPopup-/.test(n.path)).length, { message: 'renderer chunk requested' })
+      .toBeGreaterThan(0);
+    await page.waitForTimeout(500);
+    await page.getByTestId('rate-product').click();
+    await page.waitForTimeout(500);
+    await expect(rlab.popup).toBeHidden();
+    expect(await rlab.interceptedPoints()).toEqual([]);
+    await rlab.expectHostUsable();
   });
 
   test('la API de popups no contesta nunca: ni popup ni bloqueo', async ({ rlab, page }) => {
@@ -109,8 +133,15 @@ test.describe(`SDK ${SDK} · host safety`, () => {
     await rlab.open('/account', { scenario: 'help-click', fault: 'events500' });
     await page.getByTestId('help-button').click();
     await rlab.expectPopupShown('lab-help-click-es');
-    await rlab.popup.locator('label[for="rating-nps-7"]').click();
-    await expect(rlab.popup.getByRole('alert')).toBeVisible({ timeout: 10_000 });
+    // En táctil el primer toque puede caer mientras la página entra (animación): se reintenta
+    // hasta que el envío llega a la API y el popup enseña el aviso.
+    const alert = rlab.popup.getByRole('alert');
+    await expect(async () => {
+      await rlab.popup.locator('label[for="rating-nps-7"]').click();
+      const send = rlab.popup.getByRole('button', { name: /^(Enviar|Send)$/ });
+      if (await send.isVisible()) await send.click();
+      await expect(alert).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
     expect((await rlab.network()).filter((n) => n.status === 500).length).toBeGreaterThan(0);
     await rlab.closePopup();
     await rlab.expectHostUsable();

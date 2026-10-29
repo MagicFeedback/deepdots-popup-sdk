@@ -25,7 +25,7 @@ Todo el run cabe en un enlace. La barra **Configure** los cambia y recarga.
 | `sdk` | `latest` · `local` · `X.Y.Z` | Versión del SDK. `latest` se resuelve a una versión exacta antes de importarla. |
 | `scenario` | `all` · `checkout-time` · `exit-checkout` · `rate-product` · `help-click` · `redisplay` · `not-on-cart` · `release-fixtures` | Popups que devuelve la API (ver abajo). |
 | `popups` | `fixture` · `live` | `fixture`: el service worker sirve `app/scenarios.json` (determinista). `live`: la config real de DEV. |
-| `fault` | `none` · `survey406` · `network` · `popups500` · `sdk-cdn` · `slow` · `popups-slow` · `popups-timeout` · `events500` · `survey-garbage` | Fallo inyectado en la red (ver «Fallos» abajo). |
+| `fault` | `none` · `survey406` · `network` · `popups500` · `sdk-cdn` · `slow` · `popups-slow` · `popups-timeout` · `events500` · `survey-garbage` · `chunk` | Fallo inyectado en la red (ver «Fallos» abajo). |
 | `survey` | `dev` · `fixture` | `fixture`: la encuesta sale de `app/fixtures/surveys` y las respuestas se contestan en local. |
 | `pos` | vacío · `center` · `bottom` · `bottom-right` · … | Fuerza la posición de todos los popups del escenario. |
 | `init` | `once` · `twice` | `twice`: el host llama a `init()` + `autoLaunch()` dos veces (React StrictMode). |
@@ -133,6 +133,7 @@ en la PR del arreglo y la versión publicada (`'1.17.2'`) cuando salga.
 |---|---|
 | `corner-overlay` | Con el popup en una esquina, `#deepdots-popup-container` sigue ocupando toda la pantalla (transparente) y se come todos los clics del host. |
 | `duplicate-shown` | El mismo popup disparado otra vez mientras está abierto (o un exit encolado varias veces al navegar rápido) emite otro `popup_shown` y otro POST SHOWED; solo se ve uno. |
+| `chunk-load-failure` | Si el chunk del renderer (`renderPopup-*.mjs`) no se descarga, el `import()` falla sin capturar (error en la página del host) y el renderer se queda creyendo que hay un popup abierto: ya no sale ninguno más en esa carga. |
 | `phantom-shown` | Si otro popup toca con uno abierto, emite `popup_shown` + SHOWED y guarda su `lastShown` (gasta el cooldown) sin llegar a pintarse. |
 
 ### Fallos inyectados
@@ -144,6 +145,7 @@ en la PR del arreglo y la versión publicada (`'1.17.2'`) cuando salga.
 | `popups-timeout` | El GET de popups no contesta nunca. |
 | `events500` | 500 en `POST /sdk/popups` y `/sdk/feedback`. |
 | `survey-garbage` | La encuesta contesta 200 con un cuerpo que no es JSON. |
+| `chunk` | El chunk del renderer del popup no se puede descargar. |
 
 Encuestas de fixture: `node apps/test-app/scripts/record-surveys.mjs` las vuelve a grabar de DEV.
 
