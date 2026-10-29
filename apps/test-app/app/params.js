@@ -14,7 +14,7 @@ export const PARAMS = {
   fault: {
     default: 'none',
     label: 'fault',
-    options: ['none', 'survey406', 'network', 'popups500', 'sdk-cdn', 'slow', 'popups-slow', 'popups-timeout', 'events500', 'survey-garbage'],
+    options: ['none', 'survey406', 'network', 'popups500', 'sdk-cdn', 'slow', 'popups-slow', 'popups-timeout', 'events500', 'survey-garbage', 'chunk'],
   },
   pos: { default: '', label: 'pos', options: ['', 'center', 'bottom', 'bottom-right', 'bottom-left', 'top', 'top-right', 'top-left'] },
   init: { default: 'once', label: 'init', options: ['once', 'twice'] },
