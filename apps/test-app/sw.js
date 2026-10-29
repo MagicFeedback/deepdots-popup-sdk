@@ -16,11 +16,36 @@ const TRACKED_HOSTS = [DEV_HOST, ...PROD_HOSTS, 'cdn.jsdelivr.net', 'registry.np
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
+// El chunk del renderer del popup (`renderPopup-*.mjs`), de la build local o del CDN: el SDK lo
+// importa al abrir el primer popup (o antes, en la precarga).
+const RENDER_CHUNK = /\/renderPopup-[^/]+\.m?js$/;
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  if (RENDER_CHUNK.test(url.pathname)) {
+    event.respondWith(handleChunk(event, url));
+    return;
+  }
   if (!TRACKED_HOSTS.includes(url.hostname)) return;
   event.respondWith(handle(event, url));
 });
+
+// ?fault=chunk: el chunk del renderer no se puede descargar (red caída o CDN que falla justo en
+// ese fichero). Determinista, a diferencia de cortar la red y esperar que la precarga no llegue.
+async function handleChunk(event, url) {
+  const lab = await labOf(event.clientId);
+  const entry = { method: 'GET', url: url.href, host: url.hostname, path: url.pathname };
+  let response;
+  if (lab.fault === 'chunk') {
+    entry.note = 'fault injected: renderer chunk unreachable';
+    response = Response.error();
+  } else {
+    response = await fetch(event.request);
+  }
+  entry.status = response.type === 'error' ? 0 : response.status;
+  lab.client?.postMessage({ type: 'lab:network', entry });
+  return response;
+}
 
 let scenariosPromise = null;
 function loadScenarios() {
