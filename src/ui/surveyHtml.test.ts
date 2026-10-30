@@ -378,7 +378,8 @@ describe('buildSurveyHtml navegación (botón Back)', () => {
   it('un error de validación no cambia la profundidad', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     // Ancla en la condición, no en el texto: el literal inglés vive ahora en la tabla DD_LABELS.
-    const validationBranch = html.slice(html.indexOf("indexOf('no response')"));
+    // La rama es la del motivo `required` de `ddClassifySubmitError`.
+    const validationBranch = html.slice(html.indexOf("ddErr.reason==='required'"));
     expect(validationBranch.slice(0, 400)).toContain('updateNavButtons()');
   });
 });
