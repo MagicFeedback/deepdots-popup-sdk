@@ -6,8 +6,7 @@ import type { DeepdotsEventType, PopupDefinition } from '../types';
 
 /**
  * Un fallo al enviar una página del survey llega a analítica (`deepdots_survey_error`) y al
- * host (`survey_error`). Antes el motivo solo quedaba en la consola del visitante (caso
- * Lemvigh-Müller, 30-oct-2026).
+ * host (`survey_error`). Antes el motivo solo quedaba en la consola del visitante.
  */
 
 type Emit = (type: DeepdotsEventType, surveyId: string, data?: Record<string, unknown>) => void;

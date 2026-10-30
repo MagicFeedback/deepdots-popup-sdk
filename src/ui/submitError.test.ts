@@ -10,7 +10,7 @@ const cases: Array<[string, unknown, string]> = [
     ['código desconocido cae al texto', coded('WHATEVER', 'No response'), 'required'],
     ['native viejo: "No response" sin código', new Error('No response'), 'required'],
     ['native viejo: string', 'No response', 'required'],
-    ['follow-up de native 2.2.22 (el caso Lemu)', new Error('No answers provided'), 'unknown'],
+    ['follow-up vacía en native 2.2.22', new Error('No answers provided'), 'unknown'],
     ['string cualquiera', 'An error occurred while submitting the form x:', 'unknown'],
 ];
 

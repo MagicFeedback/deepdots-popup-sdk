@@ -110,7 +110,7 @@ describe('renderPopup · survey_error', () => {
         expect(container.querySelector('#dd-error')?.textContent).toBe(getLabels('en').errorSubmit);
     });
 
-    it('el error de native 2.2.22 en una follow-up vacía (caso Lemu) sale como unknown con su texto', async () => {
+    it('el error de native 2.2.22 en una follow-up vacía sale como unknown con su texto', async () => {
         const { emit } = await render();
         generateOptions!.afterSubmitEvent?.({ error: new Error('No answers provided'), progress: 0, total: 3 });
         expect(surveyErrors(emit)).toEqual([{ reason: 'unknown', message: 'No answers provided' }]);
