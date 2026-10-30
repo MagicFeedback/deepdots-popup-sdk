@@ -1,7 +1,7 @@
 /**
  * NO EDITAR A MANO — generado por scripts/vendor-survey-css.mjs
  *
- * Copia de @magicfeedback/native@2.2.33 → dist/styles/magicfeedback-default.css
+ * Copia de @magicfeedback/native@2.2.37 → dist/styles/magicfeedback-default.css
  * (la hoja canónica del paquete, la que apunta su campo "style"), con estos cambios locales:
  *
  *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
@@ -470,6 +470,36 @@ div.magicfeedback-radio {
     width: 100%;
 }
 
+/* Single choice in a row (assets.direction "row"): one equal box per
+   option. The "other" text field wraps to its own line below. Stacked
+   (phone, or too narrow) it is the usual vertical list again. */
+.magicfeedback-radio--row {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.magicfeedback-radio--row > .magicfeedback-radio-container {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.magicfeedback-radio--row > .magicfeedback-extra-option {
+    flex-basis: 100%;
+}
+
+.magicfeedback-radio--row.magicfeedback-radio--stacked {
+    flex-direction: column;
+    flex-wrap: nowrap;
+}
+
+.magicfeedback-radio--row.magicfeedback-radio--stacked > .magicfeedback-radio-container {
+    flex: none;
+}
+
+.magicfeedback-radio--row .magicfeedback-radio-container label {
+    overflow-wrap: anywhere;
+}
+
 .magicfeedback-checkbox-container,
 .magicfeedback-radio-container {
     display: flex;
@@ -691,6 +721,34 @@ div.magicfeedback-radio {
 
 .magicfeedback-rating-number-scale-label {
     overflow-wrap: anywhere;
+}
+
+/* assets.minMaxPlaceholderPosition: the caption above or below the row. */
+.magicfeedback-rating-number-scale-labels--top {
+    margin-top: 0;
+    margin-bottom: var(--mf-space-sm);
+}
+
+.magicfeedback-rating-number-scale-labels--bottom {
+    margin-top: var(--mf-space-sm);
+    margin-bottom: 0;
+}
+
+/* Row with a text per number: the text sits above each chip (below with
+   numberPlaceholdersPosition "bottom"). The option is a column laid out
+   inline; this only spaces and styles the text. */
+.magicfeedback-rating-number-option--captioned {
+    gap: var(--mf-space-xs);
+}
+
+.magicfeedback-rating-number-option-caption {
+    font-size: var(--mf-font-size-sm);
+    font-weight: var(--mf-font-weight-semibold);
+    color: var(--mf-text-secondary);
+    text-align: center;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    cursor: pointer;
 }
 
 .magicfeedback-rating-number-scale-label:last-child {
