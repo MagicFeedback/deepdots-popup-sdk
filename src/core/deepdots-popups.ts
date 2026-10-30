@@ -1584,6 +1584,17 @@ export class DeepdotsPopups {
         const event: DeepdotsEvent = { type, surveyId, timestamp: Date.now(), data };
         this.log('Event emitted', event);
 
+        if (type === 'survey_error') {
+            // A analítica (BigQuery) para ver los fallos sin depender de la consola del visitante.
+            const popupId = (data?.popupId as string | undefined) || this.surveyToPopupId.get(surveyId);
+            this.track('deepdots_survey_error', {
+                survey_id: surveyId,
+                ...(popupId ? { popup_id: popupId } : {}),
+                reason: data?.reason,
+                message: data?.message,
+            });
+        }
+
         const isPartialClick = type === 'popup_clicked' && data?.action === 'partial';
         if (isPartialClick) {
             this.markSurveyProgress(surveyId, 'PARTIAL');

@@ -173,8 +173,9 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     if (!surveyId || !this.emitFn) return;
 
     let name: string | undefined;
+    let payload: Record<string, unknown> | undefined;
     try {
-      name = (JSON.parse(raw) as { name?: string }).name;
+      ({ name, payload } = JSON.parse(raw) as { name?: string; payload?: Record<string, unknown> });
     } catch {
       name = raw; // mensajes simples ("error:load")
     }
@@ -202,6 +203,10 @@ export class ReactNativePopupRenderer implements PopupRenderer {
         // final del survey y cerrar aquí la hacía invisible. El cierre llega después con
         // `popup_close`, cuando el usuario pulsa el botón de completar.
         this.emitFn('survey_completed', surveyId);
+        break;
+      case 'survey_error':
+        // Fallo al enviar una página (el WebView ya enseña su aviso). Tampoco es interacción.
+        this.emitFn('survey_error', surveyId, { reason: payload?.reason, message: payload?.message });
         break;
       case 'popup_close':
         this.onCloseFn?.();

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`survey_error` event and `deepdots_survey_error` analytics event.** A page that can't be sent used to show the generic error message and leave the real cause only in the visitor's console. Now the popup emits `survey_error` with `{reason, message}` to host listeners, and with tracking on it sends `deepdots_survey_error` (`survey_id`, `popup_id`, `reason`, `message`) to analytics. `reason` is `send_failed`, `no_page` or `unknown`. An empty required question is not reported. The event is not an interaction (no `PARTIAL`), and when the survey reports the same error twice on completion only one event goes out. Works on the web popup and in the React Native WebView (`ReactNativePopupRenderer` forwards it).
+
+### Changed
+- **The popup tells an empty required question apart from a failed request by the error `code`** (`REQUIRED` / `SEND_FAILED` / `NO_PAGE`) that `@magicfeedback/native` sends from the version after 2.2.36. With an older native it uses the old check on the text. Visible effect once native is bumped: a request the API didn't save shows `errorSubmit` instead of `errorRequired`. The label texts do not change.
+
 ## [1.17.2] — 2026-10-29
 
 ### Fixed

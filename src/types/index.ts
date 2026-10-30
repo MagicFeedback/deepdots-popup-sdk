@@ -153,7 +153,13 @@ export interface TriggerConfig {
 export type DeepdotsEventType =
     | 'popup_shown'
     | 'popup_clicked'
-    | 'survey_completed';
+    | 'survey_completed'
+    /**
+     * Fallo al enviar una página del survey (el popup enseña `errorSubmit`). `data`:
+     * `{reason: 'send_failed' | 'no_page' | 'unknown', message}`. No es interacción del
+     * usuario: no marca el popup como PARTIAL. También va a analítica como `deepdots_survey_error`.
+     */
+    | 'survey_error';
 
 /**
  * Event payload structure

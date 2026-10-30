@@ -35,6 +35,7 @@ vi.mock('@magicfeedback/native', () => {
 });
 
 const { renderPopup } = await import('./renderPopup');
+const { getLabels } = await import('../i18n/labels');
 
 const clicks = (emit: ReturnType<typeof vi.fn>) =>
     emit.mock.calls.filter(([type]) => type === 'popup_clicked').map(([, , data]) => (data as { action: string }).action);
@@ -89,3 +90,45 @@ describe('renderPopup · popup_clicked solo para interacción', () => {
         expect(clicks(emit)).toEqual(['back']);
     });
 });
+
+describe('renderPopup · survey_error', () => {
+    beforeEach(() => {
+        document.body.innerHTML = '';
+        generateOptions = null;
+    });
+
+    const surveyErrors = (emit: ReturnType<typeof vi.fn>) =>
+        emit.mock.calls.filter(([type]) => type === 'survey_error').map(([, , data]) => data);
+
+    it('un fallo de envío emite survey_error con el motivo y enseña errorSubmit', async () => {
+        const { container, emit } = await render();
+        const error = Object.assign(new Error('No response'), { code: 'SEND_FAILED' });
+        generateOptions!.afterSubmitEvent?.({ error, progress: 0, total: 3 });
+
+        expect(surveyErrors(emit)).toEqual([{ reason: 'send_failed', message: 'No response' }]);
+        // Con código, "No response" ya no se confunde con una obligatoria vacía.
+        expect(container.querySelector('#dd-error')?.textContent).toBe(getLabels('en').errorSubmit);
+    });
+
+    it('el error de native 2.2.22 en una follow-up vacía sale como unknown con su texto', async () => {
+        const { emit } = await render();
+        generateOptions!.afterSubmitEvent?.({ error: new Error('No answers provided'), progress: 0, total: 3 });
+        expect(surveyErrors(emit)).toEqual([{ reason: 'unknown', message: 'No answers provided' }]);
+    });
+
+    it('una obligatoria vacía no es un fallo: no emite survey_error', async () => {
+        const { emit } = await render();
+        generateOptions!.afterSubmitEvent?.({ error: Object.assign(new Error('No response'), { code: 'REQUIRED' }), progress: 0, total: 3 });
+        generateOptions!.afterSubmitEvent?.({ error: 'No response', progress: 0, total: 3 });
+        expect(surveyErrors(emit)).toEqual([]);
+    });
+
+    it('el mismo objeto de error dos veces (cierre del survey) emite un solo evento', async () => {
+        const { emit } = await render();
+        const error = Object.assign(new Error('An error occurred while submitting the form x:'), { code: 'SEND_FAILED' });
+        generateOptions!.afterSubmitEvent?.({ error, completed: true, progress: 3, total: 3 });
+        generateOptions!.afterSubmitEvent?.({ error, completed: true, progress: 3, total: 3 });
+        expect(surveyErrors(emit)).toHaveLength(1);
+    });
+});
+
