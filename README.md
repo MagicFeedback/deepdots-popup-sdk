@@ -509,12 +509,13 @@ The SDK emits:
 - `popup_shown`
 - `popup_clicked`
 - `survey_completed`
+- `survey_error`
 
 Payload:
 
 ```ts
 interface DeepdotsEvent {
-  type: 'popup_shown' | 'popup_clicked' | 'survey_completed';
+  type: 'popup_shown' | 'popup_clicked' | 'survey_completed' | 'survey_error';
   surveyId: string;
   timestamp: number;
   data?: Record<string, unknown>;
@@ -528,6 +529,14 @@ interface DeepdotsEvent {
 - `userId`
 
 `popup_clicked` means the user did something in the popup. On the web, `data.action` is one of `start_survey`, `manual_send`, `back`, `complete`, `close_icon`, or `partial` (the user answered a page and moved on; this one also marks the popup as `PARTIAL` in the backend). Loading the survey, the start of a submit, and validation or submit errors are not interactions and do not emit it. In React Native the bridge emits it once per popup, with `action: 'partial'`, on the first real interaction (sending an answer or going back).
+
+`survey_error` means a page of the survey could not be sent and the popup is showing its generic error message. `data` is `{reason, message}`:
+
+- `reason: 'send_failed'`: the API did not save the answers (HTTP error or network).
+- `reason: 'no_page'`: the survey lost track of its current page.
+- `reason: 'unknown'`: any other error from the survey renderer. `message` has its text, cut to 300 characters.
+
+An empty required question is not an error and does not emit it. `survey_error` is not an interaction, so it does not mark the popup as `PARTIAL`. With tracking enabled it is also sent to analytics as `deepdots_survey_error` (`survey_id`, `popup_id`, `reason`, `message`). The texts shown in the popup do not change.
 
 ## Important Behavior Notes
 

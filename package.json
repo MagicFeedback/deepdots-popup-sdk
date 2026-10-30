@@ -1,6 +1,6 @@
 {
   "name": "@magicfeedback/popup-sdk",
-  "version": "1.17.2",
+  "version": "1.18.0",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -82,7 +82,7 @@
     }
   },
   "devDependencies": {
-    "@magicfeedback/native": "^2.2.33",
+    "@magicfeedback/native": "^2.2.37",
     "@playwright/test": "^1.60.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.3.31",

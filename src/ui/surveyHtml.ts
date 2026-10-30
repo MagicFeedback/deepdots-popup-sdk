@@ -5,6 +5,7 @@ import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolv
 import { REVEAL_TIMEOUT_MS } from './reveal';
 import { PRIMARY_COLOR_JS } from './surveyPalette';
 import { BUSY_JS } from './busy';
+import { SUBMIT_ERROR_JS } from './submitError';
 import magicfeedbackCss from '../assets/style.css';
 
 /**
@@ -138,7 +139,7 @@ function trimmedOrNull(value: string | undefined): string | null {
 export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const env = opts.env === 'development' ? 'dev' : 'prod';
   // Misma versión que la dep npm del bundle web, para que las dos rutas pinten igual.
-  const version = opts.version ?? '2.2.33';
+  const version = opts.version ?? '2.2.37';
   const cdn = `https://cdn.jsdelivr.net/npm/@magicfeedback/native@${version}/dist/magicfeedback-sdk.browser.js`;
   const sid = jsonForScript(opts.surveyId);
   const pid = jsonForScript(opts.productId);
@@ -337,6 +338,7 @@ ${customCss}
 (function(){
   function emit(s){ try{ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(s); } }catch(e){} }
   function emitJSON(n,p){ try{ emit(JSON.stringify({name:n,payload:p||{}})); }catch(e){} }
+  var ddLastReportedError=null;
   window.DeepdotsClose = function(){ emitJSON('popup_close'); };
   var chromeOn=${chrome ? 'true' : 'false'};
 
@@ -517,6 +519,7 @@ ${customCss}
 
 ${PRIMARY_COLOR_JS}
 ${BUSY_JS}
+${SUBMIT_ERROR_JS}
 ${REVEAL_JS}
   // Foco en la primera pregunta si es de escribir. Al navegar lo pone @magicfeedback/native
   // (autofocus:'navigation'); la apertura la decide el popup, que es quien sabe cuándo se revela.
@@ -668,10 +671,10 @@ ${REVEAL_JS}
           emitJSON('before_submit');
         },
         afterSubmitEvent:function(p){
-          var error=p && p.error ? (typeof p.error==='string' ? p.error : String(p.error)) : '';
-          if(error){
+          if(p && p.error){
             setLoading(false);
-            if(error.toLowerCase().indexOf('no response')!==-1){
+            var ddErr=ddClassifySubmitError(p.error);
+            if(ddErr.reason==='required'){
               // La página no ha cambiado: el estado de navegación se queda como estaba.
               errorHint.textContent=DD_LABELS_ACTIVE.errorRequired;
               errorHint.style.display='block';
@@ -680,6 +683,11 @@ ${REVEAL_JS}
             }
             errorHint.textContent=DD_LABELS_ACTIVE.errorSubmit;
             errorHint.style.display='block';
+            // Un solo aviso por fallo: native repite el mismo objeto al cerrar el survey.
+            if(p.error!==ddLastReportedError){
+              ddLastReportedError=p.error;
+              emitJSON('survey_error', ddErr);
+            }
             return;
           }
           errorHint.style.display='none';

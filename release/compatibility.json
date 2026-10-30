@@ -3,11 +3,11 @@
   "schemaVersion": 1,
   "package": "@magicfeedback/popup-sdk",
   "platform": "web",
-  "version": "1.17.2",
+  "version": "1.18.0",
   "surveyRenderer": {
     "package": "@magicfeedback/native",
-    "version": "2.2.33",
-    "cdnVersion": "2.2.33"
+    "version": "2.2.37",
+    "cdnVersion": "2.2.37"
   },
   "hosts": {
     "buildTarget": "es2020",

@@ -8,6 +8,7 @@ import { setSurveyBusy } from './busy';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS, revealWhenPainted as revealWhenImagesLoaded } from './reveal';
+import { classifySubmitError } from './submitError';
 import magicfeedback from "@magicfeedback/native";
 import magicfeedbackCss from '../assets/style.css';
 
@@ -1017,18 +1018,18 @@ export async function renderPopup(
                 autofocusOnOpen();
             }
         };
+        let lastReportedError: unknown = null;
         generateOptions.beforeSubmitEvent = () => {
             setLoading(true);
         };
         generateOptions.afterSubmitEvent = ({error, completed, total, progress, followup}) => {
             // No cambiar estado de loading aquí; lo gestiona cada transición
-            // Normalizar el error a texto seguro
-            const errText = error ? (typeof error === 'string' ? error : ((error as unknown as {message?: string}).message ?? String(error))) : '';
-            if (errText) {
+            if (error) {
                 // Desactivar loading para que se vean los botones
                 setLoading(false);
+                const {reason, message} = classifySubmitError(error);
                 // Caso específico: error de pregunta obligatoria
-                if (errText.toLowerCase().includes('no response')) {
+                if (reason === 'required') {
                     errorHint.textContent = labels.errorRequired;
                     errorHint.style.display = 'block';
                     // La página no ha cambiado: el estado de navegación se queda como estaba.
@@ -1038,8 +1039,13 @@ export async function renderPopup(
                 // Otros errores: mostrar mensaje genérico y permitir cerrar
                 errorHint.textContent = labels.errorSubmit;
                 errorHint.style.display = 'block';
-                // Antes el texto viajaba al host en un popup_clicked `submit_error`.
-                sdkWarn('[Deepdots] survey submit error:', errText);
+                sdkWarn('[Deepdots] survey submit error:', reason, message);
+                // native avisa dos veces del mismo fallo al cerrar el survey (mismo objeto):
+                // un solo evento por fallo.
+                if (error !== lastReportedError) {
+                    lastReportedError = error;
+                    emit('survey_error', surveyId, {reason, message});
+                }
                 // updateButtons('error');
                 return;
             }

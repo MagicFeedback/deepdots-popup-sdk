@@ -47,6 +47,24 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
     expect(shown!.html).toContain('submitBtn.textContent="Send"');
   });
 
+  it('survey_error del WebView llega al host con motivo y mensaje, sin marcar PARTIAL', () => {
+    const errors = vi.fn();
+    const clicked = vi.fn();
+    popups.on('survey_error', errors);
+    popups.on('popup_clicked', clicked);
+
+    (popups as unknown as { showDefinition(def: unknown): void })
+      .showDefinition({ id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn' });
+    renderer.handleMessage(JSON.stringify({ name: 'survey_error', payload: { reason: 'send_failed', message: 'No response' } }));
+
+    expect(errors).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'survey_error',
+      surveyId: 'survey-rn',
+      data: { reason: 'send_failed', message: 'No response' },
+    }));
+    expect(clicked).not.toHaveBeenCalled();
+  });
+
   it('traduce mensajes del WebView a eventos de popup (PARTIAL una vez, COMPLETED al final)', () => {
     const clicked = vi.fn();
     const completed = vi.fn();
