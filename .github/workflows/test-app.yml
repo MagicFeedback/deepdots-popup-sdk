@@ -62,10 +62,6 @@ on:
         description: 'Publish the report on GitHub Pages (validation/<version>/)'
         type: boolean
         default: false
-      notify:
-        description: 'Post the validation result to Slack (marked TEST unless called by a release)'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -268,7 +264,8 @@ jobs:
           git -C pages commit -qm "validation report $SDK (run ${{ github.run_id }}, attempt ${{ github.run_attempt }})"
           git -C pages push origin HEAD:refs/heads/validation-reports
           gh workflow run demo-gh-pages.yml --repo "$GITHUB_REPOSITORY" --ref dev
-      # Without notify/publish the message is only printed in the log.
+      # Only a release (release.yml, push of the tag, notify on) posts to Slack. Manual runs and PRs
+      # print the message in the log instead: test notices in #sdk-releases alarm people.
       - name: Slack
         if: ${{ !cancelled() }}
         env:
@@ -285,7 +282,5 @@ jobs:
             LINKS=(--link "Report (artifact)=$RUN_URL#artifacts" "${LINKS[@]}")
           fi
           FLAGS=()
-          # Only a release (push of the tag) sends the real notice; anything else is marked TEST.
-          [ "${{ github.event_name }}" = push ] || FLAGS+=(--test)
-          [ "${{ inputs.notify || inputs.publish }}" = true ] || FLAGS+=(--print)
+          [ "${{ github.event_name }}" = push ] && [ "${{ inputs.notify }}" = true ] || FLAGS+=(--print)
           node scripts/release/validation-report.mjs slack --summary "validation/$SDK/summary.json" "${LINKS[@]}" "${FLAGS[@]}"
