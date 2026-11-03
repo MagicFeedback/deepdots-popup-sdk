@@ -30,6 +30,7 @@ permissions:
   id-token: write # OIDC para npm Trusted Publishing
   pull-requests: write # PR de respaldo si el merge en main da conflicto
   actions: read # metadata.mjs lee el CI del commit etiquetado
+  checks: read # required-checks.mjs
 
 concurrency:
   group: release
@@ -76,6 +77,13 @@ jobs:
             exit 1
           fi
           node scripts/release/check.mjs release --tag "$GITHUB_REF_NAME" --notes-out "$RUNNER_TEMP/notes.md"
+
+      # Checks del commit etiquetado (DD-25): CI + test app con la build de este commit. En rojo,
+      # no se publica nada.
+      - name: Release checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/required-checks.mjs --sha "$GITHUB_SHA"
 
       - name: Unit tests
         run: npm test
