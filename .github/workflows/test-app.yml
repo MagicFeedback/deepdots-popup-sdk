@@ -26,6 +26,24 @@ on:
     branches: [dev]
   schedule:
     - cron: '0 6 * * 1'
+  # release.yml calls it after every release (DD-25): validation report on GitHub Pages + Slack.
+  workflow_call:
+    inputs:
+      versions:
+        type: string
+        required: true
+      report:
+        type: boolean
+        default: true
+      publish:
+        type: boolean
+        default: false
+      notify:
+        type: boolean
+        default: false
+    secrets:
+      SDK_RELEASES_SLACK_WEBHOOK_URL:
+        required: false
   workflow_dispatch:
     inputs:
       versions:
@@ -34,6 +52,18 @@ on:
         default: 'local latest 1.16.1'
       record:
         description: 'Record a video of every test'
+        type: boolean
+        default: false
+      report:
+        description: 'Release validation report for the FIRST version of the list'
+        type: boolean
+        default: false
+      publish:
+        description: 'Publish the report on GitHub Pages (validation/<version>/)'
+        type: boolean
+        default: false
+      notify:
+        description: 'Post the validation result to Slack (marked TEST unless called by a release)'
         type: boolean
         default: false
 
@@ -53,7 +83,7 @@ jobs:
     steps:
       - id: pick
         env:
-          INPUT: ${{ github.event.inputs.versions }}
+          INPUT: ${{ inputs.versions }}
           SCHEDULED: ${{ github.event_name == 'schedule' }}
         run: |
           default="local latest 1.16.1"
@@ -112,7 +142,7 @@ jobs:
         working-directory: apps/test-app
         env:
           SDK_VERSION: ${{ matrix.sdk }}
-          RECORD_VIDEO: ${{ github.event.inputs.record == 'true' && '1' || '' }}
+          RECORD_VIDEO: ${{ inputs.record && '1' || '' }}
         run: npx playwright test -c playwright.config.ts
 
       - name: Summary
@@ -154,3 +184,106 @@ jobs:
             apps/test-app/playwright-report/
             apps/test-app/test-results/
           retention-days: 14
+
+  # Release validation report (DD-25): generated only from the Playwright results of the first
+  # version of the list and the job result. Same script as the native SDK (scripts/release).
+  report:
+    name: Validation report
+    needs: [matrix, smoke]
+    if: always() && (inputs.report || inputs.publish) && needs.matrix.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # validation-reports branch (publish)
+      actions: write # demo-gh-pages.yml (publish)
+    env:
+      VERSIONS: ${{ needs.matrix.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Version under test
+        id: v
+        run: |
+          set -euo pipefail
+          FIRST=$(jq -r '.[0]' <<< "$VERSIONS")
+          case "$FIRST" in
+            local) V="$(node -p "require('./package.json').version")-local" ;;
+            *) V="$(npm view @magicfeedback/popup-sdk@"$FIRST" version)" ;;
+          esac
+          echo "first=$FIRST" >> "$GITHUB_OUTPUT"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          # The job result only speaks for this version when it is the only one in the run.
+          if [ "$(jq length <<< "$VERSIONS")" = 1 ]; then echo "jobs=web=${{ needs.smoke.result }}" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-app-report-${{ steps.v.outputs.first }}
+          path: pw
+      - name: Validation report
+        id: report
+        env:
+          SDK: ${{ steps.v.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          OUT="validation/$SDK"
+          node scripts/release/playwright-results.mjs pw/test-results/results.json > results.json
+          node scripts/release/validation-report.mjs --results results.json --version "$SDK" --out "$OUT" \
+            --jobs "${{ steps.v.outputs.jobs }}" --changelog CHANGELOG.md --run-url "$RUN_URL"
+          PDF="Deepdots-Popup-SDK-Web-$SDK-Release-Validation-Report.pdf"
+          google-chrome --headless=new --disable-gpu --no-sandbox --no-pdf-header-footer \
+            --print-to-pdf="$PWD/$OUT/$PDF" "file://$PWD/$OUT/report.html"
+          test -s "$OUT/$PDF"
+          cp results.json "$OUT/"
+          echo "## Validation report $SDK: $(jq -r .status "$OUT/summary.json")" >> "$GITHUB_STEP_SUMMARY"
+          echo "pdf=$PDF" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-report-${{ steps.v.outputs.version }}
+          path: validation/
+          retention-days: 90
+      # Kept in the validation-reports branch (one folder per version, the last attempt wins);
+      # demo-gh-pages.yml serves it under /validation/.
+      - name: Publish the report on GitHub Pages
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SDK: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin validation-reports; then
+            git worktree add pages FETCH_HEAD
+          else
+            git worktree add --detach pages && git -C pages checkout --orphan validation-reports && git -C pages rm -rfq .
+          fi
+          rm -rf "pages/$SDK" && cp -R "validation/$SDK" "pages/$SDK"
+          node scripts/release/validation-report.mjs index pages
+          git -C pages add -A
+          git -C pages commit -qm "validation report $SDK (run ${{ github.run_id }}, attempt ${{ github.run_attempt }})"
+          git -C pages push origin HEAD:refs/heads/validation-reports
+          gh workflow run demo-gh-pages.yml --repo "$GITHUB_REPOSITORY" --ref dev
+      # Without notify/publish the message is only printed in the log.
+      - name: Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SDK_RELEASES_SLACK_WEBHOOK_URL }}
+          SDK: ${{ steps.v.outputs.version }}
+          PAGES: https://magicfeedback.github.io/deepdots-popup-sdk/validation/${{ steps.v.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          LINKS=(--link "Test run=$RUN_URL")
+          if [ "${{ inputs.publish }}" = true ]; then
+            LINKS=(--link "Report=$PAGES/report.html" --link "PDF=$PAGES/${{ steps.report.outputs.pdf }}" "${LINKS[@]}")
+          else
+            LINKS=(--link "Report (artifact)=$RUN_URL#artifacts" "${LINKS[@]}")
+          fi
+          FLAGS=()
+          # Only a release (push of the tag) sends the real notice; anything else is marked TEST.
+          [ "${{ github.event_name }}" = push ] || FLAGS+=(--test)
+          [ "${{ inputs.notify || inputs.publish }}" = true ] || FLAGS+=(--print)
+          node scripts/release/validation-report.mjs slack --summary "validation/$SDK/summary.json" "${LINKS[@]}" "${FLAGS[@]}"
