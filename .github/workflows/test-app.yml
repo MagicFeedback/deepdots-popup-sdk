@@ -247,8 +247,9 @@ jobs:
           retention-days: 90
       # Kept in the validation-reports branch (one folder per version, the last attempt wins);
       # demo-gh-pages.yml serves it under /validation/.
+      # A cancelled run (stopped by hand) neither publishes nor notifies: its report is partial.
       - name: Publish the report on GitHub Pages
-        if: inputs.publish
+        if: ${{ !cancelled() && inputs.publish }}
         env:
           GH_TOKEN: ${{ github.token }}
           SDK: ${{ steps.v.outputs.version }}
@@ -269,6 +270,7 @@ jobs:
           gh workflow run demo-gh-pages.yml --repo "$GITHUB_REPOSITORY" --ref dev
       # Without notify/publish the message is only printed in the log.
       - name: Slack
+        if: ${{ !cancelled() }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SDK_RELEASES_SLACK_WEBHOOK_URL }}
           SDK: ${{ steps.v.outputs.version }}

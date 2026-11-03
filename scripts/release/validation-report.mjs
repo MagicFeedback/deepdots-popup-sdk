@@ -73,8 +73,11 @@ export function evaluate(rows, jobs = {}, config = CONFIG) {
           knownIssues.set(flow, [...(knownIssues.get(flow) ?? []), r.label]);
         }
       }
-      // Todos los tests en verde pero la fila en rojo: device log (crash/ANR), aislamiento de prod...
-      if (!rowFailed && r.outcome !== 'success') {
+      // Ningún test: el emulador/simulador o la build no llegaron a arrancar.
+      if (!Object.keys(r.status ?? {}).length) {
+        failures.push({ platform: name, row: r.label, flow: '—', message: 'No test ran: the emulator, simulator or build did not start' });
+      } else if (!rowFailed && r.outcome !== 'success') {
+        // Todos los tests en verde pero la fila en rojo: device log (crash/ANR), aislamiento de prod...
         failures.push({ platform: name, row: r.label, flow: '—', message: `Configuration ${r.outcome ?? 'did not finish'}: device log or production-isolation check failed` });
       }
     }
