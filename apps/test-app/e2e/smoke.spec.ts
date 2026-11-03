@@ -42,10 +42,6 @@ test.describe(`SDK ${SDK} · smoke`, () => {
     await expect(lab.popup).toContainText('¿Por qué has salido del checkout?');
   });
 
-  test('DD-25 failure test (throwaway branch, never merged): an assertion that cannot pass', async ({ page }) => {
-    await expect(page.getByText('DD-25 failure test: this text does not exist')).toBeVisible({ timeout: 2_000 });
-  });
-
   test('event: «Valorar» dispara el evento del host y abre la encuesta compleja', async ({ lab, page }) => {
     await lab.open('/products/42', { scenario: 'rate-product' });
     await page.getByTestId('rate-product').click();
