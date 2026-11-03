@@ -266,7 +266,7 @@ export function buildSlackMessage(summary, { links = [], test = false, product =
   ];
   if (links.length) lines.push(links.map(({ label, url }) => `<${url}|${slackEscape(label)}>`).join(' · '));
   for (const f of failures.slice(0, MAX_FAILURES)) {
-    lines.push(`• ❌ ${slackEscape([f.platform, f.row, f.flow].filter((x) => x && x !== '—').join(' · '))}${f.message ? `: ${slackEscape(f.message.slice(0, 140))}` : ''}`);
+    lines.push(`• ❌ ${slackEscape([f.platform, f.row === f.platform ? null : f.row, f.flow].filter((x) => x && x !== '—').join(' · '))}${f.message ? `: ${slackEscape(f.message.slice(0, 140))}` : ''}`);
   }
   if (failures.length > MAX_FAILURES) lines.push(`…and ${failures.length - MAX_FAILURES} more failures`);
   for (const [flow, rows] of Object.entries(knownIssues)) lines.push(`• ⚠️ Known issue \`${slackEscape(flow)}\` (${slackEscape(rows.join(', '))})`);

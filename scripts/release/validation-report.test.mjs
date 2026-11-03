@@ -78,7 +78,7 @@ describe('validation-report (web config)', () => {
     const rows = toRows(report({ offline: 'unexpected' }));
     const { text } = buildSlackMessage({ version: '1.18.1', ...evaluate(rows, { web: 'failure' }) }, { test: true });
     expect(text).toMatch(/^🧪 TEST — ❌ \*Deepdots web popup SDK 1\.18\.1\* · release validation \*FAILED\*/);
-    expect(text).toMatch(/• ❌ Desktop web · Desktop web · host safety › sin red/);
+    expect(text).toMatch(/• ❌ Desktop web · host safety › sin red/);
   });
 
   it('aggregate keeps failures first', () => {
