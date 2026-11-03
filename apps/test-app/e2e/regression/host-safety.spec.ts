@@ -86,6 +86,7 @@ test.describe(`SDK ${SDK} · host safety`, () => {
   test('sin red (offline) al abrir: el popup avisa, se cierra y la SPA sigue navegando', async ({ rlab, page, context }) => {
     rlab.expectPopups('lab-rate-product-es');
     await rlab.open('/products/42', { scenario: 'rate-product' });
+    await rlab.knownBug('load-error-notice');
     await rlab.popupsLoaded();
     // La red cae con el SDK ya listo: definiciones cargadas y el chunk del renderer precargado.
     // (Si cae ANTES de la precarga es otro caso: el test de `fault=chunk` de abajo.)
