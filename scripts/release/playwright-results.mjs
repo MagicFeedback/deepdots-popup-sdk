@@ -7,7 +7,8 @@
  *   playwright-results.mjs apps/test-app/test-results/results.json > rows.json
  *
  * Estados: expected+passed = pass, flaky = retry, unexpected = fail, skipped = skip,
- * expected+failed = known (bug conocido de KNOWN_BUGS, anotación `known-bug`) o expected
+ * expected+failed = known (bug conocido: anotación `known-bug` de KNOWN_BUGS, o `test.fail(true,
+ * 'known issue: ...')`) o expected
  * (fallo a propósito, p. ej. el evento de navegación que falta).
  */
 import { readFileSync } from 'node:fs';
@@ -25,7 +26,13 @@ export function testStatus(t) {
   if (t.status === 'flaky') return 'retry';
   if (t.status !== 'expected') return 'fail';
   if (t.expectedStatus !== 'failed') return 'pass';
-  return (t.annotations ?? []).some((a) => a.type === 'known-bug') ? 'known' : 'expected';
+  return knownIssue(t) ? 'known' : 'expected';
+}
+
+/** Un `test.fail()` es un bug conocido (KNOWN_BUGS o `known issue: ...`), no un fallo a propósito. */
+function knownIssue(t) {
+  const a = t.annotations ?? [];
+  return a.find((x) => x.type === 'known-bug') ?? a.find((x) => x.type === 'fail' && /^known issue/i.test(x.description ?? ''));
 }
 
 function firstError(t) {
@@ -55,8 +62,8 @@ export function toRows(report) {
         if (s === 'fail') row.messages[id] = firstError(t);
         const sdk = (t.annotations ?? []).find((a) => a.type === 'sdk')?.description;
         if (sdk && !row.resolved) row.resolved = sdk.split(' ')[0];
-        const bug = (t.annotations ?? []).find((a) => a.type === 'known-bug');
-        if (bug) row.notes[id] = bug.description;
+        const bug = knownIssue(t);
+        if (bug) row.notes[id] = bug.description.replace(/^known issue:\s*/i, '');
       }
     }
   };

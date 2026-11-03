@@ -40,6 +40,7 @@ describe('playwright-results', () => {
     expect(testStatus({ status: 'skipped' })).toBe('skip');
     expect(testStatus({ status: 'expected', expectedStatus: 'failed', annotations: [{ type: 'known-bug' }] })).toBe('known');
     expect(testStatus({ status: 'expected', expectedStatus: 'failed' })).toBe('expected');
+    expect(testStatus({ status: 'expected', expectedStatus: 'failed', annotations: [{ type: 'fail', description: 'known issue: z-index' }] })).toBe('known');
   });
 
   it('one row per device, test ids without the SDK prefix', () => {

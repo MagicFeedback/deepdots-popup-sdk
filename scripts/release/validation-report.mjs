@@ -121,6 +121,8 @@ function flowDescription(flowsDir, flow) {
 }
 
 const cell = (s) => (s === 'FAIL' ? '**FAIL**' : s);
+/** Celda de una plataforma: `—` si esa plataforma no corre ninguno de esos tests. */
+const platformCell = (statuses) => (statuses.some(Boolean) ? cell(aggregate(statuses)) : '—');
 const esc = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
 export function buildMarkdown({ rows, jobs = {}, version, date, changelog = '', runUrl, releaseUrl, control, flowsDir, digest, config = CONFIG }) {
@@ -161,8 +163,9 @@ export function buildMarkdown({ rows, jobs = {}, version, date, changelog = '', 
   }
 
   L.push('## 2. Test Results', '', row(['Test category', ...P]), `|---|${P.map(() => '---|').join('')}`);
-  for (const c of categories) L.push(row([c.name, ...P.map((p) => cell(aggregate(c.tests.flatMap((t) => testStatus(p, t)))))]));
+  for (const c of categories) L.push(row([c.name, ...P.map((p) => platformCell(c.tests.flatMap((t) => testStatus(p, t))))]));
   L.push(row(['Visual regression', ...P.map(() => config.visualRegression ?? 'NOT YET AUTOMATED')]), '');
+  L.push('`—` = not part of that platform\'s suite.', '');
   L.push('<details><summary>Every test on every configuration</summary>', '');
   L.push(row(['Test', ...rows.map((r) => esc(r.label))]), `|---|${rows.map(() => '---|').join('')}`);
   for (const t of allTests) L.push(row([esc(t), ...rows.map((r) => r.status?.[t] ?? '–')]));
@@ -178,7 +181,7 @@ export function buildMarkdown({ rows, jobs = {}, version, date, changelog = '', 
   L.push('## 4. Critical Safety Validation', '', row(['Scenario', ...P]), `|---|${P.map(() => '---|').join('')}`);
   for (const s of config.safety ?? []) {
     const tests = allTests.filter((t) => t === s.flow || (s.match && new RegExp(s.match).test(t)));
-    if (tests.length) L.push(row([s.label, ...P.map((p) => cell(aggregate(tests.flatMap((t) => testStatus(p, t)))))]));
+    if (tests.length) L.push(row([s.label, ...P.map((p) => platformCell(tests.flatMap((t) => testStatus(p, t))))]));
   }
   // Una fila con todos sus tests en verde y en rojo igualmente: la ha tumbado su comprobación global.
   const logFailed = (r) => r.outcome !== 'success' && !Object.values(r.status ?? {}).some((s) => FAILING.has(s));
@@ -192,7 +195,8 @@ export function buildMarkdown({ rows, jobs = {}, version, date, changelog = '', 
     L.push(row([`${label}${control ? ` (control ${control})` : ''}`, res ? (res === 'success' ? 'PASS' : `**FAIL** (${res})`) : 'NOT RUN']));
   }
   for (const t of allTests.filter((t) => rows.some((r) => r.status?.[t] === 'expected'))) {
-    L.push(row([`Expected failure detected: ${esc(t)}`, P.map((p) => `${p} ${aggregate(testStatus(p, t))}`).join(' · ')]));
+    const ran = P.filter((p) => testStatus(p, t).some(Boolean));
+    L.push(row([`Expected failure detected: ${esc(t)}`, ran.map((p) => `${p} ${aggregate(testStatus(p, t))}`).join(' · ')]));
   }
   L.push('');
 
