@@ -40,6 +40,17 @@ jobs:
       - name: Assemble demo site
         run: bash ./scripts/build-demo-site.sh
 
+      # Release validation reports (DD-25): the validation-reports branch, one folder per version,
+      # written by test-app.yml. Served under /validation/.
+      - name: Add release validation reports
+        run: |
+          if git fetch --depth=1 origin validation-reports; then
+            mkdir -p .demo-site/validation
+            git archive FETCH_HEAD | tar -x -C .demo-site/validation
+          else
+            echo "No validation-reports branch yet"
+          fi
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

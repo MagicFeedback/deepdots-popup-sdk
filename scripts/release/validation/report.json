@@ -1,0 +1,64 @@
+{
+  "$comment": "Release validation report (DD-25), config of this repo for validation-report.mjs (same script in deepdots-popup-sdk and deepdots-popup-mobile-native-sdk). Test ids come from playwright-results.mjs: '<describe without the SDK prefix> › <test title>'. Each category matches them by regex ('match'); validation-report.test.mjs fails if a test of the suite is in no category. 'safety' = host-page safety checks of section 4.",
+  "product": "Deepdots web popup SDK",
+  "repo": "https://github.com/MagicFeedback/deepdots-popup-sdk",
+  "tagPrefix": "v",
+  "packages": "npm `@magicfeedback/popup-sdk@{version}`",
+  "intro": "SDK {version} was validated as published on npm, loaded from the CDN by a test store that integrates it the same way a customer site does, on desktop and mobile Chromium.",
+  "platforms": [
+    { "name": "Desktop web", "job": "web" },
+    { "name": "Mobile web", "job": "web" }
+  ],
+  "controls": {},
+  "environmentNote": "All automated tests ran against the Deepdots development environment with test companies only. No customer data was used, and the test store blocks and fails on any request to the production API.",
+  "visualRegression": "NOT YET AUTOMATED",
+  "limitations": [
+    "Automated on Chromium (desktop, and mobile with Pixel 7 emulation). Safari and Firefox are checked by hand (section 7).",
+    "On mobile the host-safety and popup layout suites run; triggers and navigation run on desktop and use the same code path.",
+    "Visual regression (screenshot comparison) is not yet automated for the web SDK.",
+    "Tests marked as known issues are expected to fail until their fix ships; if one passes, the run fails so the mark is removed."
+  ],
+  "realDevices": {
+    "intro": "Filled in by hand after this report is generated: the test store with this exact version in the browsers the automated suite does not run.",
+    "devices": ["Safari (macOS)", "Safari (iPhone)", "Firefox"],
+    "checks": [
+      "Popup appears complete, once",
+      "Survey answered and sent to the end",
+      "Not shown again within its cooldown",
+      "Clicks outside the popup reach the page; X closes it",
+      "Exit popup on leaving /checkout",
+      "No network: notice, can be closed, page usable"
+    ]
+  },
+  "categories": [
+    { "name": "SDK initialization and version check", "match": ["^smoke › carga la versión", "^init › (un init|init \\+ autoLaunch|carga tras el consentimiento)", "^live DEV config ›", "^release fixtures ›"] },
+    { "name": "Path-based triggers and excluded screens", "match": ["^smoke › (path targeting|excludedPaths)"] },
+    { "name": "Time-based triggers", "match": ["^smoke › time_on_page", "^triggers › time_on_page", "^navigation › (pushState|salir de /checkout antes)"] },
+    { "name": "Scroll triggers", "match": ["^triggers › scroll"] },
+    { "name": "Event and click triggers", "match": ["^smoke › (event|click):", "^triggers › (click|evento del host|dos popups)", "^init › evento del host antes"] },
+    { "name": "Exit triggers", "match": ["^smoke › exit", "^navigation › (atrás del navegador \\(popstate\\)|ida y vuelta|navegación rápida)"] },
+    { "name": "Re-display rules (cooldown)", "match": ["^smoke › re-display", "^re-display and audience › (cooldown|dos pestañas)"] },
+    { "name": "Audience segmentation by language", "match": ["^multi-language ›", "^re-display and audience › segmentación"] },
+    { "name": "Popup layout, opening and closing", "match": ["^popup UI › (posición|redimensionar|cerrar con la X)"] },
+    { "name": "Survey interactions and submission", "match": ["^popup UI › envío completo"] },
+    { "name": "SPA navigation with a popup open", "match": ["^navigation › con un popup abierto"] },
+    { "name": "Network failures and recovery", "match": ["^popup load failure keeps the host usable ›", "^host safety › (encuesta lenta|sin red|el chunk|la API de popups|errores 500|encuesta a medio pintar)"] },
+    { "name": "Host page safety", "match": ["^host safety › (popup en esquina|tras cerrar|ráfaga)", "^smoke › CSS del host", "^known issues \\(host widgets\\) ›"] },
+    { "name": "Detection check: a missing navigation event is caught", "match": ["^missing navigation event ›"] }
+  ],
+  "safety": [
+    { "label": "Clicks outside a corner popup reach the page", "match": "^host safety › popup en esquina" },
+    { "label": "No invisible layer left after closing a popup", "match": "^host safety › tras cerrar|^popup UI › cerrar con la X" },
+    { "label": "Slow survey: the page responds while it loads", "match": "^host safety › encuesta lenta" },
+    { "label": "No network: notice, the popup can be closed, the page stays usable", "match": "^host safety › sin red|encuesta con network" },
+    { "label": "Survey that cannot load (406): notice, can be closed, page usable", "match": "encuesta con survey406" },
+    { "label": "SDK script not reachable (CDN down): the page stays usable", "match": "CDN caído" },
+    { "label": "Popups API that never answers: no popup, nothing blocked", "match": "la API de popups no contesta" },
+    { "label": "Server errors on popups, events and answers", "match": "errores 500|GET de popups con 500" },
+    { "label": "Broken survey response: the popup can be closed", "match": "a medio pintar" },
+    { "label": "Host CSS conflicts and overlays", "match": "^smoke › CSS del host" },
+    { "label": "Rapid navigation with popups", "match": "ráfaga de navegación|navegación rápida" },
+    { "label": "SDK initialised twice (React StrictMode): one popup", "match": "init \\+ autoLaunch dos veces" },
+    { "label": "The same host event 5 times: one popup", "match": "evento del host repetido" }
+  ]
+}
