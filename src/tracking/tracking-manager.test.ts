@@ -5,6 +5,8 @@ import {
   STORAGE_KEYS,
   buildSurveyIdentity,
 } from './tracking-manager';
+import { SDK_IDENTIFIER } from '../version';
+import pkg from '../../package.json';
 
 /**
  * Tabla de casos de paridad — Contrato común Fase 1 §8 (revisado).
@@ -117,13 +119,19 @@ describe('buildSurveyIdentity', () => {
     expect(metadata).toEqual([
       { key: 'session_id', value: ['session-1'] },
       { key: 'user_id', value: ['user-1'] },
+      { key: 'deepdots_channel', value: ['popup'] },
+      { key: 'deepdots_sdk', value: [SDK_IDENTIFIER] },
     ]);
   });
 
   it('omits session_id when the backend has not provided one yet', () => {
     const { profile, metadata } = buildSurveyIdentity('user-1', null);
     expect(profile).toEqual([{ key: 'external-user-id', value: ['user-1'] }]);
-    expect(metadata).toEqual([{ key: 'user_id', value: ['user-1'] }]);
+    expect(metadata).toEqual([
+      { key: 'user_id', value: ['user-1'] },
+      { key: 'deepdots_channel', value: ['popup'] },
+      { key: 'deepdots_sdk', value: [SDK_IDENTIFIER] },
+    ]);
   });
 
   it('includes mini_service in metadata when a mini-service is active (#33 CSAT)', () => {
@@ -132,13 +140,23 @@ describe('buildSurveyIdentity', () => {
       { key: 'session_id', value: ['session-1'] },
       { key: 'user_id', value: ['user-1'] },
       { key: 'mini_service', value: ['checkout'] },
+      { key: 'deepdots_channel', value: ['popup'] },
+      { key: 'deepdots_sdk', value: [SDK_IDENTIFIER] },
     ]);
   });
 
-  it('returns empty arrays when tracking yields no ids (disabled)', () => {
+  it('only carries the channel and SDK when tracking yields no ids (disabled)', () => {
     const { profile, metadata } = buildSurveyIdentity(null, null);
     expect(profile).toEqual([]);
-    expect(metadata).toEqual([]);
+    expect(metadata).toEqual([
+      { key: 'deepdots_channel', value: ['popup'] },
+      { key: 'deepdots_sdk', value: [SDK_IDENTIFIER] },
+    ]);
+  });
+
+  it('identifies the SDK as web@<package.json version>', () => {
+    const { metadata } = buildSurveyIdentity('user-1', null);
+    expect(metadata).toContainEqual({ key: 'deepdots_sdk', value: [`web@${pkg.version}`] });
   });
 
   it('includes deepdots_analytics_feedback_session_id in metadata when analytics session is known', () => {

@@ -10,6 +10,8 @@
  * generador de uuid por inyección. El binding a `localStorage` vive en `createDefaultStorage`.
  */
 
+import { POPUP_CHANNEL, SDK_IDENTIFIER } from '../version';
+
 /** Store clave/valor mínimo (espejo conceptual del `KeyValueStorage` de KMP). */
 export interface KeyValueStorage {
   getItem(key: string): string | null;
@@ -67,7 +69,8 @@ export interface IdentityAnswer {
 /**
  * Construye el `profile` y el `metadata` de identidad para inyectar en el survey
  * (`magicfeedback.form(appId, publicKey, profile, metadata)`), según el contrato §5.
- * `session_id` solo se incluye si el backend ya lo proveyó.
+ * `session_id` solo se incluye si el backend ya lo proveyó. `deepdots_channel` y
+ * `deepdots_sdk` van siempre: marcan la respuesta como llegada por popup y con qué SDK.
  */
 export function buildSurveyIdentity(
   userId: string | null,
@@ -81,6 +84,9 @@ export function buildSurveyIdentity(
   if (userId) metadata.push({ key: 'user_id', value: [userId] });
   if (miniService) metadata.push({ key: 'mini_service', value: [miniService] });
   if (analyticsFeedbackSessionId) metadata.push({ key: 'deepdots_analytics_feedback_session_id', value: [analyticsFeedbackSessionId] });
+  // Canal + SDK que produjo la respuesta (dashboard de Collection): siempre, también sin tracking.
+  metadata.push({ key: 'deepdots_channel', value: [POPUP_CHANNEL] });
+  metadata.push({ key: 'deepdots_sdk', value: [SDK_IDENTIFIER] });
   return { profile, metadata };
 }
 

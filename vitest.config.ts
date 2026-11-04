@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import { sdkVersionDefine } from './scripts/sdk-version-define.mjs';
 
 export default defineConfig({
+  define: sdkVersionDefine('web'),
   test: {
     globals: true,
     environment: 'happy-dom',
