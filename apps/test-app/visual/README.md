@@ -17,7 +17,7 @@ baseline. The check fails on any difference; nothing ever approves a baseline au
 ## States and devices
 
 Devices (Playwright projects, the name is the baselines folder): `web-desktop` (1280×860),
-`web-mobile-small` (375×667 @2x, touch: iPhone SE width) and `web-mobile-pixel7` (412×915 @2.625x).
+`web-mobile-small` (375×667 @2x, touch: iPhone SE width) and `web-mobile-pixel7` (412×839 @2.625x, touch).
 
 | State | Survey / position | What it protects |
 |---|---|---|

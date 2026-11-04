@@ -11,6 +11,9 @@
  *   --out      evidencia: `report.html`, `results.json`, `summary.md`, `candidates/` (copia de las
  *              capturas, lo que se aprobaría con approve.mjs), `expected/` y `diff/`
  *   --devices  solo estos devices (por defecto: los que haya en --actual)
+ *   --captured-only  solo los estados con captura en esta ejecución (una suite parcial, p. ej. la
+ *              corta de una PR que solo corre los flujos que cambia): una referencia sin captura
+ *              no cuenta. Sin capturas sigue siendo rojo. Nunca en el check de release.
  *
  * Verde = cada referencia aprobada del device tiene captura y coincide dentro de la tolerancia.
  * Rojo  = cualquier diferencia, una captura sin referencia, una referencia sin captura, o una
@@ -53,8 +56,8 @@ export function settingsFor(config, device) {
  * Decide el resultado de cada captura. Puro: recibe los buffers ya leídos.
  * @param {{config:object, approvals:object, baselines:Map<string,Buffer>, actuals:Map<string,Buffer>}} input
  */
-export function evaluate({ config, approvals, baselines, actuals }) {
-  const keys = [...new Set([...baselines.keys(), ...actuals.keys()])].sort();
+export function evaluate({ config, approvals, baselines, actuals, capturedOnly = false }) {
+  const keys = [...new Set([...(capturedOnly ? [] : baselines.keys()), ...actuals.keys()])].sort();
   return keys.map((key) => {
     const [device, file] = key.split('/');
     const state = file.replace(/\.png$/, '');
@@ -159,7 +162,9 @@ function main() {
   const baselinesDir = join(suite, 'baselines');
   const baselines = read(baselinesDir, listShots(baselinesDir, devices));
   const actuals = read(actualDir, listShots(actualDir, devices));
-  const rows = evaluate({ config, approvals, baselines, actuals });
+  const capturedOnly = process.argv.includes('--captured-only');
+  if (capturedOnly) console.log('[visual] --captured-only: states without a screenshot in this run are not checked');
+  const rows = evaluate({ config, approvals, baselines, actuals, capturedOnly });
 
   for (const r of rows) {
     const put = (dir, buf) => {

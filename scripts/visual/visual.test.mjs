@@ -88,6 +88,13 @@ describe('evaluate', () => {
     expect(rows[0]).toMatchObject({ status: 'unapproved_baseline' });
   });
 
+  it('--captured-only ignores baselines without a screenshot, but still compares the captured ones', () => {
+    const baselines = new Map([['desktop/open.png', A], ['desktop/other.png', A]]);
+    const both = { baselines: { ...approvals.baselines, 'desktop/other.png': { sha256: sha256(A), approvalId: 'x1' } } };
+    expect(evaluate({ config, approvals: both, baselines, actuals: new Map([['desktop/open.png', A]]), capturedOnly: true })).toMatchObject([{ key: 'desktop/open.png', status: 'pass' }]);
+    expect(evaluate({ config, approvals: both, baselines, actuals: new Map([['desktop/open.png', B]]), capturedOnly: true })[0].status).toBe('diff');
+  });
+
   it('nothing to compare is not a pass', () => {
     expect(passed([])).toBe(false);
   });
