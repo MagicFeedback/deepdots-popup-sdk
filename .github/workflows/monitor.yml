@@ -16,6 +16,9 @@
 name: "Monitoring: popup SDK"
 
 on:
+  # FAILURE TEST ONLY (DD-26, throwaway branch, never merged): every push runs the monitor.
+  push:
+    branches: [ft/dd-26-monitor-web]
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
@@ -54,6 +57,9 @@ env:
   SDK_MONITOR_EVERY_H_ANDROID: ${{ vars.SDK_MONITOR_EVERY_H_ANDROID }}
   SDK_MONITOR_EVERY_H_IOS: ${{ vars.SDK_MONITOR_EVERY_H_IOS }}
   OUT: out/sdk-monitor
+  # FAILURE TEST: step 1 = survey406 + Grafana down; step 2 = '' (recovery).
+  FT_INJECT: survey406
+  FT_GRAFANA_DOWN: 'true'
 
 jobs:
   web:
@@ -111,7 +117,7 @@ jobs:
         env:
           MONITOR: '1'
           SDK_VERSION: ${{ steps.version.outputs.version }}
-          MONITOR_FAULT: ${{ inputs.inject_failure != 'none' && inputs.inject_failure || '' }}
+          MONITOR_FAULT: ${{ github.event_name == 'push' && env.FT_INJECT || (inputs.inject_failure != 'none' && inputs.inject_failure || '') }}
         run: npx playwright test -c playwright.config.ts
 
       - name: Collect
@@ -119,7 +125,7 @@ jobs:
         run: |
           node scripts/release/sdk-monitor.mjs collect --platform web --source npm \
             --sdk "${{ steps.version.outputs.version }}" --playwright apps/test-app/test-results/results.json \
-            --job-status "${{ steps.run.outcome }}" --fault "${{ inputs.inject_failure != 'none' && inputs.inject_failure || '' }}" \
+            --job-status "${{ steps.run.outcome }}" --fault "${{ github.event_name == 'push' && env.FT_INJECT || (inputs.inject_failure != 'none' && inputs.inject_failure || '') }}" \
             --out "$OUT"
 
       - name: Slack
@@ -159,7 +165,7 @@ jobs:
 
       - name: Simulate Grafana down
         id: grafana
-        if: always() && inputs.simulate_grafana_down
+        if: always() && (inputs.simulate_grafana_down || (github.event_name == 'push' && env.FT_GRAFANA_DOWN == 'true'))
         run: |
           echo "127.0.0.1 dash.deepdots.com" | sudo tee -a /etc/hosts
           if curl -sS -m 10 -o /dev/null https://dash.deepdots.com/api/health; then echo "::error::Grafana still reachable"; exit 1; fi
@@ -167,17 +173,17 @@ jobs:
 
       # Grafana's data: survey_monitoring.sdk_check_results. Optional, never blocks the alerts.
       - name: BigQuery
-        if: always() && steps.due.outputs.run == 'true' && !inputs.simulate_grafana_down && vars.SDK_MONITOR_WIF_PROVIDER != ''
+        if: always() && steps.due.outputs.run == 'true' && !(inputs.simulate_grafana_down || (github.event_name == 'push' && env.FT_GRAFANA_DOWN == 'true')) && vars.SDK_MONITOR_WIF_PROVIDER != ''
         continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.SDK_MONITOR_WIF_PROVIDER }}
           service_account: ${{ vars.SDK_MONITOR_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-        if: always() && steps.due.outputs.run == 'true' && !inputs.simulate_grafana_down && vars.SDK_MONITOR_WIF_PROVIDER != ''
+        if: always() && steps.due.outputs.run == 'true' && !(inputs.simulate_grafana_down || (github.event_name == 'push' && env.FT_GRAFANA_DOWN == 'true')) && vars.SDK_MONITOR_WIF_PROVIDER != ''
         continue-on-error: true
       - name: Write rows
-        if: always() && steps.due.outputs.run == 'true' && !inputs.simulate_grafana_down && vars.SDK_MONITOR_WIF_PROVIDER != ''
+        if: always() && steps.due.outputs.run == 'true' && !(inputs.simulate_grafana_down || (github.event_name == 'push' && env.FT_GRAFANA_DOWN == 'true')) && vars.SDK_MONITOR_WIF_PROVIDER != ''
         continue-on-error: true
         run: |
           jq -c 'del(.sdk_log) | .evidence |= map({name, url})' "$OUT/results.jsonl" > rows.jsonl
