@@ -9,6 +9,9 @@ import { defineConfig, devices } from '@playwright/test';
 //   smoke               e2e/*.spec.ts, escritorio; va contra DEV, así que admite 1 reintento en CI
 //   regression desktop  e2e/regression/**, escritorio; determinista (fixtures + reloj falso): 0 reintentos
 //   regression mobile   posición y seguridad del host en un viewport de móvil (Pixel 7, táctil)
+//   monitor             e2e/monitor/**, el monitor sintético (DD-26, monitor.yml): config REAL de DEV,
+//                       1 reintento (un fallo solo cuenta si el reintento también falla). Solo corre
+//                       con MONITOR=1; sin él no aparece en el CI de PRs ni en el de releases.
 //
 // ⚠️ Fuera del CI se reutiliza un servidor que ya esté en el puerto: si hay otra copia de la test
 // app en el 5180 (otro checkout), la suite probaría ESA app. TEST_APP_PORT=5191 lo evita.
@@ -39,24 +42,33 @@ export default defineConfig({
     // SLOWMO=400 para grabar demos que se puedan seguir a ojo (RECORD_VIDEO=1).
     launchOptions: { slowMo: Number(process.env.SLOWMO ?? 0) },
   },
-  projects: [
-    {
-      name: `smoke · web desktop chromium · sdk ${SDK}`,
-      testIgnore: /regression\//,
-      retries: process.env.CI ? 1 : 0,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
-    },
-    {
-      name: `regression · web desktop chromium · sdk ${SDK}`,
-      testMatch: /regression\/.*\.spec\.ts$/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
-    },
-    {
-      name: `regression · web mobile chromium (Pixel 7) · sdk ${SDK}`,
-      testMatch: /regression\/(popup-ui|host-safety)\.spec\.ts$/,
-      use: { ...devices['Pixel 7'] },
-    },
-  ],
+  projects: process.env.MONITOR
+    ? [
+        {
+          name: `monitor · web desktop chromium · sdk ${SDK}`,
+          testMatch: /monitor\/.*\.spec\.ts$/,
+          retries: 1,
+          use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
+        },
+      ]
+    : [
+        {
+          name: `smoke · web desktop chromium · sdk ${SDK}`,
+          testIgnore: /(regression|monitor)\//,
+          retries: process.env.CI ? 1 : 0,
+          use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
+        },
+        {
+          name: `regression · web desktop chromium · sdk ${SDK}`,
+          testMatch: /regression\/.*\.spec\.ts$/,
+          use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
+        },
+        {
+          name: `regression · web mobile chromium (Pixel 7) · sdk ${SDK}`,
+          testMatch: /regression\/(popup-ui|host-safety)\.spec\.ts$/,
+          use: { ...devices['Pixel 7'] },
+        },
+      ],
   webServer: {
     command: `node server.mjs ${PORT}`,
     url: `http://localhost:${PORT}/app/params.js`,
