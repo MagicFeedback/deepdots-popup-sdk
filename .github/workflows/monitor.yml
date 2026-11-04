@@ -147,9 +147,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for try in 1 2 3; do
-            rm -rf pages; git worktree prune
+            rm -rf pages; git worktree prune; git branch -D "pages-$try" 2>/dev/null || true
             if git fetch --depth=1 origin validation-reports; then git worktree add pages FETCH_HEAD
-            else git worktree add --detach pages && git -C pages checkout --orphan validation-reports && git -C pages rm -rfq .; fi
+            else git worktree add --detach pages && git -C pages checkout -q --orphan "pages-$try" && git -C pages rm -rfq .; fi
             mkdir -p "pages/$DIR" && cp -R "$OUT/report/." "pages/$DIR/"
             git -C pages add -A && git -C pages commit -qm "sdk monitor report $DIR"
             git -C pages push origin HEAD:refs/heads/validation-reports && break
