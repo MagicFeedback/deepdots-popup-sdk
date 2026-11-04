@@ -1,0 +1,104 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Popup SDK monitor · web</title>
+<style>@page { size: A4; margin: 18mm 16mm; }
+body { font: 10.5pt/1.5 -apple-system, "Helvetica Neue", Arial, sans-serif; color: #1a1d24; background: #fff; max-width: 180mm; margin: auto; padding: 0 16px; }
+h1 { font-size: 20pt; margin: 0 0 4pt; } h2 { font-size: 14pt; margin-top: 20pt; border-bottom: 1px solid #ddd; padding-bottom: 3pt; }
+h3 { font-size: 11.5pt; margin-top: 14pt; } code { font-size: 9pt; background: #f2f3f5; padding: 0 3px; border-radius: 3px; }
+table { border-collapse: collapse; width: 100%; font-size: 8.5pt; margin: 8pt 0; page-break-inside: avoid; display: block; overflow-x: auto; }
+th, td { border: 1px solid #d6d8dc; padding: 3pt 4pt; text-align: left; vertical-align: top; } th { background: #f2f3f5; }
+details table { font-size: 7pt; } summary { cursor: pointer; color: #1f5fbf; }
+@media print { details { display: none; } table { display: table; } body { padding: 0; } }
+hr { border: 0; border-top: 1px solid #ddd; margin: 16pt 0; } h2:has(+ *) { page-break-after: avoid; }
+a { color: #1f5fbf; }</style></head><body>
+<h1>Popup SDK monitor · Web · FAIL</h1>
+<p>Synthetic check of the published SDK in the internal test app against DEV. Generated 2026-11-04 10:31 UTC from the run&#39;s real results.</p>
+<h2>answer → submit · submission</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Platform</td>
+<td>Web</td>
+</tr>
+<tr>
+<td>SDK version</td>
+<td>1.18.0 (npm <code>latest</code>)</td>
+</tr>
+<tr>
+<td>Environment</td>
+<td>DEV · <a href="https://api-dev.deepdots.com">https://api-dev.deepdots.com</a></td>
+</tr>
+<tr>
+<td>Failed scenario</td>
+<td>answer → submit (<code>submit</code>)</td>
+</tr>
+<tr>
+<td>Timestamp</td>
+<td>2026-11-04T10:31:21.333Z · failed on the retry too</td>
+</tr>
+<tr>
+<td>Injected fault</td>
+<td>survey406</td>
+</tr>
+</tbody></table>
+<pre><code>TimeoutError: locator.click: Timeout 15000ms exceeded. (waiting for locator(&#39;#deepdots-popup-container .deepdots-popup&#39;).locator(&#39;label[for=&quot;rating-nps-9&quot;]&#39;))
+</code></pre>
+<p><a href="files/submit-test-failed-1.png">screenshot</a></p>
+<p><a href="files/submit-video.webm">video</a></p>
+<p><a href="files/submit-trace.zip">trace</a></p>
+<p><strong>SDK events and network</strong></p>
+<pre><code>host run &quot;d8ce · ?sdk=1.18.0&amp;popups=live&amp;fault=survey406&quot;
+route /account &quot;initial&quot;
+host load sdk (immediate) &quot;1.18.0&quot;
+sdk loaded &quot;1.18.0 · https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.18.0/dist/index.mjs&quot;
+sdk init &quot;nodeEnv=development language=es popups=live&quot;
+host help_clicked
+event popup_shown {&quot;survey&quot;:&quot;5581b5a0-d2df-11f1-b287-1be76c3f931d&quot;,&quot;popup&quot;:&quot;b5f0c070-d2df-11f1-b287-1be76c3f931d&quot;}
+sdk popup visible
+error popup load error shown &quot;No se ha podido cargar la encuesta.&quot;
+net GET cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.18.0/dist/index.mjs 200
+net GET cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.18.0/dist/chunk-DNBFTJCA.mjs 200
+net GET api-dev.deepdots.com/sdk/7nWNe3mZTzRgS1gh1YunsEcoQac56U0s/popups 200
+net GET cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@1.18.0/dist/renderPopup-BKZPAZZG.mjs 200
+net GET api-dev.deepdots.com/sdk/app/5581b5a0-d2df-11f1-b287-1be76c3f931d/3c75ebc69b72f7cf1e4a6774a8e78711/info 406 (fault injected)
+net POST api-dev.deepdots.com/sdk/popups 200
+</code></pre>
+<h2>Other checks in this run</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SDK init + version</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>trigger → render</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>answer → submit</td>
+<td><strong>FAIL</strong></td>
+</tr>
+<tr>
+<td>popups-error → no popup, host usable</td>
+<td>PASS</td>
+</tr>
+</tbody></table>
+<h2>What to do</h2>
+<ol>
+<li>SDK or backend? The same failure on the previous SDK version (run the workflow by hand with that version) or in the survey monitors points at the API or the survey frontend.</li>
+<li>Only the latest SDK fails: move npm <code>latest</code> back to the previous version and purge jsDelivr (runbook), then ship a fix.</li>
+<li>This is a synthetic check of our test app in DEV, not of customer apps.</li>
+</ol>
+<p><a href="https://github.com/MagicFeedback/deepdots-popup-sdk/blob/dev/docs/MONITORING.md">Runbook</a> · <a href="https://github.com/MagicFeedback/deepdots-popup-sdk/actions/runs/41814608655">Run</a> · <a href="https://dash.deepdots.com/d/survey-ops">Dashboard</a></p>
+
+</body></html>
