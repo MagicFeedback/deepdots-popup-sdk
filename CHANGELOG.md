@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- DD-28 failure test only (this PR is never merged): footer buttons swapped (`row` instead of `row-reverse`) to prove the visual regression check catches it.
+
 ## [1.18.0] — 2026-10-30
 
 ### Added
