@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { PNG } from 'pngjs';
 import { comparePng, maskPng } from './compare.mjs';
-import { evaluate, markdownSummary, passed, sha256 } from './check.mjs';
+import { evaluate, markdownSummary, passed, settingsFor, sha256 } from './check.mjs';
 import { planApproval } from './approve.mjs';
 
 /** PNG de `w×h` blanco con un rectángulo negro opcional. */
@@ -93,6 +93,12 @@ describe('evaluate', () => {
     const both = { baselines: { ...approvals.baselines, 'desktop/other.png': { sha256: sha256(A), approvalId: 'x1' } } };
     expect(evaluate({ config, approvals: both, baselines, actuals: new Map([['desktop/open.png', A]]), capturedOnly: true })).toMatchObject([{ key: 'desktop/open.png', status: 'pass' }]);
     expect(evaluate({ config, approvals: both, baselines, actuals: new Map([['desktop/open.png', B]]), capturedOnly: true })[0].status).toBe('diff');
+  });
+
+  it('a mask can be limited to some states or exclude some', () => {
+    const cfg = { devices: { ios: { masks: [{ x: 0, y: 0, width: 1, height: 1, except: ['top'] }, { x: 1, y: 1, width: 1, height: 1, states: ['top'] }] } } };
+    expect(settingsFor(cfg, 'ios', 'open').masks).toEqual([cfg.devices.ios.masks[0]]);
+    expect(settingsFor(cfg, 'ios', 'top').masks).toEqual([cfg.devices.ios.masks[1]]);
   });
 
   it('nothing to compare is not a pass', () => {
