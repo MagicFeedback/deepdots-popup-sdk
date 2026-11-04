@@ -300,7 +300,7 @@ export function buildReport(rows, { platform, now = new Date() } = {}) {
       '',
     );
     for (const e of r.evidence.filter((x) => x.report)) {
-      md.push(/\.png$/.test(e.name) ? `![${e.name}](${e.report})` : `[${e.name}](${e.report})`, '');
+      md.push(/\.png$/.test(e.report) ? `![${e.name}](${e.report})` : `[${e.name}](${e.report})`, '');
     }
     if (r.sdk_log) md.push('**SDK events and network**', '', '```', r.sdk_log, '```', '');
   }
