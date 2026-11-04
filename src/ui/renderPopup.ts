@@ -1028,9 +1028,9 @@ export async function renderPopup(
                 // Desactivar loading para que se vean los botones
                 setLoading(false);
                 const {reason, message} = classifySubmitError(error);
-                // Caso específico: error de pregunta obligatoria
-                if (reason === 'required') {
-                    errorHint.textContent = labels.errorRequired;
+                // Validación (obligatoria vacía o email no válido): no es un fallo, la página se queda.
+                if (reason === 'required' || reason === 'invalid_email') {
+                    errorHint.textContent = reason === 'invalid_email' ? labels.errorInvalidEmail : labels.errorRequired;
                     errorHint.style.display = 'block';
                     // La página no ha cambiado: el estado de navegación se queda como estaba.
                     updateNavButtons();

@@ -123,6 +123,13 @@ describe('renderPopup · survey_error', () => {
         expect(surveyErrors(emit)).toEqual([]);
     });
 
+    it('un email no válido enseña errorInvalidEmail y no es un fallo', async () => {
+        const { container, emit } = await render();
+        generateOptions!.afterSubmitEvent?.({ error: Object.assign(new Error('Invalid email'), { code: 'INVALID_EMAIL' }), progress: 0, total: 3 });
+        expect(container.querySelector('#dd-error')?.textContent).toBe(getLabels('en').errorInvalidEmail);
+        expect(surveyErrors(emit)).toEqual([]);
+    });
+
     it('el mismo objeto de error dos veces (cierre del survey) emite un solo evento', async () => {
         const { emit } = await render();
         const error = Object.assign(new Error('An error occurred while submitting the form x:'), { code: 'SEND_FAILED' });

@@ -1,0 +1,87 @@
+name: Visual regression
+
+# Regresión visual del popup web (DD-28): la test app (apps/test-app) con la build de este commit,
+# capturas de cada estado del popup en escritorio y móvil (pequeño y estándar), comparadas con las
+# referencias APROBADAS de apps/test-app/visual/baselines/. Ver apps/test-app/visual/README.md.
+#
+# Corre en la imagen oficial de Playwright: las referencias se generan ahí, y en local se usa la
+# misma (`node apps/test-app/visual/run.mjs --docker`). Ni el CI ni este workflow aprueban nunca
+# una referencia: la evidencia queda en el artefacto `visual-report-<sdk>` (referencia, captura y
+# diferencia de cada estado) y aprobar es scripts/visual/approve.mjs a mano + una PR.
+#
+# El check "Visual regression · SDK local" corre en las PR a dev/main y en cada push a dev, así
+# que también en el commit etiquetado de una release (lo exige el gate de DD-27).
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+  schedule:
+    - cron: '30 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      sdk:
+        description: 'SDK version (local = build of this commit; X.Y.Z or latest = published package)'
+        default: local
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-${{ github.ref }}-${{ inputs.sdk || 'local' }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    name: Visual regression · SDK ${{ inputs.sdk || 'local' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      # ⚠️ Misma versión que @playwright/test en package-lock.json (el primer paso lo comprueba).
+      image: mcr.microsoft.com/playwright:v1.60.0-noble
+      options: --ipc=host
+    env:
+      SDK_VERSION: ${{ inputs.sdk || 'local' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Playwright version matches the image
+        run: |
+          v="$(node -p "require('@playwright/test/package.json').version")"
+          if [ "$v" != "1.60.0" ]; then
+            echo "::error::@playwright/test is $v but the container image is v1.60.0: update the image in visual.yml (and re-approve the baselines if the rendering changes)"
+            exit 1
+          fi
+
+      - name: Build SDK
+        if: env.SDK_VERSION == 'local'
+        run: npm run build
+
+      - name: Capture + compare
+        run: node apps/test-app/visual/run.mjs
+
+      - name: Summary
+        if: always()
+        run: cat apps/test-app/visual/out/report/summary.md >> "$GITHUB_STEP_SUMMARY" || echo "No visual summary (capture did not run)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-report-${{ env.SDK_VERSION }}
+          path: |
+            apps/test-app/visual/out/report/
+            apps/test-app/visual/out/playwright-report/
+          retention-days: 30
