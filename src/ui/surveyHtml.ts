@@ -674,9 +674,9 @@ ${REVEAL_JS}
           if(p && p.error){
             setLoading(false);
             var ddErr=ddClassifySubmitError(p.error);
-            if(ddErr.reason==='required'){
+            if(ddErr.reason==='required' || ddErr.reason==='invalid_email'){
               // La página no ha cambiado: el estado de navegación se queda como estaba.
-              errorHint.textContent=DD_LABELS_ACTIVE.errorRequired;
+              errorHint.textContent=ddErr.reason==='invalid_email' ? DD_LABELS_ACTIVE.errorInvalidEmail : DD_LABELS_ACTIVE.errorRequired;
               errorHint.style.display='block';
               updateNavButtons();
               return;
