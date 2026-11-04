@@ -6,8 +6,8 @@
   "version": "1.18.0",
   "surveyRenderer": {
     "package": "@magicfeedback/native",
-    "version": "2.2.37",
-    "cdnVersion": "2.2.37"
+    "version": "2.2.39",
+    "cdnVersion": "2.2.39"
   },
   "hosts": {
     "buildTarget": "es2020",
