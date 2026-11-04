@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createInterface } from 'node:readline/promises';
-import { failingChecks, requiredChecksFrom } from './release/required-checks.mjs';
+import { evaluateRelease } from './release/required-checks.mjs';
 
 const PKG = '@magicfeedback/popup-sdk';
 const BASE = 'dev';
@@ -217,11 +217,12 @@ async function tagRelease({ yes, watch }) {
   if (conclusion !== 'success') fail(`El CI de ${sha.slice(0, 7)} ha terminado en ${conclusion}: ${url}`);
   console.log(`  CI de ${BASE} en verde`);
 
-  // Lo mismo que release.yml antes de publicar (DD-25): CI + test app con la build de ese commit.
-  const runs = tryRun('gh', ['api', `repos/{owner}/{repo}/commits/${sha}/check-runs?per_page=100`, '--jq', '.check_runs']);
-  const failing = failingChecks(requiredChecksFrom(runs.ok ? JSON.parse(runs.out) : []));
-  if (failing.length) fail(`Checks de ${sha.slice(0, 7)} no en verde (${failing.join('; ')}): release.yml no publicaria.`);
-  console.log('  Test app con la build de ese commit en verde');
+  // Lo mismo que release.yml antes de publicar (DD-25, DD-27): CI + test app con la build de ese
+  // commit, o la excepción de emergencia de la PR de release.
+  const gate = evaluateRelease({ repo: 'MagicFeedback/deepdots-popup-sdk', sha, api: (path) => JSON.parse(run('gh', ['api', path])) });
+  if (!gate.ok) fail(`${gate.errors.join('; ')}: release.yml no publicaria.`);
+  if (gate.override) console.log(`  ⚠ Excepcion de emergencia de ${gate.override.by}: ${gate.override.reason}`);
+  else console.log('  Test app con la build de ese commit en verde');
 
   if (!yes && !(await confirm(`\nEtiquetar ${tag} sobre ${sha.slice(0, 7)} y publicar?`))) fail('Cancelado.');
 
