@@ -43,12 +43,17 @@ export function listShots(dir, devices = null) {
   return out.sort();
 }
 
-/** Tolerancia y máscaras de un device: `visual.json` → defaults + override del device. */
-export function settingsFor(config, device) {
+/**
+ * Tolerancia y máscaras de un device: `visual.json` → defaults + override del device. Una máscara
+ * `{x, y, width, height}` (px de la captura) puede limitarse a unos estados (`states: [...]`) o
+ * excluir algunos (`except: [...]`), p. ej. cuando el popup tapa justo esa zona.
+ */
+export function settingsFor(config, device, state = null) {
   const dev = config.devices?.[device] ?? {};
+  const applies = (m) => state === null || ((!m.states || m.states.includes(state)) && !m.except?.includes(state));
   return {
     compare: { ...DEFAULT_COMPARE, ...config.compare, ...dev.compare },
-    masks: [...(config.masks ?? []), ...(dev.masks ?? [])],
+    masks: [...(config.masks ?? []), ...(dev.masks ?? [])].filter(applies),
   };
 }
 
@@ -73,7 +78,7 @@ export function evaluate({ config, approvals, baselines, actuals, capturedOnly =
       return { ...row, status: 'unapproved_baseline', detail: 'baseline file changed since it was approved (sha256 mismatch)' };
     }
 
-    const { compare, masks } = settingsFor(config, device);
+    const { compare, masks } = settingsFor(config, device, state);
     const result = comparePng(maskPng(base, masks), maskPng(actual, masks), compare);
     const detail = result.sizeChanged
       ? `size ${result.expectedSize.width}×${result.expectedSize.height} → ${result.actualSize.width}×${result.actualSize.height}`
