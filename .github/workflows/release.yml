@@ -31,6 +31,7 @@ permissions:
   pull-requests: write # PR de respaldo si el merge en main da conflicto
   actions: read # metadata.mjs lee el CI del commit etiquetado
   checks: read # required-checks.mjs
+  issues: read # required-checks.mjs: quien puso la etiqueta de la excepcion de emergencia
 
 concurrency:
   group: release
@@ -78,12 +79,13 @@ jobs:
           fi
           node scripts/release/check.mjs release --tag "$GITHUB_REF_NAME" --notes-out "$RUNNER_TEMP/notes.md"
 
-      # Checks del commit etiquetado (DD-25): CI + test app con la build de este commit. En rojo,
-      # no se publica nada.
+      # Checks del commit etiquetado (DD-25, DD-27): CI + test app con la build de este commit. En
+      # rojo o sin ejecutar, no se publica nada. La unica salida es la excepcion de emergencia
+      # (docs/VERSIONING.md), que deja un aviso en las release notes.
       - name: Release checks
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/release/required-checks.mjs --sha "$GITHUB_SHA"
+        run: node scripts/release/required-checks.mjs --sha "$GITHUB_SHA" --notes "$RUNNER_TEMP/notes.md"
 
       - name: Unit tests
         run: npm test
