@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **"Please enter a valid email address." for an email with a typo.** `@magicfeedback/native` 2.2.39 reports it as `SubmitError` with code `INVALID_EMAIL`, where earlier versions said `REQUIRED` / "No response" and the popup asked the visitor to answer a question they had answered (reported by Lemvigh-Müller). The popup shows the new `errorInvalidEmail` label (translated in the 12 languages) and keeps the page, like a required question; it is validation, so no `survey_error` is emitted. The reason is `invalid_email` in `classifySubmitError` and in the WebView mirror. It applies once the bundled `@magicfeedback/native` is 2.2.39 (not published yet); with 2.2.37 nothing changes.
 
+### Changed
+- **`@magicfeedback/native` 2.2.39** (from 2.2.37), in the web bundle and as the default CDN version of the React Native WebView. It brings the `INVALID_EMAIL` submit error, so the popup now shows "Please enter a valid email address." for an email with a typo; the 24 official EU languages for the survey (DD-67); and the email field's `Option/Alt + 2` shortcut and optional @ button (DD-47). `src/assets/style.css` is re-vendored with the email @ rules. The 2.2.39 package ships its CSS minified, which `scripts/vendor-survey-css.mjs` cannot read, so this copy was vendored from the package's readable source (`src/styles/magicfeedback-default.css` at ba14d87, the commit 2.2.39 was published from).
+
 ## [1.18.0] — 2026-10-30
 
 ### Added
