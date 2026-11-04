@@ -54,7 +54,8 @@ A version reaches npm only through `release.yml`, and only if every gate below i
 | E2E (Playwright) | same (required on `dev`) | a failing package e2e test |
 | Version & changelog | every pull request (`release-check.yml`, required on `dev`) | missing release notes or bump, an invalid manifest, schema or fixtures; on the release pull request, the "Release dry run" packs and smoke-tests the tarball |
 | Smoke + regression · SDK local | pull requests that touch the SDK or the test app, and every push to `dev` (`test-app.yml`) | any test store test failing with the build of that commit, desktop and mobile Chromium |
-| Release checks | `release.yml`, before anything is published | any of "Tests & build", "E2E (Playwright)" or "Smoke + regression · SDK local" not green **or missing** on the tagged commit |
+| Visual regression · SDK local | every pull request and push to `dev` (`visual.yml`, DD-28) | a screenshot that differs from its approved baseline, or a baseline that is missing or not approved |
+| Release checks | `release.yml`, before anything is published | any of "Tests & build", "E2E (Playwright)", "Smoke + regression · SDK local" or "Visual regression · SDK local" not green **or missing** on the tagged commit |
 
 The tarball is packed once; that file is smoke-tested, published and attached to the GitHub
 Release, and its integrity is checked against what npm stored. The release validation report

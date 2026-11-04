@@ -5,6 +5,7 @@ const green = [
   { name: 'Tests & build', conclusion: 'success', started_at: '1' },
   { name: 'E2E (Playwright)', conclusion: 'success', started_at: '1' },
   { name: 'Smoke + regression · SDK local', conclusion: 'success', started_at: '1' },
+  { name: 'Visual regression · SDK local', conclusion: 'success', started_at: '1' },
   { name: 'Smoke + regression · SDK 1.16.1', conclusion: 'failure', started_at: '1' },
 ];
 
@@ -18,15 +19,20 @@ describe('required-checks', () => {
     expect(failingChecks(requiredChecksFrom(runs))).toEqual(['"Smoke + regression · SDK local" failure u']);
   });
 
+  it('an unapproved visual change (red visual regression, DD-28) blocks the release', () => {
+    const runs = [...green, { name: 'Visual regression · SDK local', conclusion: 'failure', started_at: '2', html_url: 'v' }];
+    expect(failingChecks(requiredChecksFrom(runs))).toEqual(['"Visual regression · SDK local" failure v']);
+  });
+
   it('a missing or running check blocks it too', () => {
     const runs = [green[0], { name: 'E2E (Playwright)', status: 'in_progress', conclusion: null, started_at: '1' }];
-    expect(failingChecks(requiredChecksFrom(runs))).toEqual(['"E2E (Playwright)" in_progress', '"Smoke + regression · SDK local" missing']);
+    expect(failingChecks(requiredChecksFrom(runs))).toEqual(['"E2E (Playwright)" in_progress', '"Smoke + regression · SDK local" missing', '"Visual regression · SDK local" missing']);
   });
 });
 
 // DD-27: checks que faltan bloquean; excepción de emergencia explícita en la PR de release.
 
-const GREEN = ['Tests & build', 'E2E (Playwright)', 'Smoke + regression · SDK local'].map((name) => ({ name, conclusion: 'success', started_at: '1' }));
+const GREEN = ['Tests & build', 'E2E (Playwright)', 'Smoke + regression · SDK local', 'Visual regression · SDK local'].map((name) => ({ name, conclusion: 'success', started_at: '1' }));
 const RED = GREEN.map((c) => (c.name.startsWith('Smoke') ? { ...c, conclusion: 'failure', html_url: 'u' } : c));
 const REASON = '## Release gate override\nDEV API down since 09:00; hotfix for a crash in prod, checked by hand on Safari and Chrome.\n';
 function fakeApi({ runs = GREEN, pulls = [{ number: 70, merged_at: 't', merge_commit_sha: 'tag', base: { ref: 'dev' } }], labels = [], body = '', events = [], permission = 'admin' } = {}) {
