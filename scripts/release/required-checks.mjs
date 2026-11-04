@@ -5,6 +5,8 @@
  *   - "Tests & build" y "E2E (Playwright)" (ci.yml);
  *   - "Smoke + regression · SDK local" (test-app.yml): la tienda de prueba con la build de ese
  *     commit, escritorio + móvil. Un test roto del test app bloquea la release.
+ *   - "Visual regression · SDK local" (visual.yml, DD-28): capturas iguales a las baselines
+ *     aprobadas; un cambio visual sin aprobar bloquea la release (DD-27).
  *
  *   required-checks.mjs --sha <commit etiquetado>
  *
@@ -22,7 +24,7 @@ import { pathToFileURL } from 'node:url';
 import { releasePullFrom } from './metadata.mjs';
 import { evaluateOverride, labelledBy, overrideNotes } from './override.mjs';
 
-export const REQUIRED_CHECKS = ['Tests & build', 'E2E (Playwright)', 'Smoke + regression · SDK local'];
+export const REQUIRED_CHECKS = ['Tests & build', 'E2E (Playwright)', 'Smoke + regression · SDK local', 'Visual regression · SDK local'];
 
 /** El check-run más reciente de cada check requerido, o `missing`. */
 export function requiredChecksFrom(checkRuns = []) {
