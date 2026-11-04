@@ -352,7 +352,7 @@ export function watch(last, previous, { now = new Date(), heartbeat = false, env
       state.silent[platform] = now.toISOString();
       messages.push(
         lines(
-          `:large_yellow_circle: ${testPrefix(env)}*Popup SDK monitor silent*: ${PLATFORMS[platform].label} last finished run ${l ? `${ago(age)} ago` : 'over 7 days ago'} (expected every ${everyH(platform, env)} h) · <https://github.com/${PLATFORMS[platform].repo}/actions/workflows/monitor.yml|workflow runs> · <${RUNBOOK[platform]}#missing-heartbeat|runbook>`,
+          `:large_yellow_circle: ${testPrefix(env)}*Popup SDK monitor silent*: ${PLATFORMS[platform].label} ${l ? `last finished run ${ago(age)} ago` : 'no finished scheduled run in the last 7 days'} (expected every ${everyH(platform, env)} h) · <https://github.com/${PLATFORMS[platform].repo}/actions/workflows/monitor.yml|workflow runs> · <${RUNBOOK[platform]}#missing-heartbeat|runbook>`,
         ),
       );
     } else if (age <= limitMs && state.silent[platform]) {
