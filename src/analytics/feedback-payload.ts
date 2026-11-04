@@ -9,7 +9,7 @@
  * `feedback.finished` se queda siempre en `false` (no es la señal de cierre acordada).
  *
  * Encoding:
- *  - todo va en `feedback.metadata`: contexto (user_id, session_id, platform…) + eventos
+ *  - todo va en `feedback.metadata`: contexto (user_id, session_id, platform, sdk…) + eventos
  *  - cada entrada usa `value: string[]` (array de un elemento)
  *  - eventos: {key: nombre_evento, value: [JSON(timestamp + params)]}
  *  - identidad (user_id) → `profile` como `external-user-id`
@@ -79,6 +79,7 @@ export function buildAnalyticsFeedbackBody(
   pushKV(metadata, 'deepdots_user_id', envelope.userId);
   pushKV(metadata, 'deepdots_session_id', envelope.sessionId);
   pushKV(metadata, 'deepdots_platform', context.platform);
+  pushKV(metadata, 'deepdots_sdk', context.sdk);
   pushKV(metadata, 'deepdots_language', context.language);
   if (context.device) {
     const d = context.device;

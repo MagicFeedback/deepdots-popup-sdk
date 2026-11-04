@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import pkg from '../../package.json';
 import { AnalyticsManager, type AnalyticsEnvelope, type AnalyticsSink } from './analytics-manager';
 
 /** Deja correr las microtasks pendientes (el re-encolado ocurre al rechazar el sink). */
@@ -30,6 +31,10 @@ describe('AnalyticsManager', () => {
     expect(payload.events).toEqual([
       { name: 'cta_click', timestamp: 1000, params: { label: 'comprar' } },
     ]);
+  });
+
+  it('stamps the SDK identity (web@<package.json version>) on the envelope context', () => {
+    expect(am.buildPayload(identity).context.sdk).toBe(`web@${pkg.version}`);
   });
 
   it('merges user attributes into the envelope context (coerced to string)', () => {

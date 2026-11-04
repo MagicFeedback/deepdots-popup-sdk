@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup';
+import { sdkVersionDefine } from './scripts/sdk-version-define.mjs';
 
 /**
  * Build del entry de React Native (`@magicfeedback/popup-sdk/react-native`).
@@ -26,5 +27,6 @@ export default defineConfig({
   loader: { '.css': 'text' },
   esbuildOptions(options) {
     options.jsx = 'automatic';
+    options.define = { ...options.define, ...sdkVersionDefine('react-native') };
   },
 });
