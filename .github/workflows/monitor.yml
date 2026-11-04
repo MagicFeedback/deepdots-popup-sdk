@@ -152,9 +152,10 @@ jobs:
             else git worktree add --detach pages && git -C pages checkout -q --orphan "pages-$try" && git -C pages rm -rfq .; fi
             mkdir -p "pages/$DIR" && cp -R "$OUT/report/." "pages/$DIR/"
             git -C pages add -A && git -C pages commit -qm "sdk monitor report $DIR"
-            git -C pages push origin HEAD:refs/heads/validation-reports && break
+            git -C pages push origin HEAD:refs/heads/validation-reports && { published=1; break; }
             sleep $((try * 5))
           done
+          if [ -z "${published:-}" ]; then echo "::error::Failure report not published (push to validation-reports failed 3 times): it is in the run's artifact"; exit 1; fi
           gh workflow run demo-gh-pages.yml --repo "$GITHUB_REPOSITORY" --ref dev
 
       - name: Simulate Grafana down
