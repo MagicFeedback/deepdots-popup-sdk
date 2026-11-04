@@ -211,7 +211,8 @@ export function decide(rows, previous, now = new Date(), env = process.env) {
     const open = state.incidents[key(r)];
     if (r.status === 'fail') {
       const reminder = r.failure_category !== 'monitor_error' && now - Date.parse(open?.last_alert ?? 0) >= reminderMs;
-      const due = !open || reminder || open.category !== r.failure_category;
+      // `last_alert: null` = told to nobody yet (no webhook, Slack down): tell it now.
+      const due = !open || !open.last_alert || reminder || open.category !== r.failure_category;
       if (due) alert.push({ row: r, since: open?.since ?? null });
       state.incidents[key(r)] = {
         platform: r.platform,
@@ -234,6 +235,17 @@ export function decide(rows, previous, now = new Date(), env = process.env) {
     }
   }
   return { alert, recovered, state };
+}
+
+/**
+ * Messages that did not reach Slack (no webhook, Slack error) are not lost: a failure stays
+ * "not told yet" and a recovery keeps its incident open, so the next run tells them.
+ */
+export function keepUndelivered(state, alerts, recoveries) {
+  const next = { ...state, incidents: { ...state.incidents } };
+  for (const { v, ok } of alerts) if (!ok && next.incidents[key(v.row)]) next.incidents[key(v.row)] = { ...next.incidents[key(v.row)], last_alert: null };
+  for (const { v, ok } of recoveries) if (!ok) next.incidents[key(v.incident)] = v.incident;
+  return next;
 }
 
 const testPrefix = (env) => (env.GITHUB_EVENT_NAME && env.GITHUB_EVENT_NAME !== 'schedule' ? 'TEST — ' : '');
@@ -407,12 +419,17 @@ async function post(message, env = process.env) {
   if (!webhook) {
     console.log(`::warning::No MONITORING_SLACK_WEBHOOK_URL: Slack message printed only`);
     console.log(message.blocks[0].text.text);
-    return;
+    return false;
   }
-  const res = await fetch(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...message, unfurl_links: false, unfurl_media: false }) });
+  const res = await fetch(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...message, unfurl_links: false, unfurl_media: false }) }).catch((err) => {
+    console.log(`::warning::Slack unreachable: ${err.message}`);
+    return null;
+  });
+  if (!res) return false;
   // The URL is the secret: never print it.
   if (!res.ok) console.log(`::warning::Slack answered ${res.status}: ${(await res.text()).slice(0, 200)}`);
   else console.log(`[sdk-monitor] sent: ${message.text}`);
+  return res.ok;
 }
 
 const readJson = (file, fallback) => (file && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : fallback);
@@ -463,7 +480,7 @@ async function main() {
   if (cmd === 'report') {
     process.env.SDK_MONITOR_OUT ??= a.out;
     const rows = readRows(a.out);
-    const { alert, recovered, state } = decide(rows, readJson(a.state, emptyState()));
+    const { alert, recovered, state: decided } = decide(rows, readJson(a.state, emptyState()));
     const failed = rows.filter((r) => r.status === 'fail');
     if (failed.length) {
       const dir = join(a.out, 'report');
@@ -481,8 +498,11 @@ async function main() {
       writeFileSync(join(dir, 'index.html'), toHtml(buildReport(rows, { platform: rows[0].platform }), `Popup SDK monitor · ${rows[0].platform}`));
       writeFileSync(join(a.out, 'results.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
     }
-    for (const v of alert) await post(failureMessage(v, { reportUrl: a['report-url'] }));
-    for (const v of recovered) await post(recoveryMessage(v));
+    const alerts = [];
+    for (const v of alert) alerts.push({ v, ok: await post(failureMessage(v, { reportUrl: a['report-url'] })) });
+    const recoveries = [];
+    for (const v of recovered) recoveries.push({ v, ok: await post(recoveryMessage(v)) });
+    const state = keepUndelivered(decided, alerts, recoveries);
     if (!alert.length && !recovered.length) console.log(`[sdk-monitor] nothing to tell Slack (${rows.length} checks, ${failed.length} failing, ${Object.keys(state.incidents).length} open incidents)`);
     writeFileSync(a.state, JSON.stringify(state, null, 2));
     output('report', failed.length ? 'true' : 'false');
