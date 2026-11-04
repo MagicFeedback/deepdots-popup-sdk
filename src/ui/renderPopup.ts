@@ -472,7 +472,7 @@ export async function renderPopup(
     footer.id = 'dd-footer';
     footer.className = 'deepdots-popup-footer';
     footer.setAttribute('data-actions-wrapper', 'true');
-    footer.style.cssText = 'display:flex; flex-direction: row-reverse ;justify-content:space-between; align-items:center; gap:4px; margin-top:auto; width:100%; padding-top:12px;';
+    footer.style.cssText = 'display:flex; flex-direction: row ;justify-content:space-between; align-items:center; gap:4px; margin-top:auto; width:100%; padding-top:12px;';
 
     // Botones
     const backButton = document.createElement('button');
