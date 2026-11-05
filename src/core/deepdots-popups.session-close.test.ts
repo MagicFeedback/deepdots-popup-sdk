@@ -7,7 +7,7 @@ import { setupReactNative } from '../react-native/setup';
 /**
  * DD-55: cierre de sesión sin pérdidas, un test por cada forma de cerrar.
  *
- * MOM_PROD (React Native, popup-sdk 1.17, 2–5 nov 2026): en iOS el 20 % de las sesiones se
+ * Producción con React Native (popup-sdk 1.17, nov 2026): en iOS el 20 % de las sesiones se
  * cerraban tarde (el lote de cierre llegaba al volver a abrir la app, mediana 49 min) y el 12 %
  * no se cerraban nunca; en Android, ~2 %. El `session_end` lleva la hora del `background`: el
  * SDK procesa el evento a tiempo, pero iOS suspende la app con el POST en vuelo.

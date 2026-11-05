@@ -3,7 +3,7 @@
  *
  * En iOS la app se suspende pocos segundos después de pasar a background. Si el POST con el
  * cierre de la sesión sigue en vuelo, no termina hasta que el usuario vuelve a abrir la app
- * (MOM_PROD, 2–5 nov 2026: 20 % de las sesiones iOS cerradas tarde y 12 % sin cierre, frente
+ * (medido en producción con React Native, nov 2026: una de cada tres sesiones iOS se cerraba tarde o nunca, frente
  * a ~2 % en Android). iOS concede más tiempo si la app lo pide (`beginBackgroundTask`), pero
  * eso es una API nativa: el SDK es JS puro, así que el host le pasa una función que la abre.
  *
