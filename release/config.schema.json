@@ -230,6 +230,17 @@
         },
         "segments": {
           "$ref": "#/definitions/PopupSegments"
+        },
+        "surveyFrontend": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopupSurveyFrontend"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Versión del survey asignada en el Admin (latest o fijada) y su survey SDK (DD-70). La manda la API desde DD-70; con APIs anteriores falta y se usa el survey SDK empaquetado."
         }
       },
       "required": [
@@ -476,6 +487,31 @@
       },
       "additionalProperties": {},
       "description": "Segments/targeting rules for showing the popup"
+    },
+    "PopupSurveyFrontend": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Versión de MagicSurvey resuelta (X.Y.Z)."
+        },
+        "preference": {
+          "type": "string",
+          "description": "\"latest\" o la X.Y.Z fijada."
+        },
+        "status": {
+          "type": "string"
+        },
+        "sdkVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "`@magicfeedback/native` con el que se construyó esa versión; null si no se conoce."
+        }
+      },
+      "additionalProperties": false,
+      "description": "`surveyFrontend` de `GET /sdk/{publicKey}/popups` (DD-70)."
     }
   }
 }

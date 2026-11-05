@@ -1108,7 +1108,7 @@ export class DeepdotsPopups {
         this.surveyToPopupId.set(def.surveyId, def.id);
         this.lastShown.set(def.id, Date.now());
         this.persistPopupState();
-        this.renderPopup(def.surveyId, def.productId, def.actions, def.style, def.title);
+        this.renderPopup(def.surveyId, def.productId, def.actions, def.style, def.title, def.surveyFrontend?.sdkVersion);
         this.emitEvent('popup_shown', def.surveyId, { popupId: def.id });
     }
 
@@ -1551,7 +1551,7 @@ export class DeepdotsPopups {
     }
 
     /** Render the popup UI */
-    private renderPopup(surveyId: string, productId: string, actions?: PopupActions, style?: PopupStyle, title?: string): void {
+    private renderPopup(surveyId: string, productId: string, actions?: PopupActions, style?: PopupStyle, title?: string, surveySdkVersion?: string | null): void {
         const userId = this.tracking?.getUserId() ?? this.config?.userId;
         const sessionId = this.tracking?.getSessionId() ?? undefined;
         const miniService = this.analytics?.getMiniService() ?? undefined;
@@ -1570,7 +1570,7 @@ export class DeepdotsPopups {
             miniService,
             analyticsFeedbackSessionId,
             this.renderChrome,
-            { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language, cspNonce: this.cspNonce },
+            { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language, cspNonce: this.cspNonce, surveySdkVersion, debug: this.config?.debug },
         );
     }
 

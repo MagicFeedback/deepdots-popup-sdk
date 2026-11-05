@@ -31,6 +31,13 @@ export interface PopupRenderOptions {
    * la hoja del survey. No aplica a React Native (el survey vive en su propio WebView).
    */
   cspNonce?: string;
+  /**
+   * `surveyFrontend.sdkVersion` del popup (DD-70): versión de `@magicfeedback/native` asignada
+   * al survey en el Admin. Se usa si está en el rango soportado y carga; si no, la empaquetada.
+   */
+  surveySdkVersion?: string | null;
+  /** `init({debug})`, para el log de la versión de survey SDK elegida. */
+  debug?: boolean;
 }
 
 export interface PopupRenderer {

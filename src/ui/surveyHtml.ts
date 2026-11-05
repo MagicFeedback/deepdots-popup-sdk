@@ -1,3 +1,4 @@
+import { BUNDLED_SURVEY_SDK_VERSION, surveySdkUrls } from './surveySdkVersion';
 import type { IdentityAnswer } from '../tracking/tracking-manager';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import type { PopupActions, PopupFont } from '../types';
@@ -62,7 +63,12 @@ export interface BuildSurveyHtmlOptions {
   env?: string; // 'production' | 'development'
   profile?: IdentityAnswer[];
   metadata?: IdentityAnswer[];
-  version?: string; // versión de @magicfeedback/native
+  /**
+   * Versión de `@magicfeedback/native` a cargar (DD-70: la asignada al survey ya elegida con
+   * `chooseSurveySdkVersion`). Por defecto la empaquetada. Si no carga de jsDelivr ni de unpkg,
+   * el HTML prueba la empaquetada antes de dar el error de carga.
+   */
+  version?: string;
   font?: PopupFont; // fuente personalizada (family + url opcional)
   theme?: 'light' | 'dark';
   position?: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
@@ -138,9 +144,12 @@ function trimmedOrNull(value: string | undefined): string | null {
 
 export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const env = opts.env === 'development' ? 'dev' : 'prod';
-  // Misma versión que la dep npm del bundle web, para que las dos rutas pinten igual.
-  const version = opts.version ?? '2.2.39';
-  const cdn = `https://cdn.jsdelivr.net/npm/@magicfeedback/native@${version}/dist/magicfeedback-sdk.browser.js`;
+  // Por defecto la misma versión que la dep npm del bundle web, para que las dos rutas pinten igual.
+  const version = opts.version ?? BUNDLED_SURVEY_SDK_VERSION;
+  const surveySdkSources = [
+    ...surveySdkUrls(version),
+    ...(version !== BUNDLED_SURVEY_SDK_VERSION ? surveySdkUrls(BUNDLED_SURVEY_SDK_VERSION) : []),
+  ];
   const sid = jsonForScript(opts.surveyId);
   const pid = jsonForScript(opts.productId);
   const profileJson = jsonForScript(opts.profile ?? []);
@@ -717,10 +726,20 @@ ${REVEAL_JS}
     }catch(e){ ddShowLoadError('error:exception', e); }
     return true;
   }
-  var s=document.createElement('script'); s.src=${JSON.stringify(cdn)}; s.async=true;
-  s.onload=function(){ initMF(); };
-  s.onerror=function(){ ddShowLoadError('error:load', 'survey script failed to load'); };
-  document.head.appendChild(s);
+  // DD-70: la versión asignada (jsDelivr, unpkg) y, si ninguna carga, la empaquetada.
+  var ddSdkSources=${jsonForScript(surveySdkSources)}, ddSdkIndex=0;
+  function ddLoadSurveySdk(){
+    var url=ddSdkSources[ddSdkIndex];
+    var s=document.createElement('script'); s.src=url; s.async=true;
+    s.onload=function(){ try{ document.documentElement.setAttribute('data-survey-sdk', url); }catch(_){} initMF(); };
+    s.onerror=function(){
+      try{ console.warn('[Deepdots] survey SDK failed from '+url); }catch(_){}
+      if(++ddSdkIndex<ddSdkSources.length){ ddLoadSurveySdk(); }
+      else { ddShowLoadError('error:load', 'survey script failed to load'); }
+    };
+    document.head.appendChild(s);
+  }
+  ddLoadSurveySdk();
   var tries=0, t=setInterval(function(){ if(initMF()||++tries>40){ clearInterval(t); } },150);
 })();
 </script>

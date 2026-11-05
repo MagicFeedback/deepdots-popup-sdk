@@ -220,6 +220,15 @@ const renderer = new ReactNativePopupRenderer({
 `onReady` is optional: a host that opens its container on `onShow` still never shows the spinner,
 because the HTML reveals itself; the container just appears a few hundred ms before the card.
 
+### Survey version (latest or pinned in the Admin)
+
+Each popup draws its survey with the survey version assigned to it in the Admin (*Survey frontend version*: latest or pinned), like the survey page does. The API sends it per popup as `surveyFrontend.sdkVersion`, the `@magicfeedback/native` version that survey release was built with.
+
+- In range (`SUPPORTED_SURVEY_SDK_RANGE`, now `>=2.2.37 <2.3.0`) and different from the bundled one: the browser bundle of that exact version is loaded from jsDelivr, then unpkg. React Native's WebView does the same and falls back to the bundled version's URL.
+- Missing (older API, survey release without `sdkVersion`), out of range, or failing to load (no network, a CSP without `cdn.jsdelivr.net`/`unpkg.com` in `script-src`): the bundled version (`BUNDLED_SURVEY_SDK_VERSION`), as before.
+- Only the JS changes: the survey CSS stays the bundled, popup-scoped copy, which is why only patches of the bundled minor are accepted.
+- With `debug: true` the choice is logged (`[Deepdots] survey SDK 2.2.38 (assigned)`); a version that was asked for but not used is always logged as a warning. The popup element carries it in `data-survey-sdk`.
+
 ### Focus on text questions
 
 When the first question of a page is a text field (text, long text, email or number), the cursor
