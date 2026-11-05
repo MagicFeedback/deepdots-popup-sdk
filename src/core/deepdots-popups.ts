@@ -16,6 +16,8 @@ import {
     PopupStyle,
     SessionEndReason,
     SessionStartReason,
+    type AutoTrackOptions,
+    type DeepdotsRoute,
 } from '../types';
 // renderPopup se carga de forma PEREZOSA (dynamic import) para no arrastrar
 // `@magicfeedback/native` (browser) ni el CSS al importar el SDK en entornos sin DOM (React Native).
@@ -31,7 +33,7 @@ import {
     takeSuspendedSession,
     writeSuspendedSession,
 } from '../analytics/suspended-session';
-import { NavigationObserver } from '../tracking/navigation-observer';
+import { NavigationObserver, screenPath } from '../tracking/navigation-observer';
 import { collectDeviceInfo } from '../analytics/device-info';
 import { readCachedGeo, writeCachedGeo, fetchGeo } from '../analytics/geo-info';
 import { resolveLanguage } from '../analytics/language';
@@ -86,7 +88,19 @@ export const MAX_PENDING_TRIGGERS = 20;
 /** Disparo del host recibido antes de que lleguen las definiciones de popups. */
 type PendingTrigger =
     | { kind: 'event'; name: string }
-    | { kind: 'survey'; surveyId: string; popupId?: string };
+    | { kind: 'survey'; surveyId: string; popupId?: string }
+    | { kind: 'scroll'; percentage: number }
+    | { kind: 'click'; targetId: string };
+
+/** Señales en las que una llamada manual del host apaga la detección automática (regla 2). */
+type ManualSignal = 'screens' | 'scroll' | 'clicks';
+
+/** Lo que el SDK necesita de un `NavigationContainerRef` de React Navigation (v5+). */
+export interface NavigationRefLike {
+    getCurrentRoute(): { name: string; params?: object } | undefined | null;
+    addListener?(type: string, callback: () => void): (() => void) | void;
+    isReady?(): boolean;
+}
 
 interface DeferredExitPopup {
     id: string;
@@ -140,7 +154,27 @@ export class DeepdotsPopups {
     private surveyProgress: Map<string, PopupProgressState> = new Map();
     private lastShown: Map<string, number> = new Map(); // popupId -> timestamp mostrado
     private surveyToPopupId: Map<string, string> = new Map(); // surveyId -> popupId
-    private deferredExitTimers: number[] = [];
+    private deferredExitTimers: Array<ReturnType<typeof setTimeout>> = [];
+    /** Cola de exit diferidos cuando no hay `sessionStorage` (React Native). */
+    private memoryExitQueue: DeferredExitPopup[] = [];
+    /** `init({ autoTrack })`: qué detecta el SDK solo. Todo activo por defecto. */
+    private autoTrack: AutoTrackOptions = {};
+    /** `init({ screenName })`: renombra las rutas que detecta el helper de navegación. */
+    private screenNameFn: DeepdotsInitParams['screenName'] = undefined;
+    /** `platform` resuelto en init(). */
+    private platformName: DeepdotsInitParams['platform'] = undefined;
+    /** Señales que el host ya informa a mano: su detección automática queda apagada. */
+    private manualSignals = new Set<ManualSignal>();
+    /**
+     * Ruta de la pantalla actual (`setScreen` o el helper de navegación), en la misma forma que
+     * el `path` del `page_view`. En React Native es la ruta con la que se evalúan
+     * `segments.path`, `excludedPaths` y el trigger `exit` (no hay `window.location`).
+     */
+    private screenPath: string | null = null;
+    /** Pantalla recibida antes de `init()` (el helper de navegación puede engancharse antes). */
+    private pendingScreen: { name: string } | { route: DeepdotsRoute } | null = null;
+    /** Popups de scroll ya disparados en la pantalla actual (uno por pantalla). */
+    private scrollFired = new Set<string>();
 
     private baseUrl: string = '';
     private env: 'production' | 'development' = 'production';
@@ -232,6 +266,10 @@ export class DeepdotsPopups {
         if (!config.platform && (rn?.os === 'ios' || rn?.os === 'android')) {
             config = { ...config, platform: rn.os };
         }
+
+        this.autoTrack = config.autoTrack ?? {};
+        this.screenNameFn = config.screenName;
+        this.platformName = config.platform;
 
         const env = resolveEnvironment(config.nodeEnv);
 
@@ -369,6 +407,7 @@ export class DeepdotsPopups {
         }
 
         this.initialized = true;
+        this.applyPendingScreen();
         this.installAutoLifecycle(rn, config);
         this.log('SDK initialized', this.config);
         // El contenedor del popup (`#deepdots-popup-container`) lo crea el renderer, no el core.
@@ -490,12 +529,18 @@ export class DeepdotsPopups {
      */
     private installCrashHandlers(): void {
         if (!this.crashReporter || !this.tracking?.isTrackingEnabled()) return;
-        this.crashReporter.install();
+        // `autoTrack.errors: false` apaga lo automático; el ErrorUtils que pase el host a mano
+        // (`installReactNativeCrashHandler`) se engancha igual.
+        const auto = this.autoTrack.errors !== false;
+        if (auto) this.crashReporter.install();
         const errorUtils = this.rnErrorUtils
-            ?? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils;
+            ?? (auto ? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils : undefined);
         if (errorUtils && typeof errorUtils.setGlobalHandler === 'function') {
             this.crashReporter.installReactNative(errorUtils);
         }
+        // Promesas rechazadas sin `catch` (Hermes): encadena a Sentry/Crashlytics.
+        const rejections = auto ? getReactNativePlatform()?.promiseRejections : null;
+        if (rejections) this.crashReporter.installPromiseRejections(rejections);
     }
 
     /**
@@ -573,17 +618,195 @@ export class DeepdotsPopups {
     }
 
     /**
-     * Navegación MANUAL (entornos sin History API, p. ej. React Native con React Navigation).
-     * El host la llama en cada cambio de pantalla; emite `page_view` al salir de la anterior.
+     * Navegación MANUAL (entornos sin History API, p. ej. React Native). El host la llama en cada
+     * cambio de pantalla: emite `page_view` al salir de la anterior y, en React Native, la
+     * pantalla es la ruta con la que se evalúan `segments.path`, `excludedPaths` y el trigger
+     * `exit` (como `setPath` en KMP). Llamarla apaga la detección de `trackNavigation` en esta
+     * instancia (lo manual manda), así que una integración anterior no cuenta visitas dobles.
      */
     setScreen(name: string): void {
-        if (!this.navObserver) return;
+        this.markManual('screens', 'setScreen');
+        this.applyScreen(name);
+    }
+
+    /**
+     * Pantallas automáticas con React Navigation: pásale el ref del `NavigationContainer`
+     * (`createNavigationContainerRef()`) y el SDK sigue cada cambio de ruta sin que el host llame
+     * a `setScreen`. `init({ screenName })` renombra rutas. Se puede llamar antes de `init()`.
+     * Devuelve la función que deja de seguirlo. Sin un ref válido no hace nada.
+     */
+    trackNavigation(ref: NavigationRefLike | null | undefined): () => void {
+        if (!ref || typeof ref.getCurrentRoute !== 'function') {
+            this.debug('screens · trackNavigation: not a navigation ref, ignored');
+            return () => {};
+        }
+        const report = () => {
+            let route: { name: string; params?: object } | undefined | null;
+            try {
+                route = ref.getCurrentRoute();
+            } catch {
+                return;
+            }
+            if (route && typeof route.name === 'string') {
+                this.autoScreen({ name: route.name, params: route.params as Record<string, unknown> | undefined });
+            }
+        };
+        const unsubscribers: Array<() => void> = [];
+        if (typeof ref.addListener === 'function') {
+            for (const type of ['state', 'ready']) {
+                try {
+                    const unsubscribe = ref.addListener(type, report);
+                    if (typeof unsubscribe === 'function') unsubscribers.push(unsubscribe);
+                } catch {
+                    /* versión de React Navigation sin ese evento */
+                }
+            }
+        }
+        try {
+            if (ref.isReady?.() !== false) report();
+        } catch {
+            /* ref aún sin montar: llegará por 'ready' */
+        }
+        return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+    }
+
+    /**
+     * Profundidad de scroll (0–100) de la pantalla actual para los triggers `scroll`, como
+     * `onScroll` de KMP. Llamarla apaga la detección automática (`DeepdotsScrollView`, el
+     * listener de `window` en web) en esta instancia. Cada popup se dispara una vez por pantalla.
+     */
+    onScroll(percentage: number): void {
+        this.markManual('scroll', 'onScroll');
+        this.evaluateScroll(percentage);
+    }
+
+    /** @internal Scroll detectado por el SDK (`DeepdotsScrollView`). Lo manual y `autoTrack.scroll` mandan. */
+    reportAutoScroll(percentage: number): void {
+        if (!this.autoSignalActive('scroll')) return;
+        this.evaluateScroll(percentage);
+    }
+
+    /**
+     * Dispara los popups con trigger `click` cuyo id es `targetId` (React Native: llámalo en el
+     * `onPress` del botón). Llamarla apaga el listener automático del DOM en web.
+     */
+    triggerClick(targetId: string): void {
+        this.markManual('clicks', 'triggerClick');
+        this.evaluateClick(targetId);
+    }
+
+    /** @internal ¿Sigue activa la detección automática de esta señal? (`autoTrack` y regla 2). */
+    autoSignalActive(signal: ManualSignal): boolean {
+        return this.autoTrack[signal] !== false && !this.manualSignals.has(signal);
+    }
+
+    /**
+     * @internal La ruta para la segmentación y el exit sale de las pantallas (`setScreen` /
+     * navegación) y no de `window.location`: React Native, o cualquier entorno sin `location`.
+     */
+    usesScreenLocation(): boolean {
+        if (getReactNativePlatform()) return true;
+        if (this.platformName && this.platformName !== 'web') return true;
+        return typeof window === 'undefined' || !window.location;
+    }
+
+    private markManual(signal: ManualSignal, method: string): void {
+        if (this.manualSignals.has(signal)) return;
+        this.manualSignals.add(signal);
+        this.debug(`${signal} · ${method}() called by the host: automatic detection off for this signal`);
+    }
+
+    private autoScreen(route: DeepdotsRoute): void {
+        if (this.manualSignals.has('screens')) return;
+        if (!this.navObserver) {
+            this.pendingScreen = { route };
+            return;
+        }
+        if (this.autoTrack.screens === false) return;
+        let name = route.name;
+        try {
+            const renamed = this.screenNameFn?.(route);
+            if (typeof renamed === 'string' && renamed.trim()) name = renamed;
+        } catch (error) {
+            this.debug('screens · screenName threw; using the route name', error);
+        }
+        this.applyScreen(name);
+    }
+
+    private applyPendingScreen(): void {
+        const pending = this.pendingScreen;
+        this.pendingScreen = null;
+        if (!pending) return;
+        if ('name' in pending) this.applyScreen(pending.name);
+        else this.autoScreen(pending.route);
+    }
+
+    private applyScreen(name: string): void {
+        if (typeof name !== 'string' || !name.trim()) return;
+        if (!this.navObserver) {
+            this.pendingScreen = { name };
+            return;
+        }
         if (!this.navStarted) {
             this.navObserver.begin(name);
             this.navStarted = true;
         } else {
             this.navObserver.visit(name);
         }
+        const path = screenPath(name);
+        const previous = this.screenPath;
+        if (path === previous) return;
+        this.screenPath = path;
+        this.scrollFired.clear();
+        if (previous && this.usesScreenLocation()) this.queueScreenExits(previous);
+    }
+
+    /** Trigger `exit` en React Native: salir de una pantalla encola sus popups de exit. */
+    private queueScreenExits(previousPath: string): void {
+        if (!this.popupsLoaded) return;
+        this.popupDefinitions.forEach((def) => {
+            const exit = def.triggers.find((trigger) => trigger.type === 'exit');
+            if (!exit) return;
+            const seconds = Number(exit.value);
+            this.queueExitPopup(def.surveyId, Number.isFinite(seconds) ? Math.max(0, seconds) : 0, previousPath, def.id);
+        });
+    }
+
+    private evaluateScroll(raw: number): void {
+        if (!this.initialized) return;
+        const value = Number(raw);
+        if (!Number.isFinite(value)) return;
+        const percentage = Math.min(100, Math.max(0, value));
+        if (this.bufferIfAwaitingPopups({ kind: 'scroll', percentage })) return;
+        const matched = this.popupDefinitions.find((def) =>
+            !this.scrollFired.has(def.id)
+            && def.triggers.some((trigger) => {
+                if (trigger.type !== 'scroll') return false;
+                const threshold = Number(trigger.value);
+                return percentage >= (Number.isFinite(threshold) ? threshold : 50);
+            })
+            && this.shouldShow(def));
+        if (!matched) return;
+        this.scrollFired.add(matched.id);
+        this.showDefinition(matched);
+    }
+
+    private evaluateClick(targetId: string): void {
+        if (!this.initialized) return;
+        const normalized = String(targetId ?? '').trim();
+        if (!normalized) {
+            this.debug('Ignoring empty click trigger id');
+            return;
+        }
+        if (this.bufferIfAwaitingPopups({ kind: 'click', targetId: normalized })) return;
+        const matched = this.popupDefinitions.find((def) =>
+            def.triggers.some((trigger) => trigger.type === 'click' && String(trigger.value ?? '').trim() === normalized)
+            && this.shouldShow(def));
+        if (!matched) {
+            this.debug('No eligible click popup', normalized);
+            return;
+        }
+        this.showDefinition(matched);
     }
 
     /** App a foreground (RN: AppState 'active'): reanuda el engagement time y abre sesión nueva. */
@@ -1142,6 +1365,8 @@ export class DeepdotsPopups {
         this.debug('Replaying triggers received before popups loaded', replay.length);
         replay.forEach((trigger) => {
             if (trigger.kind === 'event') this.evaluateEvent(trigger.name);
+            else if (trigger.kind === 'scroll') this.evaluateScroll(trigger.percentage);
+            else if (trigger.kind === 'click') this.evaluateClick(trigger.targetId);
             else this.triggerSurvey(trigger.surveyId, trigger.popupId);
         });
     }
@@ -1300,6 +1525,13 @@ export class DeepdotsPopups {
 
     /** href + pathname normalizados de la ruta a evaluar, o null si no hay `window.location`. */
     private resolveCurrentLocation(pathUrl?: string): { href: string; path: string } | null {
+        if (this.usesScreenLocation()) {
+            // React Native: la pantalla de `setScreen` / navegación (sin pantalla, no se bloquea).
+            const raw = pathUrl || this.screenPath;
+            if (!raw) return null;
+            const href = this.normalizeUrl(raw);
+            return { href, path: href };
+        }
         if (typeof window === 'undefined' || !window.location) return null;
         const href = this.normalizeUrl(pathUrl || window.location.href || '');
         const parsed = this.safeParseUrl(href);
@@ -1351,7 +1583,7 @@ export class DeepdotsPopups {
             return;
         }
 
-        const originUrl = sourceUrl || (typeof window !== 'undefined' ? window.location.href : '');
+        const originUrl = sourceUrl || this.currentHref();
         if (!originUrl) {
             this.debug('Exit popup skipped: missing source URL', { surveyId });
             return;
@@ -1398,10 +1630,15 @@ export class DeepdotsPopups {
         this.setDeferredExitQueue(pending);
     }
 
+    /** La URL (web) o la ruta de la pantalla (React Native) actual; '' si no se conoce. */
+    private currentHref(): string {
+        if (this.usesScreenLocation()) return this.screenPath ?? '';
+        return typeof window !== 'undefined' && window.location ? window.location.href || '' : '';
+    }
+
     private scheduleDeferredExitPopup(item: DeferredExitPopup): void {
-        if (typeof window === 'undefined') return;
         const delay = Math.max(0, item.dueAt - Date.now());
-        const timer = window.setTimeout(() => this.tryShowDeferredExitPopup(item), delay);
+        const timer = setTimeout(() => this.tryShowDeferredExitPopup(item), delay);
         this.deferredExitTimers.push(timer);
     }
 
@@ -1412,7 +1649,7 @@ export class DeepdotsPopups {
             return;
         }
 
-        const currentUrl = typeof window !== 'undefined' ? this.normalizeUrl(window.location.href || '') : '';
+        const currentUrl = this.normalizeUrl(this.currentHref());
         if (!currentUrl || currentUrl === this.normalizeUrl(item.sourceUrl)) {
             this.removeDeferredExitPopup(item);
             this.debug('Exit popup dropped because route did not change', item);
@@ -1443,6 +1680,7 @@ export class DeepdotsPopups {
     }
 
     private getDeferredExitQueue(): DeferredExitPopup[] {
+        if (this.usesScreenLocation()) return this.memoryExitQueue.slice();
         if (typeof window === 'undefined') return [];
         try {
             const raw = window.sessionStorage.getItem(EXIT_QUEUE_STORAGE_KEY);
@@ -1469,6 +1707,10 @@ export class DeepdotsPopups {
     }
 
     private setDeferredExitQueue(queue: DeferredExitPopup[]): void {
+        if (this.usesScreenLocation()) {
+            this.memoryExitQueue = queue.slice();
+            return;
+        }
         if (typeof window === 'undefined') return;
         try {
             if (!queue.length) {

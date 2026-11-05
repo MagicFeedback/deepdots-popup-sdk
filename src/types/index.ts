@@ -36,6 +36,36 @@ export interface FeedbackSession {
 export interface AutoTrackOptions {
     /** React Native: listen to `AppState` for session start/end. Default `true`. */
     lifecycle?: boolean;
+    /**
+     * React Native: screens reported by `trackNavigation(ref)` / `useDeepdotsNavigation(ref)`
+     * (page views, `segments.path`, `excludedPaths` and the `exit` trigger). Default `true`.
+     * A host call to `setScreen` turns the detection off for that instance.
+     */
+    screens?: boolean;
+    /**
+     * Scroll depth reported by `DeepdotsScrollView` (React Native) or the window scroll listener
+     * (web) for `scroll` triggers. Default `true`. A host call to `onScroll` turns it off.
+     */
+    scroll?: boolean;
+    /**
+     * Web: the element click listener of `click` triggers. Default `true`. A host call to
+     * `triggerClick` turns it off. In React Native clicks are always reported with `triggerClick`.
+     */
+    clicks?: boolean;
+    /**
+     * Uncaught errors: `window` `error`/`unhandledrejection` (web), `ErrorUtils` and promise
+     * rejections without `catch` under Hermes (React Native). Default `true`. Handlers installed
+     * by other tools (Sentry, Crashlytics) keep receiving everything.
+     */
+    errors?: boolean;
+}
+
+/** A route detected by the React Navigation helper, as passed to `screenName`. */
+export interface DeepdotsRoute {
+    /** Route name in the navigator (e.g. `ProductDetail`). */
+    name: string;
+    /** Route params, if any. */
+    params?: Record<string, unknown>;
 }
 
 export interface DeepdotsInitParams {
@@ -85,6 +115,13 @@ export interface DeepdotsInitParams {
      * as well is harmless: nothing is sent twice.
      */
     autoTrack?: AutoTrackOptions;
+    /**
+     * Renames the screens the React Navigation helper detects (page views and path
+     * segmentation). Return the name to use (e.g. the path configured on the platform:
+     * `route => route.name === 'Cart' ? '/cart' : null`); `null`/`undefined` keeps the detected
+     * route name. Not applied to `setScreen` calls.
+     */
+    screenName?: (route: DeepdotsRoute) => string | null | undefined;
     /**
      * Analytics channel keys (`POST /sdk/feedback`). If provided, analytics is SENT
      * to the configured integration; if missing, it stays in dry-run mode: nothing is sent, and the payload is only

@@ -1,6 +1,6 @@
 export { DeepdotsPopups } from './core/deepdots-popups';
 export { buildMessageParams, MessageGuard, MESSAGE_CHANNELS, MAX_TRACKED_MESSAGES } from './analytics/messaging';
-export type { AutoTrackOptions } from './types';
+export type { AutoTrackOptions, DeepdotsRoute } from './types';
 export type {
   MessageStage,
   TrackMessageOptions,
@@ -58,3 +58,11 @@ export { setupReactNative, mmkvStorage, collectRnDevice } from './react-native/s
 export { backgroundTimerTask, BACKGROUND_TASK_MAX_MS } from './analytics/background-task';
 export type { BackgroundTaskRunner, BackgroundTimerLike } from './analytics/background-task';
 export type { ReactNativeSetupDeps, MmkvLike, DeviceInfoLike, AppStateLike } from './react-native/setup';
+// React Native: detección automática (contrato, paso 2). El ref de navegación lo sigue
+// `DeepdotsPopups.trackNavigation`; los componentes (`DeepdotsScrollView`, hooks) están en
+// `@magicfeedback/popup-sdk/react-native`.
+export { scrollPercentFromEvent } from './react-native/scroll';
+export type { ScrollEventLike } from './react-native/scroll';
+export type { NavigationRefLike } from './core/deepdots-popups';
+export { createHermesRejectionHub } from './platform/react-native-platform';
+export type { PromiseRejectionHub, RejectionTrackingOptions, HermesRejectionTrackerLike } from './platform/react-native-platform';

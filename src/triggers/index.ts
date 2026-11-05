@@ -37,7 +37,12 @@ function setupTimeTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void 
 
 function setupScrollTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
   const threshold = toNumericValue(trigger.value, 50);
+  // React Native: `window` es el global y no escucha eventos; el scroll llega por
+  // `DeepdotsScrollView` / `onScroll`.
+  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
   const handler = () => {
+    // `autoTrack.scroll: false` o el host ya informa con `onScroll` (lo manual manda).
+    if (popups.autoSignalActive?.('scroll') === false) return;
     const scrollPercentage = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
     if (scrollPercentage >= threshold) {
       popups.triggerSurvey(trigger.surveyId, trigger.popupId);
@@ -50,6 +55,9 @@ function setupScrollTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): voi
 
 function setupExitTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
   if (typeof window === 'undefined') return;
+  // React Native: el exit lo dispara el cambio de pantalla (`setScreen` / navegación).
+  if (popups.usesScreenLocation?.()) return;
+  if (!window.history || typeof window.history.pushState !== 'function') return;
 
   const delaySeconds = parseExitDelaySeconds(trigger.value);
   const historyRef = window.history;
@@ -182,6 +190,8 @@ function setupClickTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void
     }
     const handler = (e: MouseEvent) => {
       if (e.defaultPrevented) return;
+      // `autoTrack.clicks: false` o el host ya informa con `triggerClick` (lo manual manda).
+      if (popups.autoSignalActive?.('clicks') === false) return;
       popups.triggerSurvey(trigger.surveyId, trigger.popupId);
       el.removeEventListener('click', handler);
     };

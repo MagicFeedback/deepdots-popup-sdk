@@ -9,22 +9,19 @@
  * Peer deps: react, react-native, react-native-webview. Opcionales (auto-detectados):
  * react-native-mmkv (persistencia), react-native-device-info (device info).
  */
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, Modal, NativeModules, Platform, View } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AppState, Modal, NativeModules, Platform, ScrollView, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { DeepdotsPopups } from '../core/deepdots-popups';
+import { DeepdotsPopups, type NavigationRefLike } from '../core/deepdots-popups';
+import { scrollPercentFromEvent, type ScrollEventLike } from './scroll';
 import { ReactNativePopupRenderer, type ReactNativeSurveyPayload } from '../platform/react-native-renderer';
 import { setupReactNative } from './setup';
-import { registerReactNativePlatform } from '../platform/react-native-platform';
+import { registerReactNativeDefaults } from '../platform/react-native-defaults';
 
 // Igual que la entrada principal en RN (`index.native.ts`): el módulo nativo de background
-// (iOS) lo usa el sink sin que el host haga nada.
-registerReactNativePlatform({
-  os: Platform.OS,
-  appState: AppState,
-  backgroundTaskModule: NativeModules?.DeepdotsBackgroundTask ?? null,
-});
+// (iOS) y el tracker de promesas de Hermes los usa el SDK sin que el host haga nada.
+registerReactNativeDefaults({ AppState, NativeModules, Platform });
 import type { DeepdotsInitParams } from '../types';
 
 const sdk = new DeepdotsPopups();
@@ -106,5 +103,60 @@ export function DeepdotsProvider({ config, children }: DeepdotsProviderProps) {
   );
 }
 
+/**
+ * Pantallas automáticas con React Navigation: pasa el ref del `NavigationContainer` y el SDK
+ * sigue cada cambio de ruta (page views, `segments.path`, `excludedPaths`, trigger `exit`) sin
+ * llamar a `setScreen`. Usa el SDK del Provider, o el que se le pase.
+ *
+ *   const navigationRef = createNavigationContainerRef();
+ *   useDeepdotsNavigation(navigationRef);
+ *   <NavigationContainer ref={navigationRef}>…</NavigationContainer>
+ */
+export function useDeepdotsNavigation(ref: NavigationRefLike | null | undefined, sdkOverride?: DeepdotsPopups): void {
+  const context = useDeepdots();
+  const target = sdkOverride ?? context;
+  useEffect(() => target.trackNavigation(ref), [ref, target]);
+}
+
+/**
+ * `onScroll` para cualquier lista desplazable (`FlatList`, `SectionList`…) que alimenta los
+ * triggers `scroll`. Encadena el `onScroll` propio, si lo hay.
+ */
+export function useDeepdotsScroll(
+  onScroll?: (event: ScrollEventLike) => void,
+  sdkOverride?: DeepdotsPopups,
+): (event: ScrollEventLike) => void {
+  const context = useDeepdots();
+  const target = sdkOverride ?? context;
+  return useCallback(
+    (event: ScrollEventLike) => {
+      const percentage = scrollPercentFromEvent(event);
+      if (percentage !== null) target.reportAutoScroll(percentage);
+      onScroll?.(event);
+    },
+    [onScroll, target],
+  );
+}
+
+export interface DeepdotsScrollViewProps {
+  /** SDK a usar; por defecto, el del Provider. */
+  sdk?: DeepdotsPopups;
+  onScroll?: (event: ScrollEventLike) => void;
+  /** Por defecto 100 ms: suficiente para un umbral de %, sin saturar el puente. */
+  scrollEventThrottle?: number;
+  children?: React.ReactNode;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [prop: string]: any;
+}
+
+/** `ScrollView` que alimenta los triggers `scroll` (mismas props que `ScrollView`). */
+export function DeepdotsScrollView({ sdk: sdkOverride, onScroll, scrollEventThrottle = 100, ...props }: DeepdotsScrollViewProps) {
+  const handleScroll = useDeepdotsScroll(onScroll, sdkOverride);
+  return <ScrollView {...props} scrollEventThrottle={scrollEventThrottle} onScroll={handleScroll} />;
+}
+
+export { scrollPercentFromEvent } from './scroll';
+export type { ScrollEventLike } from './scroll';
+export type { NavigationRefLike } from '../core/deepdots-popups';
 export { setupReactNative } from './setup';
 export { ReactNativePopupRenderer } from '../platform/react-native-renderer';
