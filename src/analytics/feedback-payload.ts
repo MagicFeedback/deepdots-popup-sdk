@@ -18,7 +18,8 @@
  *  - `text` vacío
  */
 
-import type { AnalyticsEnvelope, AnalyticsSink } from './analytics-manager';
+import type { AnalyticsEnvelope, AnalyticsFlushMeta, AnalyticsSink } from './analytics-manager';
+import { runInBackgroundTask, type BackgroundTaskRunner } from './background-task';
 import type { KeyValueStorage } from '../tracking/tracking-manager';
 
 export interface AnalyticsKeys {
@@ -165,6 +166,12 @@ export interface FeedbackSinkOptions {
   storage?: KeyValueStorage;
   /** Reloj inyectable (tests). */
   now?: () => number;
+  /**
+   * Abre una background task nativa mientras dura cada envío (iOS: `beginBackgroundTask`), para
+   * que el POST de cierre termine aunque la app pase a background. Sin él, iOS suele suspender
+   * la app con el POST en vuelo y el cierre llega al volver a abrirla (ver `background-task.ts`).
+   */
+  backgroundTask?: BackgroundTaskRunner;
   /** Callback invocado cuando la API acepta el primer lote de una sesión (registro abierto). */
   onSessionId?: (id: string) => void;
   /** Callback invocado al cerrar la sesión (`completed:true`): el sessionId cacheado se olvida. */
@@ -404,7 +411,12 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
     setTimeout(() => void drain(), 0);
   }
 
-  return async (envelope: AnalyticsEnvelope, meta) => {
+  /** Cada envío va dentro de una background task, si el host la proporciona (DD-55). */
+  const sink: AnalyticsSink = (envelope, meta) =>
+    runInBackgroundTask(options.backgroundTask, 'deepdots-analytics', () => deliver(envelope, meta));
+  return sink;
+
+  async function deliver(envelope: AnalyticsEnvelope, meta?: AnalyticsFlushMeta): Promise<void> {
     if (meta?.resetSession) {
       // Sesión cerrada por el backend: no se envía nada, solo se olvida el registro.
       feedbackSessionId = undefined;
@@ -431,5 +443,5 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
 
     const retries = pending.length ? drain() : null;
     await Promise.all([retries, send(batch, final, false)]);
-  };
+  }
 }

@@ -1,3 +1,4 @@
+import type { BackgroundTaskRunner } from '../analytics/background-task';
 /**
  * Configuration options for initializing the DeepdotsPopups SDK
  */
@@ -60,6 +61,16 @@ export interface DeepdotsInitParams {
     language?: string;
     /** Injectable device info (RN: from react-native-device-info). If missing, it is derived from the browser. */
     device?: DeviceInfo;
+    /**
+     * React Native (iOS): opens a native background task while each analytics request is in
+     * flight, so the session's closing request finishes after the app goes to background
+     * instead of when the user opens the app again. `begin(name)` starts the task and returns
+     * the function that ends it (iOS `beginBackgroundTask` / `endBackgroundTask`). The SDK ends
+     * it when the request settles, or after 25 s. Use `backgroundTimerTask(BackgroundTimer)`
+     * for `react-native-background-timer`, iOS only. Without it, nothing changes: a closing
+     * request that does not finish is stored and sent on the next launch.
+     */
+    backgroundTask?: BackgroundTaskRunner;
     /**
      * Analytics channel keys (`POST /sdk/feedback`). If provided, analytics is SENT
      * to the configured integration; if missing, it stays in dry-run mode: nothing is sent, and the payload is only

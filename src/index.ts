@@ -54,4 +54,6 @@ export { LABELS, SUPPORTED_LANGUAGES, RTL_LOCALES, getLabels, resolveLocale, res
 export type { PopupLabels, PopupLocale, ResolvedActionLabels } from './i18n/labels';
 // React Native: auto-wiring en una llamada (storage MMKV + device + platform + lifecycle).
 export { setupReactNative, mmkvStorage, collectRnDevice } from './react-native/setup';
+export { backgroundTimerTask, BACKGROUND_TASK_MAX_MS } from './analytics/background-task';
+export type { BackgroundTaskRunner, BackgroundTimerLike } from './analytics/background-task';
 export type { ReactNativeSetupDeps, MmkvLike, DeviceInfoLike, AppStateLike } from './react-native/setup';

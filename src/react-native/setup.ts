@@ -12,6 +12,7 @@ import type { KeyValueStorage } from '../tracking/tracking-manager';
 import type { DeviceInfo } from '../analytics/device-info';
 import type { PopupRenderer } from '../platform/renderer';
 import type { ReactNativeErrorUtils } from '../analytics/crash-reporter';
+import type { BackgroundTaskRunner } from '../analytics/background-task';
 
 /** Forma mínima de `react-native-mmkv` (instancia MMKV). */
 export interface MmkvLike {
@@ -41,6 +42,11 @@ export interface ReactNativeSetupDeps {
   renderer?: PopupRenderer;
   /** `global.ErrorUtils` de RN (para capturar errores JS no manejados). Default: `globalThis.ErrorUtils`. */
   errorUtils?: ReactNativeErrorUtils | null;
+  /**
+   * Background task nativa para los envíos (iOS, DD-55). Si `config.backgroundTask` viene, gana
+   * ese. Para `react-native-background-timer`: `backgroundTimerTask(BackgroundTimer)`.
+   */
+  backgroundTask?: BackgroundTaskRunner | null;
 }
 
 /** Adaptador KeyValueStorage (síncrono) sobre una instancia de MMKV. */
@@ -78,7 +84,9 @@ export function setupReactNative(
   const device = deps.deviceInfo ? collectRnDevice(deps.deviceInfo) : config.device;
   const platform = deps.platform ?? config.platform;
 
-  sdk.init({ ...config, storage, device, platform });
+  const backgroundTask = config.backgroundTask ?? deps.backgroundTask ?? undefined;
+
+  sdk.init({ ...config, storage, device, platform, backgroundTask });
 
   // Captura de errores JS no manejados en RN (no hay `window`): usa el ErrorUtils inyectado
   // o el global del runtime RN. Degrada si no existe.
@@ -94,9 +102,10 @@ export function setupReactNative(
       if (state === 'active') sdk.onForeground();
       // Solo 'background' es fin de sesión. En iOS 'inactive' es transitorio (llamada
       // entrante, app switcher) y cerrar sesión ahí partiría la sesión en dos: se envía
-      // lo acumulado, por si el SO mata la app, pero sin cerrar el registro.
+      // lo acumulado (con el engagement y la pantalla en curso), por si el SO suspende o mata
+      // la app, pero sin cerrar el registro.
       else if (state === 'background') sdk.onBackground();
-      else sdk.flushAnalytics();
+      else sdk.onInactive();
     });
   }
 

@@ -137,6 +137,16 @@ Config fields:
   defaults to `localStorage`)
 - `platform?: 'web' | 'android' | 'ios'` — defaults to `'web'`
 - `device?: DeviceInfo` — device context override, for hosts where the SDK cannot detect it
+- `backgroundTask?: (name) => () => void` — React Native on iOS: opens a native background
+  task while each analytics request is in flight, so the request that closes the session
+  finishes when the app goes to background. Without it, iOS often suspends the app with that
+  request in flight and it arrives when the user opens the app again (or, if they never do,
+  the session is closed by the backend without its last screen and `session_end`). With
+  [`react-native-background-timer`](https://github.com/ocetnik/react-native-background-timer):
+  `backgroundTask: Platform.OS === 'ios' ? backgroundTimerTask(BackgroundTimer) : undefined`
+  (iOS only: on Android its `start()` takes a wakelock that is not needed). `DeepdotsProvider`
+  wires it on its own when the package is installed. The SDK ends the task when the request
+  settles, or after 25 s.
 - `contactAttributes?: Record<string, string | number | boolean>`
 - `renderChrome?: boolean` — React Native only. Defaults to `true`. When `false`, the survey
   WebView HTML is delivered transparent and edge-to-edge, without the SDK's own card, backdrop,
@@ -309,6 +319,7 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 | `setUserAttributes(map)` / `setMetric(key, value)` | Breakdown dimensions / measurable values |
 | `setUserId(userId?)` | Login, logout or account switch |
 | `endSession()` | Closes the session explicitly |
+| `onForeground()` / `onInactive()` / `onBackground()` | React Native lifecycle, for hosts that wire `AppState` themselves (`setupReactNative` and `DeepdotsProvider` do it): `active` → `onForeground()`, `inactive` → `onInactive()` (sends what is pending with the current screen, does NOT end the session), `background` → `onBackground()` (ends the session) |
 | `setTrackingEnabled(enabled)` | Kill switch (consent) |
 | `reportError(error, options?)` | A handled error |
 | `previewAnalytics()` / `flushAnalytics()` | Inspect the pending payload / send it now |

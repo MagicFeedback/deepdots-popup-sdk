@@ -290,6 +290,9 @@ export class DeepdotsPopups {
                   // persiste y se reenvía en el arranque siguiente. En web el cierre sale con
                   // `keepalive` y varias pestañas compartirían el mismo storage.
                   storage: (config.platform ?? 'web') !== 'web' ? storage : undefined,
+                  // iOS suspende la app con el POST de cierre en vuelo: el host puede darle
+                  // tiempo de background (DD-55). El reenvío del arranque siguiente sigue igual.
+                  backgroundTask: config.backgroundTask,
                   onSessionId: (id) => {
                       this.analyticsFeedbackSessionId = id;
                       this.notifyFeedbackSession(id, 'open');
@@ -587,6 +590,18 @@ export class DeepdotsPopups {
     onBackground(): void {
         this.closeSession('background');
         this.engagement?.pause();
+    }
+
+    /**
+     * App a `inactive` (RN, iOS: centro de control, llamada, app switcher, y SIEMPRE justo antes
+     * de `background`). NO cierra la sesión (es transitorio), pero envía lo acumulado con un
+     * `user_engagement` que lleva la pantalla en curso, como web al ocultar la pestaña: si el
+     * lote de cierre de `background` no llega a salir (iOS suspende la app), el backend ya
+     * tiene el tiempo activo y la última pantalla. El contador sigue en marcha.
+     */
+    onInactive(): void {
+        if (this.sessionOpen) this.flushEngagement();
+        this.flushAnalytics();
     }
 
     /**
