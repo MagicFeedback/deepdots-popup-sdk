@@ -13,6 +13,7 @@ declare module 'react-native' {
   export const NativeModules: Record<string, any> | undefined;
   export const Modal: any;
   export const View: any;
+  export const ScrollView: any;
 }
 
 declare module 'react-native-webview' {

@@ -96,8 +96,12 @@ export function setupReactNative(
 
   // Captura de errores JS no manejados en RN (no hay `window`): usa el ErrorUtils inyectado
   // o el global del runtime RN. Degrada si no existe.
+  // `autoTrack.errors: false` solo deja el ErrorUtils que pase el host a mano.
   const errorUtils =
-    deps.errorUtils ?? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils;
+    deps.errorUtils
+    ?? (config.autoTrack?.errors === false
+      ? undefined
+      : (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils);
   if (errorUtils && typeof errorUtils.setGlobalHandler === 'function') {
     sdk.installReactNativeCrashHandler(errorUtils);
   }

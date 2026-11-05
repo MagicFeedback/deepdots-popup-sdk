@@ -186,6 +186,22 @@
         "lifecycle": {
           "type": "boolean",
           "description": "React Native: listen to `AppState` for session start/end. Default `true`."
+        },
+        "screens": {
+          "type": "boolean",
+          "description": "React Native: screens reported by `trackNavigation(ref)` / `useDeepdotsNavigation(ref)` (page views, `segments.path`, `excludedPaths` and the `exit` trigger). Default `true`. A host call to `setScreen` turns the detection off for that instance."
+        },
+        "scroll": {
+          "type": "boolean",
+          "description": "Scroll depth reported by `DeepdotsScrollView` (React Native) or the window scroll listener (web) for `scroll` triggers. Default `true`. A host call to `onScroll` turns it off."
+        },
+        "clicks": {
+          "type": "boolean",
+          "description": "Web: the element click listener of `click` triggers. Default `true`. A host call to `triggerClick` turns it off. In React Native clicks are always reported with `triggerClick`."
+        },
+        "errors": {
+          "type": "boolean",
+          "description": "Uncaught errors: `window` `error`/`unhandledrejection` (web), `ErrorUtils` and promise rejections without `catch` under Hermes (React Native). Default `true`. Handlers installed by other tools (Sentry, Crashlytics) keep receiving everything."
         }
       },
       "additionalProperties": false,

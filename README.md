@@ -137,11 +137,27 @@ Config fields:
   defaults to `localStorage`)
 - `platform?: 'web' | 'android' | 'ios'` — defaults to `'web'`
 - `device?: DeviceInfo` — device context override, for hosts where the SDK cannot detect it
-- `autoTrack?: { lifecycle?: boolean }` — what the SDK detects on its own; all on by default.
-  `lifecycle` (React Native): the SDK listens to `AppState` itself (`active` → session start,
-  `inactive` → send pending data with the current screen, `background` → session end). Calling
-  `onForeground` / `onInactive` / `onBackground` yourself as well is harmless: nothing is sent
-  twice.
+- `autoTrack?: { lifecycle?, screens?, scroll?, clicks?, errors? }` — what the SDK detects on
+  its own; all `true` by default, set one to `false` to turn it off. When the host calls the
+  manual method of a signal (`setScreen`, `onScroll`, `triggerClick`), the SDK stops detecting
+  that signal in that instance (logged with `debug`), so an existing integration never counts
+  anything twice.
+  - `lifecycle` (React Native): the SDK listens to `AppState` itself (`active` → session start,
+    `inactive` → send pending data with the current screen, `background` → session end). Calling
+    `onForeground` / `onInactive` / `onBackground` yourself as well is harmless: nothing is sent
+    twice.
+  - `screens` (React Native): screens reported by the React Navigation helper. See
+    [React Native: screens, scroll and clicks](#react-native-screens-scroll-and-clicks).
+  - `scroll`: scroll depth from `DeepdotsScrollView` / `useDeepdotsScroll` (React Native) or the
+    window scroll listener (web).
+  - `clicks` (web): the element click listener of `click` triggers.
+  - `errors`: uncaught errors — `window` `error` / `unhandledrejection` on web; `ErrorUtils` and,
+    under Hermes, promise rejections without `catch` in React Native. Handlers installed by
+    Sentry, Crashlytics or the app keep receiving everything.
+- `screenName?: (route) => string | null` — React Native: renames the screens the navigation
+  helper detects (`route` is `{ name, params }`). Return the name to use, for example the path
+  configured for the popup on the platform (`route => route.name === 'Cart' ? '/cart' : null`);
+  `null` keeps the route name. Not applied to `setScreen`.
 - `backgroundTask?: (name) => () => void` — React Native on iOS, **usually not needed**: the
   package ships a tiny native module (`ios/DeepdotsBackgroundTask.m`, linked by autolinking on
   `pod install`) that asks iOS for background time while each analytics request is in flight,
@@ -166,6 +182,56 @@ Config fields:
   what makes it work in React Native, where `navigator.language` does not exist). If no
   source resolves a language, popups with `segments.lang` cannot be filtered and are shown. It
   is also the starting language for the popup's own texts (see below).
+
+### React Native: screens, scroll and clicks
+
+In React Native there is no `window.location`, no History API and no DOM, so the SDK takes the
+current screen, the scroll depth and the clicks from the app:
+
+```tsx
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
+import { DeepdotsScrollView, useDeepdotsNavigation, useDeepdots } from '@magicfeedback/popup-sdk/react-native';
+
+const navigationRef = createNavigationContainerRef();
+
+function Navigation() {
+  useDeepdotsNavigation(navigationRef); // screens: no setScreen calls
+  return <NavigationContainer ref={navigationRef}>{/* … */}</NavigationContainer>;
+}
+
+function Article() {
+  const dd = useDeepdots();
+  return (
+    <DeepdotsScrollView>{/* same props as ScrollView; feeds `scroll` triggers */}
+      <Button title="Buy" onPress={() => dd.triggerClick('buy-button')} />
+    </DeepdotsScrollView>
+  );
+}
+```
+
+- **Screens.** `useDeepdotsNavigation(ref)` (or `dd.trackNavigation(ref)` with the main entry,
+  which returns the function that stops it) follows every route change of the
+  `NavigationContainer`. The current screen sends `page_view`, and it is the route the SDK uses
+  for `segments.path`, `segments.excludedPaths` and the `exit` trigger: leaving a screen queues
+  its exit popups for the next one, as on web. The screen path is the route name with a leading
+  `/` (`Cart` → `/Cart`), so either configure the popup with that path or map routes with
+  `init({ screenName })`. `setScreen(name)` does the same by hand. Before any screen is known,
+  path segments do not block a popup (the previous behaviour).
+- **Scroll.** `DeepdotsScrollView` is a `ScrollView` that reports how far the content was
+  scrolled; for a `FlatList` or `SectionList`, pass `onScroll={useDeepdotsScroll()}`. Or call
+  `dd.onScroll(percentage)` yourself. Each `scroll` popup fires at most once per screen.
+- **Clicks.** Call `dd.triggerClick(id)` in the `onPress` of the element; it shows the popups
+  whose `click` trigger has that id. On web it also works, and turns off the DOM click listener.
+- **Errors.** With Hermes (the default engine), promise rejections without `catch` are captured
+  like web's `unhandledrejection`. The SDK wraps Hermes' rejection tracker when the package is
+  imported, so a tracker installed later (Sentry, Crashlytics) is chained, not replaced, and in
+  development React Native's "Possible unhandled promise rejection" warning stays. With JSC
+  they are not captured, as before.
+
+These run without `autoLaunch()`, as `setPath` / `onScroll` / `triggerClick` do in the native
+SDK. With the main entry (`import { DeepdotsPopups } from '@magicfeedback/popup-sdk'`) the
+components and hooks take the SDK instance as a prop / argument
+(`<DeepdotsScrollView sdk={dd}>`, `useDeepdotsNavigation(ref, dd)`).
 
 ### Popup texts and language
 
@@ -459,8 +525,10 @@ between the two pages, and every section counts as drop-off.
 Popup definitions use these trigger types:
 
 - `time_on_page`: shows after N seconds on the page
-- `scroll`: shows after reaching a scroll percentage
-- `click`: shows after clicking the element with the given DOM id
+- `scroll`: shows after reaching a scroll percentage (React Native: `DeepdotsScrollView` or
+  `onScroll(percentage)`)
+- `click`: shows after clicking the element with the given DOM id, or when the host calls
+  `triggerClick(id)` (React Native)
 - `exit`: shows after leaving a matching route and waiting N seconds on the destination route
 - `event`: shows when the host app calls `triggerEvent(name)`
 
@@ -566,8 +634,8 @@ An empty required question is not an error and does not emit it. `survey_error` 
 - `segments.path`, `segments.excludedPaths`, and `segments.lang` are the segments currently evaluated by the SDK runtime. If no language can be resolved, popups with `segments.lang` are shown rather than filtered out.
 - `segments.excludedPaths` wins over `segments.path`, and applies on its own when `path` is absent. So `{ "path": ["/"], "excludedPaths": ["/cart"] }` means "everywhere except the cart", and `{ "excludedPaths": ["/cart"] }` means the same thing. Both lists use the same matching rules, which includes the substring match for entries starting with `/` — an entry such as `/cart` also excludes `/cart-recovery`, and `/` on its own would exclude every route.
 - For a deferred `exit` popup, `segments.excludedPaths` is checked twice: on the route the popup was queued from, and again on the destination route where it would be painted. `segments.path` is only checked on the first one, because the destination route is different by definition.
-- `exit` triggers work across anchor navigation, hash navigation, `history.pushState()`, and `history.replaceState()`.
-- Pending `exit` popups are stored in `sessionStorage` until they are shown or discarded.
+- `exit` triggers work across anchor navigation, hash navigation, `history.pushState()`, and `history.replaceState()`. In React Native they follow screen changes (`setScreen` or the navigation helper).
+- Pending `exit` popups are stored in `sessionStorage` until they are shown or discarded (in memory in React Native).
 - The default browser renderer uses Deepdots forms and applies button labels from `actions.accept`, `actions.start`, `actions.back`, and `actions.complete`.
 - `title`, `message`, and `style` belong to the popup definition contract, but the current browser renderer focuses on the embedded form and does not render those fields as standalone popup copy/layout controls.
 - `actions.decline` is accepted in the definition shape, but the current browser renderer does not render a dedicated decline button or enforce `decline.cooldownDays`.
