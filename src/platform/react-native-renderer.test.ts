@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeepdotsPopups } from '../core/deepdots-popups';
 import { ReactNativePopupRenderer, type ReactNativeSurveyPayload } from './react-native-renderer';
+import { BUNDLED_SURVEY_SDK_VERSION } from '../ui/surveySdkVersion';
 
 describe('ReactNativePopupRenderer (puente WebView)', () => {
   let popups: DeepdotsPopups;
@@ -31,6 +32,23 @@ describe('ReactNativePopupRenderer (puente WebView)', () => {
     expect(shown!.html).toContain('survey-rn');
     expect(shown!.html).toContain('ReactNativeWebView'); // puente de mensajes
     expect(shown!.html).toContain('magicfeedback'); // carga el survey desde CDN
+  });
+
+  it('DD-70: la versión de survey SDK asignada en rango llega al HTML; fuera de rango, la empaquetada', () => {
+    const showDef = (d: object) => (popups as unknown as { showDefinition(d: object): void }).showDefinition(d);
+    showDef({
+      id: 'popup-rn', title: '', message: '', triggers: [], surveyId: 'survey-rn', productId: 'prod-rn',
+      surveyFrontend: { version: '3.3.0', sdkVersion: '2.2.38' },
+    });
+    expect(shown!.html).toContain('@magicfeedback/native@2.2.38/dist/magicfeedback-sdk.browser.js');
+    renderer.hide();
+
+    showDef({
+      id: 'popup-rn2', title: '', message: '', triggers: [], surveyId: 'survey-rn2', productId: 'prod-rn',
+      surveyFrontend: { version: '9.0.0', sdkVersion: '3.0.0' },
+    });
+    expect(shown!.html).not.toContain('@magicfeedback/native@3.0.0');
+    expect(shown!.html).toContain(`@magicfeedback/native@${BUNDLED_SURVEY_SDK_VERSION}/`);
   });
 
   it('el idioma del init llega al HTML del WebView (chrome traducido)', () => {
