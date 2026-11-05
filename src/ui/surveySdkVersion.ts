@@ -23,10 +23,12 @@ export const BUNDLED_SURVEY_SDK_VERSION = '2.2.39';
  * `src/assets/survey-css/<v>.css` (un test lo comprueba). El CSS del survey también sigue a la
  * versión asignada, y la hoja del paquete no se puede inyectar tal cual (repintaría la web del
  * host; ver `scripts/vendor-survey-css.mjs`), así que una versión sin hoja vendorizada no se
- * acepta. Todas de la misma minor que la empaquetada; la mínima, 2.2.37, es la de 1.18.0.
+ * acepta. Todas de la misma minor que la empaquetada, y solo las que usa alguna versión de MagicSurvey del
+ * registro (2.2.37 no la usa ninguna): cada una se prueba en el gate de release
+ * (`apps/test-app/e2e/survey-sdk.spec.ts`, dentro de "Smoke + regression · SDK local").
  * Añadir una: vendorizar su hoja y sumarla aquí y a `src/ui/surveyCss.ts`.
  */
-export const SUPPORTED_SURVEY_SDK_VERSIONS = ['2.2.37', '2.2.38', '2.2.39'] as const;
+export const SUPPORTED_SURVEY_SDK_VERSIONS = ['2.2.38', '2.2.39'] as const;
 
 /** Por qué se usa la versión que va dentro en vez de la asignada. */
 export type BundledReason =

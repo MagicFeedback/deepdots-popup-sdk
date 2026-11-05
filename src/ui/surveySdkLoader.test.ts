@@ -105,9 +105,10 @@ describe('resolveSurveySdk', () => {
     await resolveSurveySdk('2.2.38', {}, { bundled, loadScript, loadCss });
     expect(loadScript).toHaveBeenCalledTimes(1);
 
+    resetSurveySdkCache();
     const failing = vi.fn(async () => { throw new Error('down'); });
-    await resolveSurveySdk('2.2.37', {}, { bundled, loadScript: failing, loadCss });
-    await resolveSurveySdk('2.2.37', {}, { bundled, loadScript: failing, loadCss });
+    await resolveSurveySdk('2.2.38', {}, { bundled, loadScript: failing, loadCss });
+    await resolveSurveySdk('2.2.38', {}, { bundled, loadScript: failing, loadCss });
     expect(failing).toHaveBeenCalledTimes(4); // 2 URLs × 2 aperturas
   });
 

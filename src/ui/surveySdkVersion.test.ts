@@ -46,7 +46,7 @@ describe('surveySdkVersion', () => {
 
   it('soportadas: solo las de la lista', () => {
     expect(isSupportedSurveySdk('2.2.36')).toBe(false);
-    expect(isSupportedSurveySdk('2.2.37')).toBe(true);
+    expect(isSupportedSurveySdk('2.2.37')).toBe(false);
     expect(isSupportedSurveySdk('2.2.38')).toBe(true);
     expect(isSupportedSurveySdk('2.2.40')).toBe(false);
     expect(isSupportedSurveySdk('2.3.0')).toBe(false);
