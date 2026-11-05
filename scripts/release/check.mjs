@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { checkPullRequest, checkRelease, checkReleaseEntry, packageChanges } from './rules.mjs';
 import { generateConfigSchema, validateManifest } from './manifest.mjs';
+import { checkSurveyCompat } from './survey-compat.mjs';
 
 const argv = process.argv.slice(2);
 const mode = argv[0];
@@ -152,7 +153,7 @@ function pr() {
   });
 }
 
-function release() {
+async function release() {
   const tag = option('tag');
   if (!tag) {
     console.error('Uso: check.mjs release --tag vX.Y.Z [--notes-out file]');
@@ -166,17 +167,18 @@ function release() {
     errors.unshift(`Sin bump: ${tag} ya existe, esa version ya esta publicada.`);
   }
   const manifest = manifestErrors();
+  const { entry } = checkReleaseEntry(head.changelog, head.pkg?.version);
+  // DD-70: la linea "Survey SDK supported" de las notas sale del codigo + el registro publico.
+  const compat = await checkSurveyCompat({ source: readFileSync('src/ui/surveySdkVersion.ts', 'utf8'), entryBody: entry?.body });
+  for (const w of compat.warnings) console.warn(inActions ? `::warning title=Release gate (DD-70)::${w}` : `!  ${w}`);
 
   const notesOut = option('notes-out');
-  if (notesOut) {
-    const { entry } = checkReleaseEntry(head.changelog, head.pkg?.version);
-    writeFileSync(notesOut, `${entry?.body ?? ''}\n`);
-  }
+  if (notesOut) writeFileSync(notesOut, `${entry?.body ?? ''}\n`);
   output({ version: head.pkg?.version, dist_tag: distTag ?? '' });
   report({
     title: `Release gate ${tag}`,
-    facts: { tag, version: head.pkg?.version, 'dist-tag': distTag ?? '-', manifest: manifest.errors.length ? 'invalido' : 'valido' },
-    errors: [...errors, ...manifest.errors],
+    facts: { tag, version: head.pkg?.version, 'dist-tag': distTag ?? '-', manifest: manifest.errors.length ? 'invalido' : 'valido', 'survey SDK': compat.line ?? '-' },
+    errors: [...errors, ...manifest.errors, ...compat.errors],
   });
 }
 
@@ -195,7 +197,7 @@ function schema() {
 }
 
 if (mode === 'pr') pr();
-else if (mode === 'release') release();
+else if (mode === 'release') await release();
 else if (mode === 'schema') schema();
 else {
   console.error('Uso: check.mjs pr [--base origin/dev] | release --tag vX.Y.Z [--notes-out f] | schema [--write]');

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.3.0–3.4.1); bundled: 2.2.39. Compatibility table: docs.deepdots.com/popup-web/reference/survey-compatibility/.
+Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1); bundled: 2.2.39. Compatibility table: docs.deepdots.com/popup-web/reference/survey-compatibility/.
 
 ### Added
 - **Popups follow the survey version assigned in the Admin (DD-70).** `GET /sdk/{publicKey}/popups` sends `surveyFrontend.sdkVersion` per popup (latest or pinned, resolved through the version registry). When it is one of `SUPPORTED_SURVEY_SDK_VERSIONS` (2.2.38, 2.2.39) the popup draws the survey with that exact `@magicfeedback/native` and with that version's survey CSS (vendored per version in `src/assets/survey-css`, scoped to the popup): in the DOM popup the JS comes from jsDelivr (unpkg as fallback) and the CSS from a lazy chunk; in the React Native WebView both come from the CDN. Missing, unsupported or failing to load → the bundled JS and CSS together (a load failure or an invalid version warns; unsupported only logs with `debug`). Debug log and `data-survey-sdk` on the popup say which one was used. `scripts/vendor-survey-css.mjs` takes `--src/--version/--out`. Release gate: the test app runs every supported version (`apps/test-app/e2e/survey-sdk.spec.ts`, `?surveySdk=<v>` in the service worker) inside "Smoke + regression · SDK local", a required check of the release PR, so a version whose JS or CSS does not load, draw or answer blocks the release.
