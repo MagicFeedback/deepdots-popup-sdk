@@ -1,3 +1,5 @@
+import { SDK_VERSION } from '../version';
+
 /**
  * Qué versión de `@magicfeedback/native` (el "survey SDK") pinta cada survey dentro de un popup
  * (DD-70). Módulo puro, sin DOM ni import del paquete: lo usan las dos rutas, el popup DOM web
@@ -5,8 +7,8 @@
  *
  * La API devuelve en cada popup `surveyFrontend.sdkVersion`: el survey SDK con el que se
  * construyó la versión de MagicSurvey asignada al survey en el Admin (latest o fijada). Si está
- * dentro de {@link SUPPORTED_SURVEY_SDK_RANGE} se usa esa, como hace la página del survey; si no
- * viene, no es SemVer o cae fuera del rango, se queda la que va dentro de este SDK.
+ * en {@link SUPPORTED_SURVEY_SDK_VERSIONS} se usa esa (JS y CSS), como hace la página del survey; si no
+ * viene, no es SemVer o no está en la lista, se quedan la JS y el CSS que van dentro de este SDK.
  */
 
 /**
@@ -17,22 +19,20 @@
 export const BUNDLED_SURVEY_SDK_VERSION = '2.2.39';
 
 /**
- * Rango de survey SDK que este popup SDK sabe pintar: `min` incluido, `below` excluido.
- *
- * - `min`: la más antigua con la que pasan las test apps de este SDK (eventos `onLoadedEvent` con
- *   `error`, códigos de error de submit, `onBackEvent`) — 2.2.37 es la que llevaba 1.18.0.
- * - `below`: la siguiente minor. El CSS del survey NO se descarga con la versión asignada: va
- *   vendorizado y acotado a `.deepdots-popup` (`src/assets/style.css`), así que solo se aceptan
- *   parches de la misma minor que el CSS. Una 2.3.0 no llega a este SDK hasta que se publique
- *   uno que la declare.
+ * Versiones de survey SDK que este popup SDK sabe pintar: las que tienen su CSS vendorizado en
+ * `src/assets/survey-css/<v>.css` (un test lo comprueba). El CSS del survey también sigue a la
+ * versión asignada, y la hoja del paquete no se puede inyectar tal cual (repintaría la web del
+ * host; ver `scripts/vendor-survey-css.mjs`), así que una versión sin hoja vendorizada no se
+ * acepta. Todas de la misma minor que la empaquetada; la mínima, 2.2.37, es la de 1.18.0.
+ * Añadir una: vendorizar su hoja y sumarla aquí y a `src/ui/surveyCss.ts`.
  */
-export const SUPPORTED_SURVEY_SDK_RANGE = { min: '2.2.37', below: '2.3.0' } as const;
+export const SUPPORTED_SURVEY_SDK_VERSIONS = ['2.2.37', '2.2.38', '2.2.39'] as const;
 
 /** Por qué se usa la versión que va dentro en vez de la asignada. */
 export type BundledReason =
   | 'not_assigned'
   | 'invalid'
-  | 'out_of_range'
+  | 'unsupported'
   | 'same_as_bundled'
   | 'load_failed';
 
@@ -64,9 +64,7 @@ export function compareSemver(a: string, b: string): number {
 }
 
 export function isSupportedSurveySdk(version: string): boolean {
-  return isSemver(version)
-    && compareSemver(version, SUPPORTED_SURVEY_SDK_RANGE.min) >= 0
-    && compareSemver(version, SUPPORTED_SURVEY_SDK_RANGE.below) < 0;
+  return (SUPPORTED_SURVEY_SDK_VERSIONS as readonly string[]).includes(version);
 }
 
 /** Decide la versión a cargar a partir de `surveyFrontend.sdkVersion` de la API. */
@@ -79,7 +77,7 @@ export function chooseSurveySdkVersion(requested?: string | null): SurveySdkChoi
   });
   if (requested === undefined || requested === null || requested === '') return bundled('not_assigned');
   if (!isSemver(requested)) return bundled('invalid');
-  if (!isSupportedSurveySdk(requested)) return bundled('out_of_range');
+  if (!isSupportedSurveySdk(requested)) return bundled('unsupported');
   if (requested === BUNDLED_SURVEY_SDK_VERSION) return bundled('same_as_bundled');
   return { version: requested, source: 'assigned', requested };
 }
@@ -89,6 +87,18 @@ export function surveySdkUrls(version: string): string[] {
   return [
     `https://cdn.jsdelivr.net/npm/@magicfeedback/native@${version}/dist/magicfeedback-sdk.browser.js`,
     `https://unpkg.com/@magicfeedback/native@${version}/dist/magicfeedback-sdk.browser.js`,
+  ];
+}
+
+/**
+ * Hoja vendorizada de una versión, publicada con este SDK en npm (`dist/assets/assets/survey-css`).
+ * La usa el WebView de React Native, que no puede importar chunks; el popup DOM la lleva dentro
+ * (`surveyCss.ts`).
+ */
+export function surveySdkCssUrls(version: string): string[] {
+  return [
+    `https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@${SDK_VERSION}/dist/assets/assets/survey-css/${version}.css`,
+    `https://unpkg.com/@magicfeedback/popup-sdk@${SDK_VERSION}/dist/assets/assets/survey-css/${version}.css`,
   ];
 }
 

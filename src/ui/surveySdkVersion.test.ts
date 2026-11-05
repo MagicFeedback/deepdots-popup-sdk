@@ -1,13 +1,16 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   BUNDLED_SURVEY_SDK_VERSION,
-  SUPPORTED_SURVEY_SDK_RANGE,
+  SUPPORTED_SURVEY_SDK_VERSIONS,
   chooseSurveySdkVersion,
   describeSurveySdkChoice,
   isSupportedSurveySdk,
+  surveySdkCssUrls,
   surveySdkUrls,
 } from './surveySdkVersion';
+import { SURVEY_CSS_LOADERS } from './surveyCss';
+import { SDK_VERSION } from '../version';
 import { buildSurveyHtml } from './surveyHtml';
 
 /** DD-70: qué survey SDK pinta el survey de un popup. */
@@ -20,20 +23,36 @@ describe('surveySdkVersion', () => {
     expect(declared.replace(/^[\^~]/, '')).toBe(BUNDLED_SURVEY_SDK_VERSION);
   });
 
-  it('la empaquetada está dentro del rango que declara el SDK', () => {
+  it('la lista soportada = las hojas vendorizadas = los loaders del popup DOM, e incluye la empaquetada', () => {
+    const files = readdirSync('src/assets/survey-css').filter((f) => f.endsWith('.css')).map((f) => f.replace(/\.css$/, '')).sort();
+    expect([...SUPPORTED_SURVEY_SDK_VERSIONS].sort()).toEqual(files);
+    expect(Object.keys(SURVEY_CSS_LOADERS).sort()).toEqual(files);
     expect(isSupportedSurveySdk(BUNDLED_SURVEY_SDK_VERSION)).toBe(true);
-    expect(SUPPORTED_SURVEY_SDK_RANGE).toEqual({ min: '2.2.37', below: '2.3.0' });
   });
 
-  it('rango: min incluido, below excluido', () => {
+  it('la hoja de la versión empaquetada es la misma que style.css', () => {
+    expect(readFileSync(`src/assets/survey-css/${BUNDLED_SURVEY_SDK_VERSION}.css`, 'utf8'))
+      .toBe(readFileSync('src/assets/style.css', 'utf8'));
+  });
+
+  it('cada hoja vendorizada está acotada al popup y dice su versión', () => {
+    for (const v of SUPPORTED_SURVEY_SDK_VERSIONS) {
+      const css = readFileSync(`src/assets/survey-css/${v}.css`, 'utf8');
+      expect(css).toContain(`Copia de @magicfeedback/native@${v}`);
+      expect(css).not.toMatch(/@import url\(/);
+      expect(css).toContain('.deepdots-popup');
+    }
+  });
+
+  it('soportadas: solo las de la lista', () => {
     expect(isSupportedSurveySdk('2.2.36')).toBe(false);
     expect(isSupportedSurveySdk('2.2.37')).toBe(true);
-    expect(isSupportedSurveySdk('2.2.99')).toBe(true);
+    expect(isSupportedSurveySdk('2.2.38')).toBe(true);
+    expect(isSupportedSurveySdk('2.2.40')).toBe(false);
     expect(isSupportedSurveySdk('2.3.0')).toBe(false);
-    expect(isSupportedSurveySdk('3.0.0')).toBe(false);
   });
 
-  it('asignada y en rango → assigned', () => {
+  it('asignada y soportada → assigned', () => {
     expect(chooseSurveySdkVersion('2.2.38')).toEqual({ version: '2.2.38', source: 'assigned', requested: '2.2.38' });
   });
 
@@ -43,8 +62,8 @@ describe('surveySdkVersion', () => {
     ['', 'not_assigned'],
     ['latest', 'invalid'],
     ['2.2', 'invalid'],
-    ['2.2.36', 'out_of_range'],
-    ['2.3.0', 'out_of_range'],
+    ['2.2.36', 'unsupported'],
+    ['2.3.0', 'unsupported'],
     [BUNDLED_SURVEY_SDK_VERSION, 'same_as_bundled'],
   ])('%p → bundled (%s)', (requested, reason) => {
     const choice = chooseSurveySdkVersion(requested as string | null | undefined);
@@ -63,21 +82,25 @@ describe('surveySdkVersion', () => {
   it('texto del log', () => {
     expect(describeSurveySdkChoice(chooseSurveySdkVersion('2.2.38'))).toBe('survey SDK 2.2.38 (assigned)');
     expect(describeSurveySdkChoice(chooseSurveySdkVersion('2.3.1')))
-      .toBe(`survey SDK ${BUNDLED_SURVEY_SDK_VERSION} (bundled: out_of_range, requested 2.3.1)`);
+      .toBe(`survey SDK ${BUNDLED_SURVEY_SDK_VERSION} (bundled: unsupported, requested 2.3.1)`);
+    expect(surveySdkCssUrls('2.2.38')[0])
+      .toBe(`https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@${SDK_VERSION}/dist/assets/assets/survey-css/2.2.38.css`);
   });
 
   describe('WebView (React Native)', () => {
-    const sources = (html: string) => JSON.parse(/var ddSdkSources=(\[[^\]]*\])/.exec(html)![1]) as string[];
+    const json = (html: string, name: string) => JSON.parse(new RegExp(`\\b${name}=(null|\\{[^;]*?\\}|\\[[^\\]]*\\])[,;]`).exec(html)![1]);
 
-    it('sin versión: la empaquetada, jsDelivr y unpkg', () => {
-      expect(sources(buildSurveyHtml({ surveyId: 's', productId: 'p' }))).toEqual(surveySdkUrls(BUNDLED_SURVEY_SDK_VERSION));
+    it('sin versión: nada asignado, la JS empaquetada (jsDelivr, unpkg) con su hoja inline', () => {
+      const html = buildSurveyHtml({ surveyId: 's', productId: 'p' });
+      expect(json(html, 'ddAssigned')).toBeNull();
+      expect(json(html, 'ddBundledJs')).toEqual(surveySdkUrls(BUNDLED_SURVEY_SDK_VERSION));
+      expect(html).toContain('<style id="dd-survey-css">');
     });
 
-    it('con versión asignada: la asignada y, si no carga, la empaquetada', () => {
-      expect(sources(buildSurveyHtml({ surveyId: 's', productId: 'p', version: '2.2.38' }))).toEqual([
-        ...surveySdkUrls('2.2.38'),
-        ...surveySdkUrls(BUNDLED_SURVEY_SDK_VERSION),
-      ]);
+    it('con versión asignada: su hoja y su JS; la empaquetada de respaldo', () => {
+      const html = buildSurveyHtml({ surveyId: 's', productId: 'p', version: '2.2.38' });
+      expect(json(html, 'ddAssigned')).toEqual({ version: '2.2.38', css: surveySdkCssUrls('2.2.38'), js: surveySdkUrls('2.2.38') });
+      expect(json(html, 'ddBundledJs')).toEqual(surveySdkUrls(BUNDLED_SURVEY_SDK_VERSION));
     });
   });
 });

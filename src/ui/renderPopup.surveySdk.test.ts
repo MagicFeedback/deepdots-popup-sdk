@@ -45,7 +45,7 @@ describe('renderPopup · survey SDK asignado (DD-70)', () => {
         bundled.form.mockClear();
         assigned.form.mockClear();
         resolveImpl = async (requested) => requested === '2.2.38'
-            ? { sdk: assigned, choice: { version: '2.2.38', source: 'assigned', requested: '2.2.38' } }
+            ? { sdk: assigned, css: '/* assigned 2.2.38 */', choice: { version: '2.2.38', source: 'assigned', requested: '2.2.38' } }
             : { sdk: bundled, choice: { version: '2.2.39', source: 'bundled', reason: 'not_assigned' } };
     });
 
@@ -57,6 +57,10 @@ describe('renderPopup · survey SDK asignado (DD-70)', () => {
         expect(assigned.form).toHaveBeenCalledWith('survey-1', 'product-1', expect.anything(), expect.anything());
         expect(bundled.form).not.toHaveBeenCalled();
         expect((container.querySelector('.deepdots-popup') as HTMLElement).dataset.surveySdk).toBe('2.2.38 assigned');
+        // La hoja de esa versión sustituye a la empaquetada en el mismo <style>.
+        const style = document.getElementById('magicfeedback-sdk-styles')!;
+        expect(style.textContent).toBe('/* assigned 2.2.38 */');
+        expect(style.getAttribute('nonce')).toBe('n1');
     });
 
     it('sin versión: el empaquetado', async () => {
@@ -64,6 +68,8 @@ describe('renderPopup · survey SDK asignado (DD-70)', () => {
         await promise;
         expect(bundled.form).toHaveBeenCalled();
         expect((container.querySelector('.deepdots-popup') as HTMLElement).dataset.surveySdk).toBe('2.2.39 bundled');
+        // Una apertura asignada previa no deja su hoja puesta.
+        expect(document.getElementById('magicfeedback-sdk-styles')!.textContent).not.toBe('/* assigned 2.2.38 */');
     });
 
     it('cerrado mientras se descarga: no pinta el survey', async () => {

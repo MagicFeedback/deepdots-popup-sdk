@@ -7,6 +7,7 @@ import {
   type SurveySdkChoice,
 } from './surveySdkVersion';
 import { sdkLog, sdkWarn } from '../util/logger';
+import { SURVEY_CSS_LOADERS } from './surveyCss';
 
 /**
  * Survey SDK del popup DOM web (DD-70): la versión de `@magicfeedback/native` asignada al survey
@@ -18,8 +19,9 @@ import { sdkLog, sdkWarn } from '../util/logger';
  * usa un loader AMD (`define.amd`), el UMD se registraría como módulo anónimo y no dejaría global;
  * mientras se carga se oculta `define` para que tome la rama del global.
  *
- * Solo cambia el JS. El CSS del survey sigue siendo el vendorizado (`src/assets/style.css`), por
- * eso el rango admite solo parches de la misma minor (ver `SUPPORTED_SURVEY_SDK_RANGE`).
+ * El CSS va con la JS: la hoja vendorizada de esa versión (`src/assets/survey-css/<v>.css`,
+ * acotada a `.deepdots-popup`), que viaja dentro del SDK como chunk perezoso. Si la hoja o la JS
+ * no cargan, se usan las dos empaquetadas: nunca JS de una versión con CSS de otra.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,6 +30,8 @@ export type SurveySdk = any;
 export interface LoadedSurveySdk {
   sdk: SurveySdk;
   choice: SurveySdkChoice;
+  /** CSS vendorizado de la versión asignada; undefined = el empaquetado (`style.css`). */
+  css?: string;
 }
 
 /** Tiempo máximo por URL antes de pasar a la siguiente. */
@@ -37,9 +41,19 @@ interface LoaderDeps {
   /** Inyectable en tests. Resuelve con el SDK cargado o rechaza. */
   loadScript?: (url: string, nonce?: string) => Promise<SurveySdk>;
   bundled?: SurveySdk;
+  /** Inyectable en tests. */
+  loadCss?: (version: string) => Promise<string>;
 }
 
-const cache = new Map<string, Promise<SurveySdk | null>>();
+async function loadVendoredCss(version: string): Promise<string> {
+  const load = SURVEY_CSS_LOADERS[version];
+  if (!load) throw new Error(`no vendored survey CSS for ${version}`);
+  const css = (await load()).default;
+  if (typeof css !== 'string' || css.length === 0) throw new Error(`empty survey CSS for ${version}`);
+  return css;
+}
+
+const cache = new Map<string, Promise<{ sdk: SurveySdk; css: string } | null>>();
 /** Cadena para no ejecutar dos UMD a la vez (los dos escriben el mismo global). */
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -84,7 +98,25 @@ export function loadUmdScript(url: string, nonce?: string, timeoutMs = SURVEY_SD
   });
 }
 
-async function loadVersion(version: string, nonce: string | undefined, loadScript: NonNullable<LoaderDeps['loadScript']>): Promise<SurveySdk | null> {
+async function loadVersion(
+  version: string,
+  nonce: string | undefined,
+  loadScript: NonNullable<LoaderDeps['loadScript']>,
+  loadCss: NonNullable<LoaderDeps['loadCss']>,
+): Promise<{ sdk: SurveySdk; css: string } | null> {
+  // La hoja primero: sin ella no se usa la JS de esa versión.
+  let css: string;
+  try {
+    css = await loadCss(version);
+  } catch (error) {
+    sdkWarn(`[Deepdots] survey CSS ${version} failed:`, error);
+    return null;
+  }
+  const sdk = await loadScriptChain(version, nonce, loadScript);
+  return sdk ? { sdk, css } : null;
+}
+
+async function loadScriptChain(version: string, nonce: string | undefined, loadScript: NonNullable<LoaderDeps['loadScript']>): Promise<SurveySdk | null> {
   for (const url of surveySdkUrls(version)) {
     const attempt = queue.then(() => loadScript(url, nonce));
     queue = attempt.catch(() => undefined);
@@ -111,9 +143,9 @@ export interface ResolveSurveySdkOptions {
 
 /**
  * Log de la elección: con `debug`, siempre; sin él, solo si la API pidió una versión que debía
- * poder usarse y no se ha podido (inválida, no cargó). Fuera de rango NO avisa sin debug: es lo
- * normal para surveys en versiones antiguas (p. ej. prod latest 3.2.0 → 2.2.36) y saldría en
- * cada apertura en la consola del cliente.
+ * poder usarse y no se ha podido (inválida, no cargó). Una versión no soportada NO avisa sin
+ * debug: es lo normal para surveys en versiones antiguas (p. ej. prod latest 3.2.0 → 2.2.36) y
+ * saldría en cada apertura en la consola del cliente.
  */
 export function logSurveySdkChoice(choice: SurveySdkChoice, debug?: boolean): void {
   const problem = choice.source === 'bundled'
@@ -136,15 +168,16 @@ export async function resolveSurveySdk(
   }
 
   const loadScript = deps.loadScript ?? loadUmdScript;
+  const loadCss = deps.loadCss ?? loadVendoredCss;
   let pending = cache.get(choice.version);
   if (!pending) {
-    pending = loadVersion(choice.version, nonce, loadScript);
+    pending = loadVersion(choice.version, nonce, loadScript, loadCss);
     cache.set(choice.version, pending);
   }
-  const sdk = await pending;
-  if (sdk) {
+  const loaded = await pending;
+  if (loaded) {
     logSurveySdkChoice(choice, debug);
-    return { sdk, choice };
+    return { sdk: loaded.sdk, css: loaded.css, choice };
   }
   // No se cachea el fallo: la siguiente apertura lo reintenta (CDN caído un momento).
   cache.delete(choice.version);

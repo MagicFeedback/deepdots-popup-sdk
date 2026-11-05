@@ -871,13 +871,18 @@ export async function renderPopup(
 
     // DD-70: la versión de survey SDK asignada al survey en el Admin, o la empaquetada. Nunca
     // rechaza. Mientras carga del CDN el popup sigue invisible (o con spinner, pasado el techo).
-    const { sdk: magicfeedback, choice: surveySdk } = await resolveSurveySdk(
+    const { sdk: magicfeedback, choice: surveySdk, css: surveySdkCss } = await resolveSurveySdk(
         options?.surveySdkVersion,
         { nonce: cspNonce, debug: options?.debug },
     );
     popup.dataset.surveySdk = `${surveySdk.version} ${surveySdk.source}`;
     // Cerrado mientras se descargaba: no se pinta un survey en un contenedor ya vacío.
     if (!container.contains(popup)) return;
+    // El CSS va con la JS: la hoja de la versión asignada sustituye a la empaquetada en el mismo
+    // <style> (mismo sitio en el <head>, así el de alineación y el del host siguen ganando). Sin
+    // asignada se vuelve a poner la empaquetada, por si otra apertura la cambió.
+    if (surveySdkCss) ensureStyle('magicfeedback-sdk-styles', surveySdkCss, cspNonce);
+    else ensureMagicFeedbackStyles(cspNonce);
 
     try {
         if (!magicfeedback || typeof magicfeedback.form !== 'function') {

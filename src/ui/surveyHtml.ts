@@ -1,4 +1,4 @@
-import { BUNDLED_SURVEY_SDK_VERSION, surveySdkUrls } from './surveySdkVersion';
+import { BUNDLED_SURVEY_SDK_VERSION, surveySdkCssUrls, surveySdkUrls } from './surveySdkVersion';
 import type { IdentityAnswer } from '../tracking/tracking-manager';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import type { PopupActions, PopupFont } from '../types';
@@ -65,8 +65,8 @@ export interface BuildSurveyHtmlOptions {
   metadata?: IdentityAnswer[];
   /**
    * Versión de `@magicfeedback/native` a cargar (DD-70: la asignada al survey ya elegida con
-   * `chooseSurveySdkVersion`). Por defecto la empaquetada. Si no carga de jsDelivr ni de unpkg,
-   * el HTML prueba la empaquetada antes de dar el error de carga.
+   * `chooseSurveySdkVersion`). Por defecto la empaquetada. Con otra, el HTML trae su hoja
+   * vendorizada y su JS; si cualquiera falla, la hoja y la JS empaquetadas.
    */
   version?: string;
   font?: PopupFont; // fuente personalizada (family + url opcional)
@@ -146,10 +146,12 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const env = opts.env === 'development' ? 'dev' : 'prod';
   // Por defecto la misma versión que la dep npm del bundle web, para que las dos rutas pinten igual.
   const version = opts.version ?? BUNDLED_SURVEY_SDK_VERSION;
-  const surveySdkSources = [
-    ...surveySdkUrls(version),
-    ...(version !== BUNDLED_SURVEY_SDK_VERSION ? surveySdkUrls(BUNDLED_SURVEY_SDK_VERSION) : []),
-  ];
+  // DD-70: con una versión asignada, primero su hoja (CDN del popup-sdk) y su JS; si la hoja o la
+  // JS no cargan, las empaquetadas. Nunca JS de una versión con CSS de otra.
+  const assigned = version !== BUNDLED_SURVEY_SDK_VERSION
+    ? { version, css: surveySdkCssUrls(version), js: surveySdkUrls(version) }
+    : null;
+  const bundledJs = surveySdkUrls(BUNDLED_SURVEY_SDK_VERSION);
   const sid = jsonForScript(opts.surveyId);
   const pid = jsonForScript(opts.productId);
   const profileJson = jsonForScript(opts.profile ?? []);
@@ -228,8 +230,10 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="color-scheme" content="${colorScheme}"/>
-<style>
+<style id="dd-survey-css">
 ${magicfeedbackCss}
+</style>
+<style>
 ${fontFaceCss}
 html,body{margin:0;padding:0;height:100%;font-family:${fontFamilyValue}}
 /* Apertura diferida: ni la tarjeta ni el velo se pintan hasta que el survey está listo
@@ -726,20 +730,46 @@ ${REVEAL_JS}
     }catch(e){ ddShowLoadError('error:exception', e); }
     return true;
   }
-  // DD-70: la versión asignada (jsDelivr, unpkg) y, si ninguna carga, la empaquetada.
-  var ddSdkSources=${jsonForScript(surveySdkSources)}, ddSdkIndex=0;
-  function ddLoadSurveySdk(){
-    var url=ddSdkSources[ddSdkIndex];
-    var s=document.createElement('script'); s.src=url; s.async=true;
-    s.onload=function(){ try{ document.documentElement.setAttribute('data-survey-sdk', url); }catch(_){} initMF(); };
+  // DD-70: versión asignada (hoja + JS) y, si algo falla, la empaquetada (hoja + JS).
+  var ddAssigned=${jsonForScript(assigned)}, ddBundledJs=${jsonForScript(bundledJs)};
+  var ddCssEl=document.getElementById('dd-survey-css'), ddBundledCss=ddCssEl?ddCssEl.textContent:'';
+  function ddMark(v){ try{ document.documentElement.setAttribute('data-survey-sdk', v); }catch(_){} }
+  function ddLoadScripts(urls, i, onFail){
+    if(i>=urls.length){ onFail(); return; }
+    var s=document.createElement('script'); s.src=urls[i]; s.async=true;
+    s.onload=function(){ initMF(); };
     s.onerror=function(){
-      try{ console.warn('[Deepdots] survey SDK failed from '+url); }catch(_){}
-      if(++ddSdkIndex<ddSdkSources.length){ ddLoadSurveySdk(); }
-      else { ddShowLoadError('error:load', 'survey script failed to load'); }
+      try{ console.warn('[Deepdots] survey SDK failed from '+urls[i]); }catch(_){}
+      ddLoadScripts(urls, i+1, onFail);
     };
     document.head.appendChild(s);
   }
-  ddLoadSurveySdk();
+  function ddLoadBundled(){
+    if(ddCssEl){ ddCssEl.textContent=ddBundledCss; }
+    ddMark(${jsonForScript(BUNDLED_SURVEY_SDK_VERSION + ' bundled')});
+    ddLoadScripts(ddBundledJs, 0, function(){ ddShowLoadError('error:load', 'survey script failed to load'); });
+  }
+  function ddFetchCss(urls, i, ok, fail){
+    if(i>=urls.length || typeof fetch!=='function'){ fail(); return; }
+    fetch(urls[i]).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+      .then(function(css){ if(!css) throw new Error('empty'); ok(css); })
+      .catch(function(){ ddFetchCss(urls, i+1, ok, fail); });
+  }
+  if(ddAssigned){
+    ddFetchCss(ddAssigned.css, 0, function(css){
+      if(ddCssEl){ ddCssEl.textContent=css; }
+      ddMark(ddAssigned.version+' assigned');
+      ddLoadScripts(ddAssigned.js, 0, function(){
+        try{ console.warn('[Deepdots] survey SDK '+ddAssigned.version+' failed, using bundled'); }catch(_){}
+        ddLoadBundled();
+      });
+    }, function(){
+      try{ console.warn('[Deepdots] survey CSS '+ddAssigned.version+' failed, using bundled'); }catch(_){}
+      ddLoadBundled();
+    });
+  } else {
+    ddLoadBundled();
+  }
   var tries=0, t=setInterval(function(){ if(initMF()||++tries>40){ clearInterval(t); } },150);
 })();
 </script>

@@ -224,10 +224,11 @@ because the HTML reveals itself; the container just appears a few hundred ms bef
 
 Each popup draws its survey with the survey version assigned to it in the Admin (*Survey frontend version*: latest or pinned), like the survey page does. The API sends it per popup as `surveyFrontend.sdkVersion`, the `@magicfeedback/native` version that survey release was built with.
 
-- In range (`SUPPORTED_SURVEY_SDK_RANGE`, now `>=2.2.37 <2.3.0`) and different from the bundled one: the browser bundle of that exact version is loaded from jsDelivr, then unpkg. React Native's WebView does the same and falls back to the bundled version's URL.
-- Missing (older API, survey release without `sdkVersion`), out of range, or failing to load (no network, a CSP without `cdn.jsdelivr.net`/`unpkg.com` in `script-src`): the bundled version (`BUNDLED_SURVEY_SDK_VERSION`), as before.
-- Only the JS changes: the survey CSS stays the bundled, popup-scoped copy, which is why only patches of the bundled minor are accepted.
-- With `debug: true` the choice is logged (`[Deepdots] survey SDK 2.2.38 (assigned)`); an invalid version or one that fails to load is always logged as a warning (out of range is debug-only: it is normal for older survey versions). The popup element carries it in `data-survey-sdk`.
+- Supported versions: `SUPPORTED_SURVEY_SDK_VERSIONS` (now 2.2.37, 2.2.38, 2.2.39), the ones whose survey CSS this SDK vendors (`src/assets/survey-css/<v>.css`, scoped to `.deepdots-popup` like `style.css`). JS and CSS follow the version together.
+- DOM popup: the browser bundle of that exact version comes from jsDelivr (then unpkg); its CSS ships inside this SDK as a lazy chunk. React Native's WebView loads both from the CDN (the CSS from this package's `dist/assets/assets/survey-css`).
+- Missing (older API, survey release without `sdkVersion`), unsupported, or failing to load (no network, a CSP without `cdn.jsdelivr.net`/`unpkg.com` in `script-src`): the bundled JS and CSS (`BUNDLED_SURVEY_SDK_VERSION`), as before. Never one version's JS with another's CSS.
+- With `debug: true` the choice is logged (`[Deepdots] survey SDK 2.2.38 (assigned)`); an invalid version or a load failure is always logged as a warning (unsupported is debug-only: it is normal for older survey versions). The popup element carries it in `data-survey-sdk`.
+- Adding a version: `node scripts/vendor-survey-css.mjs --src <readable magicfeedback-default.css> --version <v> --out src/assets/survey-css/<v>.css`, then add it to `SUPPORTED_SURVEY_SDK_VERSIONS` and `src/ui/surveyCss.ts` (a test checks the three match).
 
 ### Focus on text questions
 
