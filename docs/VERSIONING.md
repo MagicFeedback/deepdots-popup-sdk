@@ -121,3 +121,17 @@ release.yml                   gate ─► pack ─► smoke ─► publish that 
 A patch for an older line is published under the dist-tag `release-MAJOR.MINOR`, never as
 `latest`. The bundled survey renderer is supported as shipped: to get a newer renderer,
 upgrade the popup SDK.
+
+## Survey SDK compatibility line (DD-70)
+
+The release notes of every version start with
+`Survey SDK supported: <supported> (survey frontend <versions>); bundled: <bundled>.`
+`check.mjs release` (release PR dry run and `release.yml`) computes it from
+`SUPPORTED_SURVEY_SDK_VERSIONS` / `BUNDLED_SURVEY_SDK_VERSION` and the public registry view
+`GET https://api.deepdots.com/sdk/survey-versions` (survey frontend versions in `stable` or
+`candidate` built with a supported survey SDK), and blocks the release if the line in the
+CHANGELOG section is missing or different, printing the expected one. To get it before the release
+PR: `node scripts/release/survey-compat.mjs`. `SURVEY_VERSIONS_URL` points it elsewhere (DEV);
+`SURVEY_COMPAT_OFFLINE=1` turns an unreachable registry into a warning (emergencies only). Keep the
+compatibility table in the docs (`popup-web/reference/survey-compatibility`) in line with it.
+
