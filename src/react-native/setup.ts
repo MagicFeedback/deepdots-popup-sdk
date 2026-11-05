@@ -86,7 +86,13 @@ export function setupReactNative(
 
   const backgroundTask = config.backgroundTask ?? deps.backgroundTask ?? undefined;
 
-  sdk.init({ ...config, storage, device, platform, backgroundTask });
+  // Con `appState` el listener lo pone esta función (abajo): se apaga el automático del core
+  // para no tener dos (no duplicaría datos, pero sobra).
+  const autoTrack = deps.appState?.addEventListener
+    ? { ...config.autoTrack, lifecycle: false }
+    : config.autoTrack;
+
+  sdk.init({ ...config, storage, device, platform, backgroundTask, autoTrack });
 
   // Captura de errores JS no manejados en RN (no hay `window`): usa el ErrorUtils inyectado
   // o el global del runtime RN. Degrada si no existe.

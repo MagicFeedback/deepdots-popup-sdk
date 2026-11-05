@@ -137,7 +137,7 @@ describe('cierre de sesión (DD-55)', () => {
     const sent = afterInactive.flatMap(eventsOf);
     const engagement = sent.find((e) => e.name === 'deepdots_user_engagement');
     expect(engagement).toMatchObject({ screen: '/wallet' });
-    expect(Number(engagement!.engagement_time_msec)).toBeGreaterThan(0);
+    expect(Number((engagement as Record<string, unknown>).engagement_time_msec)).toBeGreaterThan(0);
     expect(sent.some((e) => e.name === 'deepdots_session_end')).toBe(false);
     expect(afterInactive.every((b) => !b.completed)).toBe(true);
 

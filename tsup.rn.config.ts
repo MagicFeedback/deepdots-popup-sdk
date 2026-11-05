@@ -8,7 +8,7 @@ import { sdkVersionDefine } from './scripts/sdk-version-define.mjs';
  * survey lo carga el WebView desde CDN). El core entra desacoplado (renderPopup es lazy).
  */
 export default defineConfig({
-  entry: { 'react-native': 'src/react-native/index.tsx' },
+  entry: { 'react-native': 'src/react-native/index.tsx', 'index.native': 'src/index.native.ts' },
   format: ['esm', 'cjs'],
   dts: true,
   clean: false, // se ejecuta después del build principal

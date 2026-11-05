@@ -5,10 +5,12 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "react-native": "dist/index.native.js",
   "autho": "sarias@deepdots.com",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "react-native": "./dist/index.native.js",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
@@ -19,7 +21,10 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "ios",
+    "MagicfeedbackPopupSdk.podspec",
+    "react-native.config.js"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean && rm -rf dist/assets && mkdir -p dist/assets/assets && cp -R src/assets/. dist/assets/assets/ && tsup --config tsup.rn.config.ts",

@@ -1,5 +1,6 @@
 export { DeepdotsPopups } from './core/deepdots-popups';
 export { buildMessageParams, MessageGuard, MESSAGE_CHANNELS, MAX_TRACKED_MESSAGES } from './analytics/messaging';
+export type { AutoTrackOptions } from './types';
 export type {
   MessageStage,
   TrackMessageOptions,
