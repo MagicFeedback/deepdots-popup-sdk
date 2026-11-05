@@ -348,6 +348,22 @@ export interface PopupDefinition {
     productId: string;
     style?: PopupStyle;
     segments?: PopupSegments;
+    /**
+     * Versión del survey asignada en el Admin (latest o fijada) y su survey SDK (DD-70). La manda
+     * la API desde DD-70; con APIs anteriores falta y se usa el survey SDK empaquetado.
+     */
+    surveyFrontend?: PopupSurveyFrontend | null;
+}
+
+/** `surveyFrontend` de `GET /sdk/{publicKey}/popups` (DD-70). */
+export interface PopupSurveyFrontend {
+    /** Versión de MagicSurvey resuelta (X.Y.Z). */
+    version?: string;
+    /** "latest" o la X.Y.Z fijada. */
+    preference?: string;
+    status?: string;
+    /** `@magicfeedback/native` con el que se construyó esa versión; null si no se conoce. */
+    sdkVersion?: string | null;
 }
 
 export interface FormStyle

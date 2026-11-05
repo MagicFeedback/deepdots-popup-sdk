@@ -132,7 +132,18 @@ describe('surveyHtml · survey que no carga', () => {
 
   it('si el bundle del CDN no carga (sin red), acaba en el mismo estado', () => {
     const h = run({}, 'none');
-    h.cdnScript?.onerror?.(new Event('error'));
+    // jsDelivr y luego unpkg (DD-70): el error de carga llega cuando fallan todas las fuentes.
+    const tried: string[] = [];
+    let last: HTMLScriptElement | null = null;
+    while (h.cdnScript && h.cdnScript !== last) {
+      last = h.cdnScript;
+      tried.push(last.src);
+      last.onerror?.(new Event('error'));
+    }
+    expect(tried).toEqual([
+      expect.stringContaining('cdn.jsdelivr.net/npm/@magicfeedback/native@'),
+      expect.stringContaining('unpkg.com/@magicfeedback/native@'),
+    ]);
 
     expect(names(h)).toContain('error:load');
     expect(names(h)).toContain('ready');

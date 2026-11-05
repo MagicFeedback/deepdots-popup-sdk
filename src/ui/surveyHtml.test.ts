@@ -348,8 +348,10 @@ describe('buildSurveyHtml surveyCss (CSS del host)', () => {
     expect(html).toContain(marker);
     // por detrás de la media query, que es el último bloque propio
     expect(html.indexOf(marker)).toBeGreaterThan(html.indexOf('@media (max-width:640px)'));
-    // y todavía dentro del <style>
-    expect(html.indexOf(marker)).toBeLessThan(html.indexOf('</style>'));
+    // y todavía dentro de un <style> (el primero es la hoja del survey, DD-70)
+    const open = html.lastIndexOf('<style', html.indexOf(marker));
+    expect(open).toBeGreaterThan(html.indexOf('<style id="dd-survey-css">'));
+    expect(html.indexOf(marker)).toBeLessThan(html.indexOf('</style>', html.indexOf(marker)));
   });
 
   it('un </style> en el CSS del host no puede cerrar el bloque', () => {

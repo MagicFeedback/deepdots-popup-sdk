@@ -9,17 +9,27 @@
  *
  * Uso: node scripts/vendor-survey-css.mjs   (tras un `npm i @magicfeedback/native@<v>`)
  *
+ * DD-70, una hoja por versión de survey SDK asignable (src/assets/survey-css/<v>.css):
+ *   node scripts/vendor-survey-css.mjs --src <magicfeedback-default.css legible> --version <v> \
+ *     --out src/assets/survey-css/<v>.css
+ * Desde 2.2.39 el paquete publica el CSS minificado: hay que pasarle el fuente legible
+ * (`src/styles/magicfeedback-default.css` del commit publicado en magicfeedback-sdk).
+ *
  * Cada transformación falla si no encuentra su patrón: si el paquete reorganiza la hoja, el
  * script avisa en vez de generar un CSS a medias.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const PKG = 'node_modules/@magicfeedback/native';
-const SRC = `${PKG}/dist/styles/magicfeedback-default.css`;
-const OUT = 'src/assets/style.css';
 const SCOPE = '.deepdots-popup';
 
-const version = JSON.parse(readFileSync(`${PKG}/package.json`, 'utf8')).version;
+const arg = (name) => {
+    const i = process.argv.indexOf(`--${name}`);
+    return i === -1 ? undefined : process.argv[i + 1];
+};
+const SRC = arg('src') ?? `${PKG}/dist/styles/magicfeedback-default.css`;
+const OUT = arg('out') ?? 'src/assets/style.css';
+const version = arg('version') ?? JSON.parse(readFileSync(`${PKG}/package.json`, 'utf8')).version;
 let css = readFileSync(SRC, 'utf8');
 
 function replaceOnce(needle, value, what) {

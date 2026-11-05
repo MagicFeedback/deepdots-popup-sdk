@@ -44,7 +44,8 @@
     { "name": "SPA navigation with a popup open", "match": ["^navigation › con un popup abierto"] },
     { "name": "Network failures and recovery", "match": ["^popup load failure keeps the host usable ›", "^host safety › (encuesta lenta|sin red|el chunk|la API de popups|errores 500|encuesta a medio pintar)"] },
     { "name": "Host page safety", "match": ["^host safety › (popup en esquina|tras cerrar|ráfaga)", "^smoke › CSS del host", "^known issues \\(host widgets\\) ›"] },
-    { "name": "Detection check: a missing navigation event is caught", "match": ["^missing navigation event ›"] }
+    { "name": "Detection check: a missing navigation event is caught", "match": ["^missing navigation event ›"] },
+    { "name": "Survey SDK versions assigned in the Admin (DD-70)", "match": ["^survey SDK versions \\(DD-70\\) ›"] }
   ],
   "safety": [
     { "label": "Clicks outside a corner popup reach the page", "match": "^host safety › popup en esquina" },
