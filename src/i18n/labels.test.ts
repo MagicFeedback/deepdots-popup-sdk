@@ -41,6 +41,22 @@ describe('resolveLocale', () => {
     }
   });
 
+  it('cubre los 24 idiomas oficiales de la UE (DD-67)', () => {
+    const eu = ['bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi', 'fr', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'nl', 'pl', 'pt', 'ro', 'sk', 'sl', 'sv'];
+    for (const code of eu) {
+      expect(resolveLocale(code), code).toBe(code);
+      expect(SUPPORTED_LANGUAGES, code).toContain(code);
+    }
+    // Los nuevos no se quedan en inglés: al menos el botón de enviar o el de cancelar cambia.
+    for (const code of ['bg', 'cs', 'el', 'et', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'nl', 'pl', 'ro', 'sk', 'sl'] as const) {
+      const own = LABELS[code].accept !== LABELS.en.accept || LABELS[code].decline !== LABELS.en.decline;
+      expect(own, code).toBe(true);
+    }
+    expect(resolveLocale('pl-PL')).toBe('pl');
+    expect(resolveLocale('el_GR')).toBe('el');
+    expect(resolveLocale('ga-IE')).toBe('ga');
+  });
+
   it('normaliza las variantes regionales de los idiomas nuevos', () => {
     expect(resolveLocale('de-AT')).toBe('de');
     expect(resolveLocale('pt-BR')).toBe('pt');
