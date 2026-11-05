@@ -64,11 +64,19 @@ describe('resolveSurveySdk', () => {
     expect(logger.warn).toHaveBeenCalledWith(`[Deepdots] survey SDK ${BUNDLED_SURVEY_SDK_VERSION} (bundled: load_failed, requested 2.2.38)`);
   });
 
-  it('fuera de rango → empaquetada sin descargar, con aviso', async () => {
+  it('fuera de rango → empaquetada sin descargar y sin aviso (normal en versiones antiguas)', async () => {
     const loadScript = vi.fn();
-    const r = await resolveSurveySdk('2.3.0', {}, { bundled, loadScript });
-    expect(r.choice).toMatchObject({ source: 'bundled', reason: 'out_of_range', requested: '2.3.0' });
+    const r = await resolveSurveySdk('2.2.36', {}, { bundled, loadScript });
+    expect(r.choice).toMatchObject({ source: 'bundled', reason: 'out_of_range', requested: '2.2.36' });
     expect(loadScript).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.log).not.toHaveBeenCalled();
+    await resolveSurveySdk('2.2.36', { debug: true }, { bundled, loadScript });
+    expect(logger.log).toHaveBeenCalledWith(`[Deepdots] survey SDK ${BUNDLED_SURVEY_SDK_VERSION} (bundled: out_of_range, requested 2.2.36)`);
+  });
+
+  it('versión inválida → aviso aunque no haya debug', async () => {
+    await resolveSurveySdk('latest', {}, { bundled, loadScript: vi.fn() });
     expect(logger.warn).toHaveBeenCalled();
   });
 

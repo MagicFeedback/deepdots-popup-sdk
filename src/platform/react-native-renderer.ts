@@ -240,7 +240,7 @@ export function createReactNativeRenderer(): PopupRenderer {
 
 /** Mismo criterio que el popup DOM (`logSurveySdkChoice`), sin importar su módulo (DOM + native). */
 function logRnSurveySdkChoice(choice: SurveySdkChoice, debug?: boolean): void {
-  const problem = choice.source === 'bundled' && (choice.reason === 'out_of_range' || choice.reason === 'invalid');
+  const problem = choice.source === 'bundled' && choice.reason === 'invalid';
   if (problem) sdkWarn(`[Deepdots] ${describeSurveySdkChoice(choice)}`);
   else if (debug) sdkLog(`[Deepdots] ${describeSurveySdkChoice(choice)}`);
 }

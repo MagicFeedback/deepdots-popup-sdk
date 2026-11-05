@@ -110,12 +110,14 @@ export interface ResolveSurveySdkOptions {
 }
 
 /**
- * Log de la elección: con `debug`, siempre; sin él, solo si la API pidió una versión y no se ha
- * podido usar (fuera de rango, inválida, no cargó), que es un problema a ver en la consola.
+ * Log de la elección: con `debug`, siempre; sin él, solo si la API pidió una versión que debía
+ * poder usarse y no se ha podido (inválida, no cargó). Fuera de rango NO avisa sin debug: es lo
+ * normal para surveys en versiones antiguas (p. ej. prod latest 3.2.0 → 2.2.36) y saldría en
+ * cada apertura en la consola del cliente.
  */
 export function logSurveySdkChoice(choice: SurveySdkChoice, debug?: boolean): void {
   const problem = choice.source === 'bundled'
-    && (choice.reason === 'out_of_range' || choice.reason === 'invalid' || choice.reason === 'load_failed');
+    && (choice.reason === 'invalid' || choice.reason === 'load_failed');
   if (problem) sdkWarn(`[Deepdots] ${describeSurveySdkChoice(choice)}`);
   else if (debug) sdkLog(`[Deepdots] ${describeSurveySdkChoice(choice)}`);
 }

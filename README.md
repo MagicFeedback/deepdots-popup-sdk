@@ -227,7 +227,7 @@ Each popup draws its survey with the survey version assigned to it in the Admin 
 - In range (`SUPPORTED_SURVEY_SDK_RANGE`, now `>=2.2.37 <2.3.0`) and different from the bundled one: the browser bundle of that exact version is loaded from jsDelivr, then unpkg. React Native's WebView does the same and falls back to the bundled version's URL.
 - Missing (older API, survey release without `sdkVersion`), out of range, or failing to load (no network, a CSP without `cdn.jsdelivr.net`/`unpkg.com` in `script-src`): the bundled version (`BUNDLED_SURVEY_SDK_VERSION`), as before.
 - Only the JS changes: the survey CSS stays the bundled, popup-scoped copy, which is why only patches of the bundled minor are accepted.
-- With `debug: true` the choice is logged (`[Deepdots] survey SDK 2.2.38 (assigned)`); a version that was asked for but not used is always logged as a warning. The popup element carries it in `data-survey-sdk`.
+- With `debug: true` the choice is logged (`[Deepdots] survey SDK 2.2.38 (assigned)`); an invalid version or one that fails to load is always logged as a warning (out of range is debug-only: it is normal for older survey versions). The popup element carries it in `data-survey-sdk`.
 
 ### Focus on text questions
 
