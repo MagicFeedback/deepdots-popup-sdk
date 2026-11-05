@@ -40,6 +40,7 @@ import { ContactManager, type ContactAttributes } from '../contact/contact-manag
 import { CrashReporter, crashRecordToParams, type ReportErrorOptions, type ReactNativeErrorUtils } from '../analytics/crash-reporter';
 import { clearPopupState, readPopupState, writePopupState } from './popup-state-store';
 import { setLogger } from '../util/logger';
+import { getReactNativePlatform, resolveBackgroundTask, type ReactNativePlatform } from '../platform/react-native-platform';
 import { buildMessageParams, MessageGuard, type MessageStage, type TrackMessageOptions } from '../analytics/messaging';
 
 const EXIT_QUEUE_STORAGE_KEY = '__deepdots_exit_popup_queue__';
@@ -187,6 +188,8 @@ export class DeepdotsPopups {
     private lastEngagementAt = 0;
     /** Cuándo se ocultó la pestaña por última vez (ms epoch); null si está visible. */
     private hiddenAt: number | null = null;
+    /** Suscripción automática a AppState (React Native, `autoTrack.lifecycle`). */
+    private appStateSubscription: { remove: () => void } | void = undefined;
     /**
      * Sesión suspendida por un `pagehide` (ms epoch y `deepdots_user_id`); null si no hay.
      * `openSession` la reanuda si sigue a tiempo (ver ANALYTICS_RESUME_WINDOW_MS).
@@ -221,6 +224,13 @@ export class DeepdotsPopups {
             }
             this.log('SDK already initialized');
             return;
+        }
+
+        // React Native (la entrada `index.native` registró la plataforma): sin `platform`
+        // explícito, el de `Platform.OS`. Antes un host RN que no lo pasaba salía como 'web'.
+        const rn = getReactNativePlatform();
+        if (!config.platform && (rn?.os === 'ios' || rn?.os === 'android')) {
+            config = { ...config, platform: rn.os };
         }
 
         const env = resolveEnvironment(config.nodeEnv);
@@ -290,6 +300,10 @@ export class DeepdotsPopups {
                   // persiste y se reenvía en el arranque siguiente. En web el cierre sale con
                   // `keepalive` y varias pestañas compartirían el mismo storage.
                   storage: (config.platform ?? 'web') !== 'web' ? storage : undefined,
+                  // iOS suspende la app con el POST de cierre en vuelo: el host puede darle
+                  // tiempo de background (DD-55). El reenvío del arranque siguiente sigue igual.
+                  // La del host o, en iOS, la del módulo nativo del paquete (autolinking).
+                  backgroundTask: resolveBackgroundTask(config.backgroundTask, rn),
                   onSessionId: (id) => {
                       this.analyticsFeedbackSessionId = id;
                       this.notifyFeedbackSession(id, 'open');
@@ -355,6 +369,7 @@ export class DeepdotsPopups {
         }
 
         this.initialized = true;
+        this.installAutoLifecycle(rn, config);
         this.log('SDK initialized', this.config);
         // El contenedor del popup (`#deepdots-popup-container`) lo crea el renderer, no el core.
         if (this.renderer.init) this.renderer.init();
@@ -587,6 +602,42 @@ export class DeepdotsPopups {
     onBackground(): void {
         this.closeSession('background');
         this.engagement?.pause();
+    }
+
+    /**
+     * App a `inactive` (RN, iOS: centro de control, llamada, app switcher, y SIEMPRE justo antes
+     * de `background`). NO cierra la sesión (es transitorio), pero envía lo acumulado con un
+     * `user_engagement` que lleva la pantalla en curso, como web al ocultar la pestaña: si el
+     * lote de cierre de `background` no llega a salir (iOS suspende la app), el backend ya
+     * tiene el tiempo activo y la última pantalla. El contador sigue en marcha.
+     */
+    onInactive(): void {
+        if (this.sessionOpen) this.flushEngagement();
+        this.flushAnalytics();
+    }
+
+    /**
+     * Ciclo de vida automático en React Native (contrato de detección automática): el SDK escucha
+     * AppState él mismo, así que el host no tiene que llamar a `onForeground`/`onInactive`/
+     * `onBackground`. Si el host los llama además (integraciones anteriores), no se duplica nada:
+     * abrir o cerrar una sesión ya abierta o cerrada no hace nada, y el engagement se consume.
+     * `autoTrack.lifecycle: false` lo apaga.
+     */
+    private installAutoLifecycle(rn: ReactNativePlatform | null, config: DeepdotsInitParams): void {
+        if (config.autoTrack?.lifecycle === false) return;
+        const appState = rn?.appState;
+        if (!appState || typeof appState.addEventListener !== 'function' || this.appStateSubscription) return;
+        try {
+            this.appStateSubscription = appState.addEventListener('change', (state) => {
+                if (state === 'active') this.onForeground();
+                // Solo 'background' es fin de sesión; 'inactive' (iOS) es transitorio.
+                else if (state === 'background') this.onBackground();
+                else this.onInactive();
+            });
+            this.log('lifecycle · AppState wired automatically');
+        } catch {
+            /* sin AppState usable: el host sigue pudiendo llamar a los métodos */
+        }
     }
 
     /**

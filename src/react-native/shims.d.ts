@@ -9,6 +9,8 @@ declare module 'react-native' {
   export const AppState: {
     addEventListener(type: 'change', listener: (state: string) => void): { remove: () => void };
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export const NativeModules: Record<string, any> | undefined;
   export const Modal: any;
   export const View: any;
 }

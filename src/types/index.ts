@@ -1,3 +1,4 @@
+import type { BackgroundTaskRunner } from '../analytics/background-task';
 /**
  * Configuration options for initializing the DeepdotsPopups SDK
  */
@@ -31,6 +32,12 @@ export interface FeedbackSession {
     status: 'open' | 'closed';
 }
 
+/** Signals the SDK detects on its own (see `DeepdotsInitParams.autoTrack`). */
+export interface AutoTrackOptions {
+    /** React Native: listen to `AppState` for session start/end. Default `true`. */
+    lifecycle?: boolean;
+}
+
 export interface DeepdotsInitParams {
     /** API key for authentication */
     apiKey?: string;
@@ -60,6 +67,24 @@ export interface DeepdotsInitParams {
     language?: string;
     /** Injectable device info (RN: from react-native-device-info). If missing, it is derived from the browser. */
     device?: DeviceInfo;
+    /**
+     * React Native (iOS): opens a native background task while each analytics request is in
+     * flight, so the session's closing request finishes after the app goes to background
+     * instead of when the user opens the app again. `begin(name)` starts the task and returns
+     * the function that ends it (iOS `beginBackgroundTask` / `endBackgroundTask`). The SDK ends
+     * it when the request settles, or after 25 s. Use `backgroundTimerTask(BackgroundTimer)`
+     * for `react-native-background-timer`, iOS only. Without it, nothing changes: a closing
+     * request that does not finish is stored and sent on the next launch.
+     */
+    backgroundTask?: BackgroundTaskRunner;
+    /**
+     * What the SDK detects on its own. Everything is on by default; set a signal to `false` to
+     * turn it off. `lifecycle` (React Native): the SDK listens to `AppState` itself
+     * (`active` → session start, `inactive` → send pending data, `background` → session end), so
+     * the host does not need to call `onForeground` / `onInactive` / `onBackground`. Calling them
+     * as well is harmless: nothing is sent twice.
+     */
+    autoTrack?: AutoTrackOptions;
     /**
      * Analytics channel keys (`POST /sdk/feedback`). If provided, analytics is SENT
      * to the configured integration; if missing, it stays in dry-run mode: nothing is sent, and the payload is only
