@@ -35,7 +35,7 @@
     { "name": "Path-based triggers and excluded screens", "match": ["^smoke › (path targeting|excludedPaths)"] },
     { "name": "Time-based triggers", "match": ["^smoke › time_on_page", "^triggers › time_on_page", "^navigation › (pushState|salir de /checkout antes)"] },
     { "name": "Scroll triggers", "match": ["^triggers › scroll"] },
-    { "name": "Event and click triggers", "match": ["^smoke › (event|click):", "^triggers › (click|evento del host|dos popups)", "^init › evento del host antes"] },
+    { "name": "Event and click triggers", "match": ["^smoke › (event|click):", "^triggers › (click|evento del host|evento \\+ Delay|dos popups)", "^init › evento del host antes"] },
     { "name": "Exit triggers", "match": ["^smoke › exit", "^navigation › (atrás del navegador \\(popstate\\)|ida y vuelta|navegación rápida)"] },
     { "name": "Re-display rules (cooldown)", "match": ["^smoke › re-display", "^re-display and audience › (cooldown|dos pestañas)"] },
     { "name": "Audience segmentation by language", "match": ["^multi-language ›", "^re-display and audience › segmentación"] },
