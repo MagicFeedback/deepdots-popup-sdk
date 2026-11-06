@@ -2,8 +2,9 @@ import type { DeepdotsEventType, PopupActions, PopupStyle } from '../types';
 import type { PopupRenderer, PopupRenderOptions } from './renderer';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import { buildSurveyHtml } from '../ui/surveyHtml';
+import { chooseSurveySdkVersion, describeSurveySdkChoice, type SurveySdkChoice } from '../ui/surveySdkVersion';
 import { REVEAL_TIMEOUT_MS } from '../ui/reveal';
-import { sdkWarn } from '../util/logger';
+import { sdkLog, sdkWarn } from '../util/logger';
 
 /**
  * Margen que el aviso nativo de "listo" deja por detrás del techo que ya lleva el HTML. El
@@ -106,9 +107,13 @@ export class ReactNativePopupRenderer implements PopupRenderer {
     this.armReadyFallback(surveyId);
 
     const { profile, metadata } = buildSurveyIdentity(userId ?? null, sessionId ?? null, miniService ?? null, analyticsFeedbackSessionId ?? null);
+    // DD-70: versión de survey SDK asignada al survey en el Admin, si está en rango.
+    const surveySdk = chooseSurveySdkVersion(options?.surveySdkVersion);
+    logRnSurveySdkChoice(surveySdk, options?.debug);
     const html = buildSurveyHtml({
       surveyId,
       productId,
+      version: surveySdk.version,
       env,
       profile,
       metadata,
@@ -231,4 +236,11 @@ export function isReactNativeEnv(): boolean {
 /** Factoría usada por `createDefaultRenderer` cuando se detecta RN (el host debería pasar onShow). */
 export function createReactNativeRenderer(): PopupRenderer {
   return new ReactNativePopupRenderer();
+}
+
+/** Mismo criterio que el popup DOM (`logSurveySdkChoice`), sin importar su módulo (DOM + native). */
+function logRnSurveySdkChoice(choice: SurveySdkChoice, debug?: boolean): void {
+  const problem = choice.source === 'bundled' && choice.reason === 'invalid';
+  if (problem) sdkWarn(`[Deepdots] ${describeSurveySdkChoice(choice)}`);
+  else if (debug) sdkLog(`[Deepdots] ${describeSurveySdkChoice(choice)}`);
 }

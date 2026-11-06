@@ -137,6 +137,18 @@ Config fields:
   defaults to `localStorage`)
 - `platform?: 'web' | 'android' | 'ios'` — defaults to `'web'`
 - `device?: DeviceInfo` — device context override, for hosts where the SDK cannot detect it
+- `autoTrack?: { lifecycle?: boolean }` — what the SDK detects on its own; all on by default.
+  `lifecycle` (React Native): the SDK listens to `AppState` itself (`active` → session start,
+  `inactive` → send pending data with the current screen, `background` → session end). Calling
+  `onForeground` / `onInactive` / `onBackground` yourself as well is harmless: nothing is sent
+  twice.
+- `backgroundTask?: (name) => () => void` — React Native on iOS, **usually not needed**: the
+  package ships a tiny native module (`ios/DeepdotsBackgroundTask.m`, linked by autolinking on
+  `pod install`) that asks iOS for background time while each analytics request is in flight,
+  so the request that closes the session finishes when the app goes to background instead of
+  when the user opens it again. Pass your own function only to replace it (for example
+  `backgroundTimerTask(BackgroundTimer)` with `react-native-background-timer`). Without either
+  (Expo Go, or an app not rebuilt yet), the closing batch is stored and sent on the next launch.
 - `contactAttributes?: Record<string, string | number | boolean>`
 - `renderChrome?: boolean` — React Native only. Defaults to `true`. When `false`, the survey
   WebView HTML is delivered transparent and edge-to-edge, without the SDK's own card, backdrop,
@@ -219,6 +231,16 @@ const renderer = new ReactNativePopupRenderer({
 
 `onReady` is optional: a host that opens its container on `onShow` still never shows the spinner,
 because the HTML reveals itself; the container just appears a few hundred ms before the card.
+
+### Survey version (latest or pinned in the Admin)
+
+Each popup draws its survey with the survey version assigned to it in the Admin (*Survey frontend version*: latest or pinned), like the survey page does. The API sends it per popup as `surveyFrontend.sdkVersion`, the `@magicfeedback/native` version that survey release was built with.
+
+- Supported versions: `SUPPORTED_SURVEY_SDK_VERSIONS` (now 2.2.38, 2.2.39), the ones whose survey CSS this SDK vendors (`src/assets/survey-css/<v>.css`, scoped to `.deepdots-popup` like `style.css`). JS and CSS follow the version together.
+- DOM popup: the browser bundle of that exact version comes from jsDelivr (then unpkg); its CSS ships inside this SDK as a lazy chunk. React Native's WebView loads both from the CDN (the CSS from this package's `dist/assets/assets/survey-css`).
+- Missing (older API, survey release without `sdkVersion`), unsupported, or failing to load (no network, a CSP without `cdn.jsdelivr.net`/`unpkg.com` in `script-src`): the bundled JS and CSS (`BUNDLED_SURVEY_SDK_VERSION`), as before. Never one version's JS with another's CSS.
+- With `debug: true` the choice is logged (`[Deepdots] survey SDK 2.2.38 (assigned)`); an invalid version or a load failure is always logged as a warning (unsupported is debug-only: it is normal for older survey versions). The popup element carries it in `data-survey-sdk`.
+- Adding a version: `node scripts/vendor-survey-css.mjs --src <readable magicfeedback-default.css> --version <v> --out src/assets/survey-css/<v>.css`, then add it to `SUPPORTED_SURVEY_SDK_VERSIONS` and `src/ui/surveyCss.ts` (a test checks the three match). The release gate then tests it: `apps/test-app/e2e/survey-sdk.spec.ts` opens a popup with each listed version (`?surveySdk=<v>`) and checks its JS, its CSS and that the survey draws and answers.
 
 ### Focus on text questions
 
@@ -309,6 +331,7 @@ session start/end and unhandled errors are automatic. The rest is instrumented b
 | `setUserAttributes(map)` / `setMetric(key, value)` | Breakdown dimensions / measurable values |
 | `setUserId(userId?)` | Login, logout or account switch |
 | `endSession()` | Closes the session explicitly |
+| `onForeground()` / `onInactive()` / `onBackground()` | React Native lifecycle. Not needed: the SDK listens to `AppState` itself (`autoTrack.lifecycle`). Calling them as well does not send anything twice |
 | `setTrackingEnabled(enabled)` | Kill switch (consent) |
 | `reportError(error, options?)` | A handled error |
 | `previewAnalytics()` / `flushAnalytics()` | Inspect the pending payload / send it now |

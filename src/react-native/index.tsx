@@ -10,12 +10,21 @@
  * react-native-mmkv (persistencia), react-native-device-info (device info).
  */
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, Modal, Platform, View } from 'react-native';
+import { AppState, Modal, NativeModules, Platform, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { DeepdotsPopups } from '../core/deepdots-popups';
 import { ReactNativePopupRenderer, type ReactNativeSurveyPayload } from '../platform/react-native-renderer';
 import { setupReactNative } from './setup';
+import { registerReactNativePlatform } from '../platform/react-native-platform';
+
+// Igual que la entrada principal en RN (`index.native.ts`): el módulo nativo de background
+// (iOS) lo usa el sink sin que el host haga nada.
+registerReactNativePlatform({
+  os: Platform.OS,
+  appState: AppState,
+  backgroundTaskModule: NativeModules?.DeepdotsBackgroundTask ?? null,
+});
 import type { DeepdotsInitParams } from '../types';
 
 const sdk = new DeepdotsPopups();
@@ -60,6 +69,7 @@ export function DeepdotsProvider({ config, children }: DeepdotsProviderProps) {
       appState: AppState,
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
       renderer,
+
     });
     return dispose;
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -71,7 +71,16 @@ async function labOf(clientId) {
     fault: params.get('fault') || 'none',
     survey: params.get('survey') || 'dev',
     pos: params.get('pos') || '',
+    // DD-70: ?surveySdk=2.2.38 → cada popup llega con surveyFrontend.sdkVersion = esa versión,
+    // como si su survey estuviera fijado en el Admin a una release de MagicSurvey que la usa.
+    surveySdk: params.get('surveySdk') || '',
   };
+}
+
+/** Aplica ?surveySdk a una respuesta de GET /sdk/{key}/popups (DD-70). */
+function withSurveySdk(defs, lab) {
+  if (!lab.surveySdk || !Array.isArray(defs)) return defs;
+  return defs.map((d) => ({ ...d, surveyFrontend: { version: 'lab', preference: 'lab', status: 'stable', sdkVersion: lab.surveySdk } }));
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -179,7 +188,7 @@ async function route(req, url, lab, entry) {
 
     if (lab.popups === 'fixture') {
       if (isPopups && lab.scenario === 'release-fixtures') {
-        const defs = await loadReleaseFixtures();
+        const defs = withSurveySdk(await loadReleaseFixtures(), lab);
         entry.note = `fixture: release/compatibility.json (${defs.length})`;
         return json(defs);
       }
@@ -189,7 +198,8 @@ async function route(req, url, lab, entry) {
         let defs = scenario.popups.map((id) => scenarios.popups[id]).filter(Boolean);
         // ?pos=bottom-right…: misma definición en otra posición (regresión de posicionamiento).
         if (lab.pos) defs = defs.map((d) => ({ ...d, style: { ...d.style, position: lab.pos } }));
-        entry.note = `fixture: ${lab.scenario} (${defs.length})${lab.pos ? ` pos=${lab.pos}` : ''}`;
+        defs = withSurveySdk(defs, lab);
+        entry.note = `fixture: ${lab.scenario} (${defs.length})${lab.pos ? ` pos=${lab.pos}` : ''}${lab.surveySdk ? ` surveySdk=${lab.surveySdk}` : ''}`;
         return json(defs);
       }
       // Los estados de popup y el analytics de un popup de fixture no existen en DEV: se
@@ -203,6 +213,14 @@ async function route(req, url, lab, entry) {
         return json({});
       }
     }
+  }
+
+  // Popups reales de DEV (?popups=dev) con ?surveySdk: misma reescritura.
+  if (lab.surveySdk && url.hostname === DEV_HOST && /^\/sdk\/[^/]+\/popups$/.test(url.pathname)) {
+    const res = await fetch(req);
+    if (!res.ok) return res;
+    entry.note = `surveySdk=${lab.surveySdk}`;
+    return json(withSurveySdk(await res.json(), lab));
   }
 
   return fetch(req);

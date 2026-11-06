@@ -12,6 +12,7 @@ function envelope(overrides: Partial<AnalyticsEnvelope> = {}): AnalyticsEnvelope
     sessionId: 'srv-9',
     context: {
       platform: 'web',
+      sdk: 'web@9.9.9',
       language: 'es-ES',
       device: { device_type: 'mobile', user_agent: 'UA/1', app_version: '1.2.3' },
       attributes: { pass_type: 'premium' },
@@ -75,6 +76,11 @@ describe('buildAnalyticsFeedbackBody', () => {
     expect(md.deepdots_user_agent).toBe('UA/1');
     expect(md.deepdots_app_version).toBe('1.2.3');
     expect(md.pass_type).toBe('premium'); // user attribute — sin prefijo deepdots_
+  });
+
+  it('identifica el SDK que produce la analítica en deepdots_sdk (dashboard de Collection)', () => {
+    const md = mdMap(buildAnalyticsFeedbackBody(envelope(), KEYS));
+    expect(md.deepdots_sdk).toBe('web@9.9.9');
   });
 
   it('marca completed en false, arrastra claves; sin feedbackSessionId, sessionId ausente del body', () => {

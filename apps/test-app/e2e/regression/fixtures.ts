@@ -25,6 +25,10 @@ import type { Page, TestInfo } from '@playwright/test';
  *           'X.Y.Z'    publicado: falla en las anteriores y pasa desde esa
  */
 export const KNOWN_BUGS = {
+  'load-error-notice': {
+    fixedIn: '1.16.0' as string | null,
+    summary: 'la encuesta no carga (406 o sin red): el popup no avisa, sale vacío con el botón de enviar',
+  },
   'corner-overlay': {
     fixedIn: '1.17.2' as string | null,
     summary: 'popup en esquina: el contenedor a pantalla completa (transparente) se come los clics del host',
@@ -40,6 +44,10 @@ export const KNOWN_BUGS = {
   'phantom-shown': {
     fixedIn: '1.17.2' as string | null,
     summary: 'otro popup que toca con uno abierto emite popup_shown + SHOWED y gasta su cooldown sin pintarse',
+  },
+  'trigger-delay-ignored': {
+    fixedIn: 'local' as string | null,
+    summary: 'el "Delay (seconds)" del Admin (trigger.delaySeconds) se ignora: el popup sale en cuanto salta el trigger',
   },
 } as const;
 

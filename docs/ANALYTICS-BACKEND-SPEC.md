@@ -129,6 +129,8 @@ El campo `feedback.metrics` no se usa — todos los datos van en `feedback.metad
 | `deepdots_user_id` | `"a3f2-b1c9-..."` | Web + KMP | ID persistente generado por el SDK |
 | `deepdots_session_id` | `"67868972-..."` | Web + KMP | Session ID de popups (`POST /sdk/popups`). Null si no hubo popup |
 | `deepdots_platform` | `"web"` / `"android"` / `"ios"` | Web + KMP | Plataforma del cliente |
+| `deepdots_sdk` | `"web@1.18.0"` / `"react-native@1.18.0"` / `"android@0.7.10"` / `"ios@0.7.10"` / `"flutter@0.1.0"` | Web + KMP + Flutter | SDK y versión que envía el lote (versión del build). Las respuestas de popup llevan además `deepdots_channel=popup` |
+| `deepdots_sdk_core` | `"android@0.7.10"` / `"ios@0.7.10"` | Flutter | Núcleo nativo bajo un wrapper (solo si hay wrapper) |
 | `deepdots_language` | `"es-ES"` | Web + KMP | Idioma del dispositivo/navegador |
 | `deepdots_device_type` | `"mobile"` / `"tablet"` / `"desktop"` | Web + KMP | Tipo de dispositivo |
 | `deepdots_os_version` | `"17.4"` | KMP | Versión del SO (solo nativo: `Build.VERSION.RELEASE` / `UIDevice.systemVersion`) |

@@ -1,0 +1,230 @@
+# Synthetic monitor of the popup SDK (DD-26). Every hour: the test app (apps/test-app) loads the
+# PUBLISHED SDK (npm `latest` through jsDelivr, as customer sites do) against the live popup
+# config of DEV and runs four scenarios (apps/test-app/e2e/monitor): init, trigger → render,
+# answer → submit, popups-error. Each failure is retried once by Playwright before it counts.
+#
+# Alerts go straight to Slack #notifications (secret MONITORING_SLACK_WEBHOOK_URL, the "Survey
+# Monitoring" app): confirmed failures, reminders, recoveries. Grafana (survey-ops) only reads the
+# rows written to BigQuery afterwards; it is not in the alert path. The Watch job also sends the
+# daily heartbeat of the three platforms (web here, Android/iOS in the native SDK repo) and warns
+# when one of them stops running. Runbook: docs/MONITORING.md.
+#
+# Frequency: the cron runs hourly; SDK_MONITOR_EVERY_H_WEB (repository variable, default 1) skips
+# the hours that are not due. Scheduled runs only happen from the default branch (main).
+# A manual run (Run workflow) is a TEST: its messages start with "TEST —" and its incidents are
+# kept apart from the scheduled ones.
+name: "Monitoring: popup SDK"
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'SDK version (npm dist-tag or X.Y.Z)'
+        default: latest
+      inject_failure:
+        description: 'Failure test: service-worker fault in the submit scenario'
+        type: choice
+        options: [none, survey406, network, survey-garbage]
+        default: none
+      simulate_grafana_down:
+        description: 'Failure test: Grafana unreachable and no BigQuery write in this run'
+        type: boolean
+        default: false
+      heartbeat:
+        description: 'Also send the heartbeat of the three platforms'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # failure reports on the validation-reports branch (GitHub Pages)
+  actions: write # redeploy GitHub Pages (demo-gh-pages.yml)
+  id-token: write # BigQuery through Workload Identity Federation
+
+concurrency:
+  group: sdk-monitor-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MONITORING_SLACK_WEBHOOK_URL: ${{ secrets.MONITORING_SLACK_WEBHOOK_URL }}
+  SDK_MONITOR_OWNER: ${{ vars.SDK_MONITOR_OWNER }}
+  SDK_MONITOR_REMINDER_H: ${{ vars.SDK_MONITOR_REMINDER_H }}
+  SDK_MONITOR_EVERY_H_WEB: ${{ vars.SDK_MONITOR_EVERY_H_WEB }}
+  SDK_MONITOR_EVERY_H_ANDROID: ${{ vars.SDK_MONITOR_EVERY_H_ANDROID }}
+  SDK_MONITOR_EVERY_H_IOS: ${{ vars.SDK_MONITOR_EVERY_H_IOS }}
+  OUT: out/sdk-monitor
+
+jobs:
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Due this hour?
+        id: due
+        run: |
+          every=${SDK_MONITOR_EVERY_H_WEB:-1}
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ $(( $(date -u +%-H) % every )) -ne 0 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Not due (every $every h)"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.due.outputs.run == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.due.outputs.run == 'true'
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - if: steps.due.outputs.run == 'true'
+        run: npm ci
+      - if: steps.due.outputs.run == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve SDK version
+        id: version
+        if: steps.due.outputs.run == 'true'
+        env:
+          REQUESTED: ${{ inputs.version || 'latest' }}
+        run: |
+          v=$(npm view @magicfeedback/popup-sdk@"$REQUESTED" version | tail -1)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "### Popup SDK monitor · web · \`$v\` (npm \`$REQUESTED\`) · DEV" >> "$GITHUB_STEP_SUMMARY"
+
+      # Open incidents of earlier runs: an ongoing failure is not re-alerted every hour.
+      - name: Restore incidents
+        if: steps.due.outputs.run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.OUT }}-state.json
+          key: sdk-monitor-web-${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}-${{ github.run_id }}
+          restore-keys: sdk-monitor-web-${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}-
+
+      - name: Run the scenarios
+        id: run
+        if: steps.due.outputs.run == 'true'
+        continue-on-error: true
+        working-directory: apps/test-app
+        env:
+          MONITOR: '1'
+          SDK_VERSION: ${{ steps.version.outputs.version }}
+          MONITOR_FAULT: ${{ inputs.inject_failure != 'none' && inputs.inject_failure || '' }}
+        run: npx playwright test -c playwright.config.ts
+
+      - name: Collect
+        if: always() && steps.due.outputs.run == 'true'
+        run: |
+          node scripts/release/sdk-monitor.mjs collect --platform web --source npm \
+            --sdk "${{ steps.version.outputs.version }}" --playwright apps/test-app/test-results/results.json \
+            --job-status "${{ steps.run.outcome }}" --fault "${{ inputs.inject_failure != 'none' && inputs.inject_failure || '' }}" \
+            --out "$OUT"
+
+      - name: Slack
+        id: report
+        if: always() && steps.due.outputs.run == 'true'
+        env:
+          REPORT_URL: https://magicfeedback.github.io/deepdots-popup-sdk/validation/monitor/web-${{ github.run_id }}-${{ github.run_attempt }}
+        run: node scripts/release/sdk-monitor.mjs report --out "$OUT" --state "$OUT-state.json" --report-url "$REPORT_URL"
+
+      - name: Save incidents
+        if: always() && steps.report.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.OUT }}-state.json
+          key: sdk-monitor-web-${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # Failure report on GitHub Pages (validation-reports branch, served under /validation/monitor/).
+      - name: Publish the failure report
+        if: always() && steps.report.outputs.report == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIR: monitor/web-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for try in 1 2 3; do
+            rm -rf pages; git worktree prune; git branch -D "pages-$try" 2>/dev/null || true
+            if git fetch --depth=1 origin validation-reports; then git worktree add pages FETCH_HEAD
+            else git worktree add --detach pages && git -C pages checkout -q --orphan "pages-$try" && git -C pages rm -rfq .; fi
+            mkdir -p "pages/$DIR" && cp -R "$OUT/report/." "pages/$DIR/"
+            git -C pages add -A && git -C pages commit -qm "sdk monitor report $DIR"
+            git -C pages push origin HEAD:refs/heads/validation-reports && { published=1; break; }
+            sleep $((try * 5))
+          done
+          if [ -z "${published:-}" ]; then echo "::error::Failure report not published (push to validation-reports failed 3 times): it is in the run's artifact"; exit 1; fi
+          gh workflow run demo-gh-pages.yml --repo "$GITHUB_REPOSITORY" --ref dev
+
+      - name: Simulate Grafana down
+        id: grafana
+        if: always() && inputs.simulate_grafana_down
+        run: |
+          echo "127.0.0.1 dash.deepdots.com" | sudo tee -a /etc/hosts
+          if curl -sS -m 10 -o /dev/null https://dash.deepdots.com/api/health; then echo "::error::Grafana still reachable"; exit 1; fi
+          echo "Grafana unreachable from this runner, and no BigQuery write: the Slack messages above did not depend on either." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Grafana's data: survey_monitoring.sdk_check_results. Optional, never blocks the alerts.
+      - name: BigQuery
+        if: always() && steps.due.outputs.run == 'true' && !inputs.simulate_grafana_down && vars.SDK_MONITOR_WIF_PROVIDER != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.SDK_MONITOR_WIF_PROVIDER }}
+          service_account: ${{ vars.SDK_MONITOR_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: always() && steps.due.outputs.run == 'true' && !inputs.simulate_grafana_down && vars.SDK_MONITOR_WIF_PROVIDER != ''
+        continue-on-error: true
+      - name: Write rows
+        if: always() && steps.due.outputs.run == 'true' && !inputs.simulate_grafana_down && vars.SDK_MONITOR_WIF_PROVIDER != ''
+        continue-on-error: true
+        run: |
+          jq -c 'del(.sdk_log) | .evidence |= map({name, url})' "$OUT/results.jsonl" > rows.jsonl
+          bq --project_id="${{ vars.SDK_MONITOR_GCP_PROJECT }}" insert "${{ vars.SDK_MONITOR_BQ_TABLE }}" rows.jsonl
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.due.outputs.run == 'true'
+        with:
+          name: sdk-monitor-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.OUT }}
+            apps/test-app/test-results/
+          retention-days: 14
+
+  # Heartbeat (daily, at SDK_MONITOR_HEARTBEAT_HOUR UTC, default 8) and watchdog of the three
+  # platforms, from the last runs of both repos' monitor workflows.
+  watch:
+    name: Watch
+    needs: web
+    # Manual runs only with `heartbeat` (the failure test should not report the platforms silent).
+    if: always() && (github.event_name == 'schedule' || inputs.heartbeat)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.OUT }}-watch.json
+          key: sdk-monitor-watch-${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}-${{ github.run_id }}
+          restore-keys: sdk-monitor-watch-${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}-
+      - name: Heartbeat and watchdog
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HOUR: ${{ vars.SDK_MONITOR_HEARTBEAT_HOUR || '8' }}
+        run: |
+          mkdir -p "$(dirname "$OUT")"
+          hb=false
+          if [ "${{ inputs.heartbeat }}" = true ]; then hb=true
+          elif [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$(date -u +%-H)" = "$HOUR" ]; then hb=true; fi
+          node scripts/release/sdk-monitor.mjs watch --state "$OUT-watch.json" --heartbeat "$hb"
+      - uses: actions/cache/save@v4
+        with:
+          path: ${{ env.OUT }}-watch.json
+          key: sdk-monitor-watch-${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}-${{ github.run_id }}-${{ github.run_attempt }}

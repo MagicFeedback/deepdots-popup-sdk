@@ -32,6 +32,10 @@ const COPY = {
     es: { title: '¿Encuentras lo que buscas?', message: '<p>Dinos qué echas en falta.</p>' },
     en: { title: 'Finding what you need?', message: '<p>Tell us what is missing.</p>' },
   },
+  rateDelay: {
+    es: { title: 'Gracias por valorar el producto', message: '<p>¿Nos cuentas un poco más?</p>' },
+    en: { title: 'Thanks for rating the product', message: '<p>Tell us a bit more?</p>' },
+  },
   notOnCart: {
     es: { title: '¿Te gusta lo que ves?', message: '<p>Ayúdanos a mejorar NORDLY.</p>' },
     en: { title: 'Like what you see?', message: '<p>Help us improve NORDLY.</p>' },
@@ -44,6 +48,8 @@ const BASE = {
   checkout: { survey: 'simple', triggers: [{ type: 'time_on_page', value: 3 }], segments: { path: ['/checkout'] }, position: 'bottom-right', cooldown: LONG_COOLDOWN },
   exit: { survey: 'simple', triggers: [{ type: 'exit', value: 2 }], segments: { path: ['/checkout'] }, position: 'center', cooldown: LONG_COOLDOWN },
   rate: { survey: 'complex', triggers: [{ type: 'event', value: 'rate_product' }], segments: {}, position: 'center', cooldown: [] },
+  // Como MOM: evento del host + "Delay (seconds)" 60 en el Admin → sale 60 s después del evento.
+  rateDelay: { survey: 'simple', triggers: [{ type: 'event', value: 'rate_product', delaySeconds: 60 }], segments: {}, position: 'center', cooldown: [] },
   help: { survey: 'simple', triggers: [{ type: 'click', value: 'help-button' }], segments: {}, position: 'bottom-right', cooldown: [] },
   redisplay: {
     survey: 'simple',
@@ -56,7 +62,7 @@ const BASE = {
   scroll: { survey: 'simple', triggers: [{ type: 'scroll', value: 50 }], segments: { path: ['/products'] }, position: 'bottom-left', cooldown: [] },
 };
 
-const SCENARIO_OF = { checkout: 'checkout-time', exit: 'exit-checkout', rate: 'rate-product', help: 'help-click', redisplay: 'redisplay', notOnCart: 'not-on-cart', scroll: 'scroll-products' };
+const SCENARIO_OF = { checkout: 'checkout-time', exit: 'exit-checkout', rate: 'rate-product', rateDelay: 'rate-delay', help: 'help-click', redisplay: 'redisplay', notOnCart: 'not-on-cart', scroll: 'scroll-products' };
 
 const popups = {};
 for (const [key, base] of Object.entries(BASE)) {
@@ -84,7 +90,7 @@ for (const [key, name] of Object.entries(SCENARIO_OF)) {
 }
 // `all` = la config "SDK Test App" de DEV: todo menos not-on-cart (salta en cualquier página y
 // taparía a los demás) y los escenarios de la regresión (MF-3245), que solo existen en fixture.
-const NOT_IN_ALL = ['lab-not-on-cart', 'lab-scroll-products'];
+const NOT_IN_ALL = ['lab-not-on-cart', 'lab-scroll-products', 'lab-rate-delay'];
 scenarios.all = { popups: Object.keys(popups).filter((id) => !NOT_IN_ALL.some((p) => id.startsWith(p))) };
 
 const out = fileURLToPath(new URL('../app/scenarios.json', import.meta.url));

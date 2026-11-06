@@ -1,7 +1,7 @@
 /**
  * NO EDITAR A MANO — generado por scripts/vendor-survey-css.mjs
  *
- * Copia de @magicfeedback/native@2.2.37 → dist/styles/magicfeedback-default.css
+ * Copia de @magicfeedback/native@2.2.39 → dist/styles/magicfeedback-default.css
  * (la hoja canónica del paquete, la que apunta su campo "style"), con estos cambios locales:
  *
  *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
@@ -436,6 +436,112 @@
 
 .deepdots-popup input[type="number"] {
     /* -moz-appearance: textfield; removed for lint compatibility */
+}
+
+/* Email @ button (assets.atButton). --mf-secondary is defined by MagicSurvey;
+   the fallback is the same #2E2E2E. */
+.magicfeedback-email-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mf-space-sm);
+}
+
+.magicfeedback-email-row {
+    display: flex;
+    align-items: stretch;
+    gap: var(--mf-space-sm);
+}
+
+.magicfeedback-email-row input[type="email"] {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.magicfeedback-email-inset {
+    position: relative;
+}
+
+.magicfeedback-email-inset input[type="email"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding-inline-end: 3.6rem;
+}
+
+.magicfeedback-email-row input[type="email"]:focus,
+.magicfeedback-email-inset input[type="email"]:focus {
+    border-color: var(--mf-border-focus);
+}
+
+.magicfeedback-email-at {
+    flex: none;
+    aspect-ratio: 1;
+    align-self: stretch;
+    min-width: 46px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    font-family: inherit;
+    font-size: 1.35rem;
+    font-weight: var(--mf-font-weight-extrabold);
+    line-height: 1;
+    color: #FFFFFF;
+    background-color: var(--mf-secondary, #2E2E2E);
+    border: 2px solid var(--mf-secondary, #2E2E2E);
+    border-radius: var(--mf-radius-full);
+    cursor: pointer;
+    box-shadow: var(--mf-shadow-sm);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: transform 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.magicfeedback-email-at:active {
+    background-color: color-mix(in srgb, var(--mf-secondary, #2E2E2E) 85%, black);
+    transform: scale(0.92);
+    box-shadow: none;
+}
+
+.magicfeedback-email-at:focus-visible {
+    outline: 3px solid var(--mf-primary-border);
+    outline-offset: 2px;
+}
+
+.magicfeedback-email-inset .magicfeedback-email-at {
+    position: absolute;
+    inset-inline-end: 7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 0;
+    aspect-ratio: auto;
+    font-size: 1.15rem;
+    color: var(--mf-text-primary);
+    background-color: var(--mf-surface-alt);
+    border: 1px solid var(--mf-border);
+    box-shadow: none;
+}
+
+.magicfeedback-email-inset .magicfeedback-email-at:active {
+    transform: translateY(-50%) scale(0.9);
+    color: var(--mf-primary);
+    background-color: var(--mf-primary-light);
+    border-color: var(--mf-primary-border);
+}
+
+.magicfeedback-email-hint {
+    margin: 0;
+    text-align: start;
+    font-size: var(--mf-font-size-sm);
+    line-height: 1.45;
+    color: var(--mf-text-secondary);
+}
+
+.magicfeedback-email-hint b {
+    font-weight: var(--mf-font-weight-extrabold);
+    color: var(--mf-text-primary);
 }
 
 /* Custom Select Arrow */

@@ -9,7 +9,7 @@ import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS, revealWhenPainted as revealWhenImagesLoaded } from './reveal';
 import { classifySubmitError } from './submitError';
-import magicfeedback from "@magicfeedback/native";
+import { resolveSurveySdk } from './surveySdkLoader';
 import magicfeedbackCss from '../assets/style.css';
 
 // Reexportado desde aquí porque este era su sitio original: la constante se mudó a `reveal.ts`
@@ -869,6 +869,21 @@ export async function renderPopup(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let formInstance: any = null;
 
+    // DD-70: la versión de survey SDK asignada al survey en el Admin, o la empaquetada. Nunca
+    // rechaza. Mientras carga del CDN el popup sigue invisible (o con spinner, pasado el techo).
+    const { sdk: magicfeedback, choice: surveySdk, css: surveySdkCss } = await resolveSurveySdk(
+        options?.surveySdkVersion,
+        { nonce: cspNonce, debug: options?.debug },
+    );
+    popup.dataset.surveySdk = `${surveySdk.version} ${surveySdk.source}`;
+    // Cerrado mientras se descargaba: no se pinta un survey en un contenedor ya vacío.
+    if (!container.contains(popup)) return;
+    // El CSS va con la JS: la hoja de la versión asignada sustituye a la empaquetada en el mismo
+    // <style> (mismo sitio en el <head>, así el de alineación y el del host siguen ganando). Sin
+    // asignada se vuelve a poner la empaquetada, por si otra apertura la cambió.
+    if (surveySdkCss) ensureStyle('magicfeedback-sdk-styles', surveySdkCss, cspNonce);
+    else ensureMagicFeedbackStyles(cspNonce);
+
     try {
         if (!magicfeedback || typeof magicfeedback.form !== 'function') {
             sdkWarn('[MagicFeedback] form() no disponible. Fallback manual.');
@@ -1028,9 +1043,9 @@ export async function renderPopup(
                 // Desactivar loading para que se vean los botones
                 setLoading(false);
                 const {reason, message} = classifySubmitError(error);
-                // Caso específico: error de pregunta obligatoria
-                if (reason === 'required') {
-                    errorHint.textContent = labels.errorRequired;
+                // Validación (obligatoria vacía o email no válido): no es un fallo, la página se queda.
+                if (reason === 'required' || reason === 'invalid_email') {
+                    errorHint.textContent = reason === 'invalid_email' ? labels.errorInvalidEmail : labels.errorRequired;
                     errorHint.style.display = 'block';
                     // La página no ha cambiado: el estado de navegación se queda como estaba.
                     updateNavButtons();

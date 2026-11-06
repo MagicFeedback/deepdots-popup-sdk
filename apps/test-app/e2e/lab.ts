@@ -14,7 +14,7 @@ type LabEvent = { kind: string; name: string; data?: unknown };
 type LabNet = { method: string; url: string; host: string; path: string; status: number; note?: string; blocked?: boolean };
 
 export type LabParams = Partial<
-  Record<'scenario' | 'fault' | 'nav' | 'load' | 'lang' | 'popups' | 'css' | 'user' | 'survey' | 'pos' | 'init', string>
+  Record<'scenario' | 'fault' | 'nav' | 'load' | 'lang' | 'popups' | 'css' | 'user' | 'survey' | 'pos' | 'init' | 'surveySdk', string>
 >;
 
 export class Lab {

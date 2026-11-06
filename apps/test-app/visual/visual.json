@@ -1,0 +1,6 @@
+{
+  "$comment": "DD-28 · tolerancia de la regresión visual web. threshold = distancia de color por píxel (0-1); maxDiffPixels = píxeles distintos que se admiten por captura. Valores medidos: ver README.md (ruido entre ejecuciones).",
+  "title": "Visual regression · web",
+  "compare": { "threshold": 0.01, "maxDiffPixels": 0 },
+  "devices": {}
+}

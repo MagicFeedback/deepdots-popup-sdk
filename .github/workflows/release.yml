@@ -30,6 +30,8 @@ permissions:
   id-token: write # OIDC para npm Trusted Publishing
   pull-requests: write # PR de respaldo si el merge en main da conflicto
   actions: read # metadata.mjs lee el CI del commit etiquetado
+  checks: read # required-checks.mjs
+  issues: read # required-checks.mjs: quien puso la etiqueta de la excepcion de emergencia
 
 concurrency:
   group: release
@@ -76,6 +78,14 @@ jobs:
             exit 1
           fi
           node scripts/release/check.mjs release --tag "$GITHUB_REF_NAME" --notes-out "$RUNNER_TEMP/notes.md"
+
+      # Checks del commit etiquetado (DD-25, DD-27): CI + test app con la build de este commit. En
+      # rojo o sin ejecutar, no se publica nada. La unica salida es la excepcion de emergencia
+      # (docs/VERSIONING.md), que deja un aviso en las release notes.
+      - name: Release checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/required-checks.mjs --sha "$GITHUB_SHA" --notes "$RUNNER_TEMP/notes.md"
 
       - name: Unit tests
         run: npm test
@@ -148,6 +158,13 @@ jobs:
           if [ "${{ steps.meta.outputs.dist_tag }}" = "next" ]; then FLAGS+=(--prerelease); fi
           if [ "${{ steps.meta.outputs.dist_tag }}" != "latest" ]; then FLAGS+=(--latest=false); fi
           OUT="$RUNNER_TEMP/out"
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            echo
+            echo "## Release validation"
+            echo
+            echo "Automated validation report (test store on desktop and mobile Chromium, generated from the CI results shortly after the release): https://magicfeedback.github.io/deepdots-popup-sdk/validation/$VERSION/report.html"
+          } >> "$RUNNER_TEMP/notes.md"
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/notes.md" \
@@ -201,5 +218,41 @@ jobs:
     uses: ./.github/workflows/slack-notify.yml
     with:
       tag: ${{ github.ref_name }}
+    secrets:
+      SDK_RELEASES_SLACK_WEBHOOK_URL: ${{ secrets.SDK_RELEASES_SLACK_WEBHOOK_URL }}
+
+  # Informe de validacion de la release (DD-25): el test app contra la version YA publicada
+  # (cargada del CDN, escritorio + movil). Publica el informe en GitHub Pages (validation/X.Y.Z/)
+  # y avisa en Slack con el resultado. jsDelivr tarda en servir una version nueva: se espera.
+  wait-cdn:
+    name: Wait for the CDN
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      version: ${{ steps.wait.outputs.version }}
+    steps:
+      - id: wait
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          URL="https://cdn.jsdelivr.net/npm/@magicfeedback/popup-sdk@$VERSION/dist/index.mjs"
+          for _ in $(seq 1 30); do
+            curl -sfo /dev/null "$URL" && { echo "popup-sdk $VERSION is on the CDN"; exit 0; }
+            sleep 60
+          done
+          echo "::error::popup-sdk $VERSION is not on jsDelivr after 30 min: the validation cannot run."; exit 1
+
+  validate:
+    name: Release validation
+    needs: wait-cdn
+    permissions:
+      contents: write
+      actions: write
+    uses: ./.github/workflows/test-app.yml
+    with:
+      versions: ${{ needs.wait-cdn.outputs.version }}
+      publish: true
+      notify: true
     secrets:
       SDK_RELEASES_SLACK_WEBHOOK_URL: ${{ secrets.SDK_RELEASES_SLACK_WEBHOOK_URL }}

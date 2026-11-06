@@ -11,6 +11,7 @@
  */
 
 import type { DeviceInfo } from './device-info';
+import { SDK_IDENTIFIER } from '../version';
 
 export interface AnalyticsEvent {
   name: string;
@@ -27,6 +28,8 @@ export interface AnalyticsEnvelope {
   sessionId: string | null;
   context: {
     platform: string; // 'web' | 'android' | 'ios' (RN inyecta la suya)
+    /** SDK que produce la analítica, `<plataforma>@<versión>` (`deepdots_sdk`). */
+    sdk?: string;
     language?: string;
     /** Info de dispositivo (Technology #11–13). */
     device?: DeviceInfo;
@@ -254,6 +257,7 @@ export class AnalyticsManager {
       sessionId: identity.sessionId,
       context: {
         platform: this.platform,
+        sdk: SDK_IDENTIFIER,
         language: this.language,
         device: this.device,
         attributes: { ...this.attributes },

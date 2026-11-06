@@ -19,6 +19,12 @@
         "lab-rate-product-en"
       ]
     },
+    "rate-delay": {
+      "popups": [
+        "lab-rate-delay-es",
+        "lab-rate-delay-en"
+      ]
+    },
     "help-click": {
       "popups": [
         "lab-help-click-es",
@@ -224,6 +230,56 @@
       "cooldown": [],
       "actions": {},
       "surveyId": "7c78d670-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "en"
+        ]
+      }
+    },
+    "lab-rate-delay-es": {
+      "id": "lab-rate-delay-es",
+      "title": "Gracias por valorar el producto",
+      "message": "<p>¿Nos cuentas un poco más?</p>",
+      "triggers": [
+        {
+          "type": "event",
+          "value": "rate_product",
+          "delaySeconds": 60
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
+      "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
+      "style": {
+        "theme": "light",
+        "position": "center"
+      },
+      "segments": {
+        "lang": [
+          "es"
+        ]
+      }
+    },
+    "lab-rate-delay-en": {
+      "id": "lab-rate-delay-en",
+      "title": "Thanks for rating the product",
+      "message": "<p>Tell us a bit more?</p>",
+      "triggers": [
+        {
+          "type": "event",
+          "value": "rate_product",
+          "delaySeconds": 60
+        }
+      ],
+      "cooldown": [],
+      "actions": {},
+      "surveyId": "5581b5a0-d2df-11f1-b287-1be76c3f931d",
       "productId": "3c75ebc69b72f7cf1e4a6774a8e78711",
       "style": {
         "theme": "light",

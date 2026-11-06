@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import { sdkVersionDefine } from "./scripts/sdk-version-define.mjs";
 
 export default defineConfig({
     entry: ["src/index.ts"],
@@ -22,6 +23,7 @@ export default defineConfig({
         };
         options.define = {
             global: "window",
+            ...sdkVersionDefine("web"),
         };
     },
 });

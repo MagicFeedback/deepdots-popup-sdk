@@ -5,6 +5,7 @@ const coded = (code: string, message: string) => Object.assign(new Error(message
 
 const cases: Array<[string, unknown, string]> = [
     ['REQUIRED con código', coded('REQUIRED', 'No response'), 'required'],
+    ['INVALID_EMAIL con código (native 2.2.39)', coded('INVALID_EMAIL', 'Invalid email'), 'invalid_email'],
     ['SEND_FAILED con código, aunque el texto diga "No response"', coded('SEND_FAILED', 'No response'), 'send_failed'],
     ['NO_PAGE con código', coded('NO_PAGE', 'No page found'), 'no_page'],
     ['código desconocido cae al texto', coded('WHATEVER', 'No response'), 'required'],

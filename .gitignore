@@ -21,3 +21,6 @@ test-results/
 # App RN local de pruebas (no versionar)
 /RnSandbox/
 *.tgz
+
+# Regresión visual (DD-28): capturas y evidencia de cada ejecución
+apps/test-app/visual/out/

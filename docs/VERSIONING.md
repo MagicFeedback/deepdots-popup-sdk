@@ -43,6 +43,45 @@ Every version on npm has, and the publish workflow refuses to publish without:
    sha256 and npm integrity (checked against what npm stored), the CI run that passed on that
    commit, the release pull request with its approvals and who merged it, and who pushed the tag.
 
+## Release gates
+
+A version reaches npm only through `release.yml`, and only if every gate below is green.
+`npm run release:tag` checks the same before it pushes the tag.
+
+| Gate | Where | What blocks |
+|---|---|---|
+| Tests & build | every pull request and push to `dev` (`ci.yml`, required on `dev`) | a failing unit test, lint or build |
+| E2E (Playwright) | same (required on `dev`) | a failing package e2e test |
+| Version & changelog | every pull request (`release-check.yml`, required on `dev`) | missing release notes or bump, an invalid manifest, schema or fixtures; on the release pull request, the "Release dry run" packs and smoke-tests the tarball |
+| Smoke + regression · SDK local | pull requests that touch the SDK or the test app, and every push to `dev` (`test-app.yml`) | any test store test failing with the build of that commit, desktop and mobile Chromium |
+| Visual regression · SDK local | every pull request and push to `dev` (`visual.yml`, DD-28) | a screenshot that differs from its approved baseline, or a baseline that is missing or not approved |
+| Release checks | `release.yml`, before anything is published | any of "Tests & build", "E2E (Playwright)", "Smoke + regression · SDK local" or "Visual regression · SDK local" not green **or missing** on the tagged commit |
+
+The tarball is packed once; that file is smoke-tested, published and attached to the GitHub
+Release, and its integrity is checked against what npm stored. The release validation report
+(test status and known issues) is linked from the release notes.
+
+Publishing from a laptop is disabled: `prepublishOnly` refuses, and the old `npm run release`
+script is gone.
+
+### Emergency exception
+
+Use it only when a published version is causing harm in production and a required check cannot
+go green in time for reasons unrelated to the change (for example, the DEV API the test store
+uses is down).
+
+1. Open the release pull request as usual (`npm run release:prepare`) and let the checks run.
+2. Add a `## Release gate override` section to its description: what is failing, why it is not
+   the change, what was checked by hand instead, and the follow-up.
+3. A repository **admin** adds the `release-gate-override` label. A label added by anyone else
+   is refused.
+4. Merge and tag as usual. The release checks step lets the red checks through with a warning,
+   and the GitHub Release notes start with **"Published with a release gate override"**: who
+   approved it, the reason and the checks that were not green.
+5. Remove the label, fix the failing check, and release a clean version afterwards.
+
+Without both the section and an admin's label, a red or missing check blocks the release.
+
 ## How a release happens
 
 ```text
@@ -82,3 +121,17 @@ release.yml                   gate ─► pack ─► smoke ─► publish that 
 A patch for an older line is published under the dist-tag `release-MAJOR.MINOR`, never as
 `latest`. The bundled survey renderer is supported as shipped: to get a newer renderer,
 upgrade the popup SDK.
+
+## Survey SDK compatibility line (DD-70)
+
+The release notes of every version start with
+`Survey SDK supported: <supported> (survey frontend <versions>); bundled: <bundled>.`
+`check.mjs release` (release PR dry run and `release.yml`) computes it from
+`SUPPORTED_SURVEY_SDK_VERSIONS` / `BUNDLED_SURVEY_SDK_VERSION` and the public registry view
+`GET https://api.deepdots.com/sdk/survey-versions` (survey frontend versions in `stable` or
+`candidate` built with a supported survey SDK), and blocks the release if the line in the
+CHANGELOG section is missing or different, printing the expected one. To get it before the release
+PR: `node scripts/release/survey-compat.mjs`. `SURVEY_VERSIONS_URL` points it elsewhere (DEV);
+`SURVEY_COMPAT_OFFLINE=1` turns an unreachable registry into a warning (emergencies only). Keep the
+compatibility table in the docs (`popup-web/reference/survey-compatibility`) in line with it.
+

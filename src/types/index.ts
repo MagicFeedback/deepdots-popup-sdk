@@ -1,3 +1,4 @@
+import type { BackgroundTaskRunner } from '../analytics/background-task';
 /**
  * Configuration options for initializing the DeepdotsPopups SDK
  */
@@ -31,6 +32,12 @@ export interface FeedbackSession {
     status: 'open' | 'closed';
 }
 
+/** Signals the SDK detects on its own (see `DeepdotsInitParams.autoTrack`). */
+export interface AutoTrackOptions {
+    /** React Native: listen to `AppState` for session start/end. Default `true`. */
+    lifecycle?: boolean;
+}
+
 export interface DeepdotsInitParams {
     /** API key for authentication */
     apiKey?: string;
@@ -60,6 +67,24 @@ export interface DeepdotsInitParams {
     language?: string;
     /** Injectable device info (RN: from react-native-device-info). If missing, it is derived from the browser. */
     device?: DeviceInfo;
+    /**
+     * React Native (iOS): opens a native background task while each analytics request is in
+     * flight, so the session's closing request finishes after the app goes to background
+     * instead of when the user opens the app again. `begin(name)` starts the task and returns
+     * the function that ends it (iOS `beginBackgroundTask` / `endBackgroundTask`). The SDK ends
+     * it when the request settles, or after 25 s. Use `backgroundTimerTask(BackgroundTimer)`
+     * for `react-native-background-timer`, iOS only. Without it, nothing changes: a closing
+     * request that does not finish is stored and sent on the next launch.
+     */
+    backgroundTask?: BackgroundTaskRunner;
+    /**
+     * What the SDK detects on its own. Everything is on by default; set a signal to `false` to
+     * turn it off. `lifecycle` (React Native): the SDK listens to `AppState` itself
+     * (`active` → session start, `inactive` → send pending data, `background` → session end), so
+     * the host does not need to call `onForeground` / `onInactive` / `onBackground`. Calling them
+     * as well is harmless: nothing is sent twice.
+     */
+    autoTrack?: AutoTrackOptions;
     /**
      * Analytics channel keys (`POST /sdk/feedback`). If provided, analytics is SENT
      * to the configured integration; if missing, it stays in dry-run mode: nothing is sent, and the payload is only
@@ -145,6 +170,11 @@ export interface TriggerConfig {
     surveyId: string;
     /** Optional popup definition id (used to disambiguate repeated survey ids) */
     popupId?: string;
+    /**
+     * Seconds to wait once the trigger fires before showing the popup ("Delay" in the Admin).
+     * For `exit` it is the wait on the next route. 0 or missing = at once.
+     */
+    delaySeconds?: number;
 }
 
 /**
@@ -240,6 +270,11 @@ export interface PopupTriggerCondition {
 export interface PopupTrigger {
     type: PopupTriggerType;
     value: number | string; // seconds on page, scroll percentage, click id, or event name
+    /**
+     * "Delay (seconds)" in the Admin: wait this long after the trigger fires before showing the
+     * popup. 0 or missing = at once. For `exit` the Admin stores the delay here and `value` is 0.
+     */
+    delaySeconds?: number;
 }
 
 /** Accept action (open survey) */
@@ -323,6 +358,22 @@ export interface PopupDefinition {
     productId: string;
     style?: PopupStyle;
     segments?: PopupSegments;
+    /**
+     * Versión del survey asignada en el Admin (latest o fijada) y su survey SDK (DD-70). La manda
+     * la API desde DD-70; con APIs anteriores falta y se usa el survey SDK empaquetado.
+     */
+    surveyFrontend?: PopupSurveyFrontend | null;
+}
+
+/** `surveyFrontend` de `GET /sdk/{publicKey}/popups` (DD-70). */
+export interface PopupSurveyFrontend {
+    /** Versión de MagicSurvey resuelta (X.Y.Z). */
+    version?: string;
+    /** "latest" o la X.Y.Z fijada. */
+    preference?: string;
+    status?: string;
+    /** `@magicfeedback/native` con el que se construyó esa versión; null si no se conoce. */
+    sdkVersion?: string | null;
 }
 
 export interface FormStyle

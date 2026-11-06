@@ -14,6 +14,7 @@
 
 export type SurveyErrorReason =
     | 'required'     // pregunta obligatoria sin responder (validación, no fallo)
+    | 'invalid_email' // un email que no es una dirección válida (validación, no fallo; native ≥ 2.2.39)
     | 'send_failed'  // sdk/feedback no ha devuelto sesión (HTTP o red)
     | 'no_page'      // el historial del survey no tiene página actual (bug de estado)
     | 'unknown';     // cualquier otro error del survey (p. ej. una follow-up que revienta)
@@ -23,6 +24,7 @@ export const SURVEY_ERROR_MESSAGE_MAX = 300;
 
 const REASON_BY_CODE: Record<string, SurveyErrorReason> = {
     REQUIRED: 'required',
+    INVALID_EMAIL: 'invalid_email',
     SEND_FAILED: 'send_failed',
     NO_PAGE: 'no_page',
 };
@@ -57,7 +59,7 @@ function ddClassifySubmitError(error){
     else { message=String(error); }
   }
   message=message.slice(0, ${SURVEY_ERROR_MESSAGE_MAX});
-  var byCode={ REQUIRED:'required', SEND_FAILED:'send_failed', NO_PAGE:'no_page' };
+  var byCode={ REQUIRED:'required', INVALID_EMAIL:'invalid_email', SEND_FAILED:'send_failed', NO_PAGE:'no_page' };
   var code=error && typeof error==='object' ? error.code : undefined;
   if(typeof code==='string' && byCode.hasOwnProperty(code)){ return { reason: byCode[code], message: message }; }
   if(message.toLowerCase().indexOf('no response')!==-1){ return { reason: 'required', message: message }; }

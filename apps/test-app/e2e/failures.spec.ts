@@ -1,4 +1,5 @@
 import { test, expect, SDK } from './lab';
+import { KNOWN_BUGS, hasBug } from './regression/fixtures';
 
 /**
  * Failure tests obligatorios de MF-3196:
@@ -36,6 +37,8 @@ test.describe(`SDK ${SDK} · popup load failure keeps the host usable`, () => {
   for (const fault of ['survey406', 'network'] as const) {
     test(`encuesta con ${fault}: el popup avisa, se cierra y la tienda sigue funcionando`, async ({ lab, page }) => {
       await lab.open('/products/42', { scenario: 'rate-product', fault });
+      // Antes de 1.16.0 el popup no avisaba (bug conocido): el test tiene que fallar ahí.
+      test.fail(hasBug('load-error-notice', await lab.sdkVersion()), `known SDK bug load-error-notice: ${KNOWN_BUGS['load-error-notice'].summary}`);
       await page.getByTestId('rate-product').click();
       await lab.expectPopupShown('lab-rate-product-es');
       const survey = (await lab.network()).filter((n) => n.path.startsWith('/sdk/app/'));

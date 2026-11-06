@@ -13,7 +13,9 @@ import type { PopupActions } from '../types';
 
 /** Locales con traducción propia. Cualquier otro idioma cae a `en`. */
 export type PopupLocale =
-  | 'en' | 'es' | 'da' | 'no' | 'sv' | 'fi' | 'de' | 'fr' | 'pt' | 'ar' | 'bn' | 'zh-CN';
+  | 'en' | 'es' | 'da' | 'no' | 'sv' | 'fi' | 'de' | 'fr' | 'pt' | 'ar' | 'bn' | 'zh-CN'
+  // El resto de idiomas oficiales de la UE (DD-67).
+  | 'bg' | 'cs' | 'el' | 'et' | 'ga' | 'hr' | 'hu' | 'it' | 'lt' | 'lv' | 'mt' | 'nl' | 'pl' | 'ro' | 'sk' | 'sl';
 
 export interface PopupLabels {
   /** Acción principal: enviar la respuesta. */
@@ -38,6 +40,8 @@ export interface PopupLabels {
   loadingAria: string;
   /** Aviso al intentar avanzar con una pregunta obligatoria sin responder. */
   errorRequired: string;
+  /** Aviso al intentar avanzar con un email que no es una dirección válida (`INVALID_EMAIL`). */
+  errorInvalidEmail: string;
   /** Aviso cuando el envío falla. */
   errorSubmit: string;
   /** Aviso cuando el survey no ha podido cargar (el popup solo ofrece cerrarlo). */
@@ -56,6 +60,7 @@ const EN: PopupLabels = {
   closeAria: 'Close popup',
   loadingAria: 'Loading survey',
   errorRequired: 'Please answer the required question to continue.',
+  errorInvalidEmail: 'Please enter a valid email address.',
   errorSubmit: 'An error occurred while submitting. Please try again or close the popup.',
   errorLoad: "We couldn't load this survey.",
 };
@@ -72,6 +77,7 @@ const ES: PopupLabels = {
   closeAria: 'Cerrar ventana emergente',
   loadingAria: 'Cargando encuesta',
   errorRequired: 'Responde la pregunta obligatoria para continuar.',
+  errorInvalidEmail: 'Introduce una dirección de correo electrónico válida.',
   errorSubmit: 'Se produjo un error al enviar. Inténtalo de nuevo o cierra la ventana.',
   errorLoad: 'No se ha podido cargar la encuesta.',
 };
@@ -88,6 +94,7 @@ const DA: PopupLabels = {
   closeAria: 'Luk pop op',
   loadingAria: 'Indlæser undersøgelse',
   errorRequired: 'Besvar venligst det obligatoriske spørgsmål for at fortsætte.',
+  errorInvalidEmail: 'Indtast venligst en gyldig e-mailadresse.',
   errorSubmit: 'Der opstod en fejl under afsendelsen. Prøv igen, eller luk pop op-vinduet.',
   errorLoad: 'Undersøgelsen kunne ikke indlæses.',
 };
@@ -104,6 +111,7 @@ const NO: PopupLabels = {
   closeAria: 'Lukk popup',
   loadingAria: 'Laster undersøkelse',
   errorRequired: 'Svar på det obligatoriske spørsmålet for å fortsette.',
+  errorInvalidEmail: 'Skriv inn en gyldig e-postadresse.',
   errorSubmit: 'Det oppstod en feil under innsendingen. Prøv igjen, eller lukk popupen.',
   errorLoad: 'Undersøkelsen kunne ikke lastes inn.',
 };
@@ -120,6 +128,7 @@ const SV: PopupLabels = {
   closeAria: 'Stäng popup',
   loadingAria: 'Laddar undersökning',
   errorRequired: 'Svara på den obligatoriska frågan för att fortsätta.',
+  errorInvalidEmail: 'Ange en giltig e-postadress.',
   errorSubmit: 'Ett fel uppstod vid inskickningen. Försök igen eller stäng popupen.',
   errorLoad: 'Enkäten kunde inte laddas.',
 };
@@ -136,6 +145,7 @@ const FI: PopupLabels = {
   closeAria: 'Sulje ponnahdusikkuna',
   loadingAria: 'Ladataan kyselyä',
   errorRequired: 'Vastaa pakolliseen kysymykseen jatkaaksesi.',
+  errorInvalidEmail: 'Anna kelvollinen sähköpostiosoite.',
   errorSubmit: 'Lähetyksessä tapahtui virhe. Yritä uudelleen tai sulje ponnahdusikkuna.',
   errorLoad: 'Kyselyä ei voitu ladata.',
 };
@@ -152,6 +162,7 @@ const DE: PopupLabels = {
   closeAria: 'Popup schließen',
   loadingAria: 'Umfrage wird geladen',
   errorRequired: 'Bitte beantworte die Pflichtfrage, um fortzufahren.',
+  errorInvalidEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.',
   errorSubmit: 'Beim Senden ist ein Fehler aufgetreten. Versuche es erneut oder schließe das Popup.',
   errorLoad: 'Die Umfrage konnte nicht geladen werden.',
 };
@@ -168,6 +179,7 @@ const FR: PopupLabels = {
   closeAria: 'Fermer la fenêtre',
   loadingAria: "Chargement de l'enquête",
   errorRequired: 'Veuillez répondre à la question obligatoire pour continuer.',
+  errorInvalidEmail: 'Veuillez saisir une adresse e-mail valide.',
   errorSubmit: "Une erreur s'est produite lors de l'envoi. Réessayez ou fermez la fenêtre.",
   errorLoad: "Impossible de charger l'enquête.",
 };
@@ -184,6 +196,7 @@ const PT: PopupLabels = {
   closeAria: 'Fechar janela',
   loadingAria: 'A carregar questionário',
   errorRequired: 'Responda à pergunta obrigatória para continuar.',
+  errorInvalidEmail: 'Insira um endereço de e-mail válido.',
   errorSubmit: 'Ocorreu um erro ao enviar. Tente novamente ou feche a janela.',
   errorLoad: 'Não foi possível carregar o inquérito.',
 };
@@ -202,6 +215,7 @@ const AR: PopupLabels = {
   closeAria: 'إغلاق النافذة المنبثقة',
   loadingAria: 'جارٍ تحميل الاستبيان',
   errorRequired: 'يرجى الإجابة على السؤال المطلوب للمتابعة.',
+  errorInvalidEmail: 'يرجى إدخال عنوان بريد إلكتروني صالح.',
   errorSubmit: 'حدث خطأ أثناء الإرسال. يرجى المحاولة مرة أخرى أو إغلاق النافذة.',
   errorLoad: 'تعذّر تحميل الاستبيان.',
 };
@@ -218,6 +232,7 @@ const BN: PopupLabels = {
   closeAria: 'পপআপ বন্ধ করুন',
   loadingAria: 'জরিপ লোড হচ্ছে',
   errorRequired: 'চালিয়ে যেতে আবশ্যক প্রশ্নের উত্তর দিন।',
+  errorInvalidEmail: 'একটি বৈধ ইমেল ঠিকানা লিখুন।',
   errorSubmit: 'জমা দেওয়ার সময় একটি ত্রুটি ঘটেছে। আবার চেষ্টা করুন বা পপআপ বন্ধ করুন।',
   errorLoad: 'সমীক্ষাটি লোড করা যায়নি।',
 };
@@ -234,8 +249,281 @@ const ZH_CN: PopupLabels = {
   closeAria: '关闭弹窗',
   loadingAria: '正在加载问卷',
   errorRequired: '请回答必答题后继续。',
+  errorInvalidEmail: '请输入有效的电子邮件地址。',
   errorSubmit: '提交时出错。请重试或关闭弹窗。',
   errorLoad: '无法加载问卷。',
+};
+
+const BG: PopupLabels = {
+  accept: 'Изпращане',
+  decline: 'Отказ',
+  start: 'Започване на анкетата',
+  complete: 'Завършване на анкетата',
+  back: 'Назад',
+  question: 'Въпрос',
+  of: 'от',
+  followUp: 'Допълнителен въпрос',
+  closeAria: 'Затваряне на изскачащия прозорец',
+  loadingAria: 'Анкетата се зарежда',
+  errorRequired: 'Моля, отговорете на задължителния въпрос, за да продължите.',
+  errorInvalidEmail: 'Моля, въведете валиден имейл адрес.',
+  errorSubmit: 'Възникна грешка при изпращането. Моля, опитайте отново или затворете прозореца.',
+  errorLoad: 'Не успяхме да заредим тази анкета.',
+};
+
+const CS: PopupLabels = {
+  accept: 'Odeslat',
+  decline: 'Zrušit',
+  start: 'Zahájit průzkum',
+  complete: 'Dokončit průzkum',
+  back: 'Zpět',
+  question: 'Otázka',
+  of: 'z',
+  followUp: 'Doplňující otázka',
+  closeAria: 'Zavřít vyskakovací okno',
+  loadingAria: 'Načítání průzkumu',
+  errorRequired: 'Před pokračováním prosím odpovězte na povinnou otázku.',
+  errorInvalidEmail: 'Zadejte prosím platnou e-mailovou adresu.',
+  errorSubmit: 'Při odesílání došlo k chybě. Zkuste to prosím znovu nebo okno zavřete.',
+  errorLoad: 'Tento průzkum se nepodařilo načíst.',
+};
+
+const EL: PopupLabels = {
+  accept: 'Αποστολή',
+  decline: 'Ακύρωση',
+  start: 'Έναρξη έρευνας',
+  complete: 'Ολοκλήρωση έρευνας',
+  back: 'Πίσω',
+  question: 'Ερώτηση',
+  of: 'από',
+  followUp: 'Συμπληρωματική ερώτηση',
+  closeAria: 'Κλείσιμο αναδυόμενου παραθύρου',
+  loadingAria: 'Φόρτωση έρευνας',
+  errorRequired: 'Απαντήστε στην υποχρεωτική ερώτηση για να συνεχίσετε.',
+  errorInvalidEmail: 'Εισαγάγετε μια έγκυρη διεύθυνση email.',
+  errorSubmit: 'Παρουσιάστηκε σφάλμα κατά την αποστολή. Δοκιμάστε ξανά ή κλείστε το παράθυρο.',
+  errorLoad: 'Δεν ήταν δυνατή η φόρτωση αυτής της έρευνας.',
+};
+
+const ET: PopupLabels = {
+  accept: 'Saada',
+  decline: 'Tühista',
+  start: 'Alusta küsitlust',
+  complete: 'Lõpeta küsitlus',
+  back: 'Tagasi',
+  question: 'Küsimus',
+  of: '/',
+  followUp: 'Täpsustav küsimus',
+  closeAria: 'Sulge hüpikaken',
+  loadingAria: 'Küsitluse laadimine',
+  errorRequired: 'Jätkamiseks vasta palun kohustuslikule küsimusele.',
+  errorInvalidEmail: 'Palun sisesta kehtiv e-posti aadress.',
+  errorSubmit: 'Saatmisel tekkis viga. Proovi uuesti või sulge hüpikaken.',
+  errorLoad: 'Seda küsitlust ei õnnestunud laadida.',
+};
+
+const GA: PopupLabels = {
+  accept: 'Seol',
+  decline: 'Cealaigh',
+  start: 'Tosaigh an suirbhé',
+  complete: 'Críochnaigh an suirbhé',
+  back: 'Siar',
+  question: 'Ceist',
+  of: 'as',
+  followUp: 'Ceist leantach',
+  closeAria: 'Dún an phreabfhuinneog',
+  loadingAria: 'Suirbhé á lódáil',
+  errorRequired: 'Freagair an cheist éigeantach chun leanúint ar aghaidh, le do thoil.',
+  errorInvalidEmail: 'Cuir isteach seoladh ríomhphoist bailí, le do thoil.',
+  errorSubmit: 'Tharla earráid agus é á sheoladh. Triail arís nó dún an phreabfhuinneog.',
+  errorLoad: 'Níorbh fhéidir linn an suirbhé seo a lódáil.',
+};
+
+const HR: PopupLabels = {
+  accept: 'Pošalji',
+  decline: 'Odustani',
+  start: 'Započni anketu',
+  complete: 'Završi anketu',
+  back: 'Natrag',
+  question: 'Pitanje',
+  of: 'od',
+  followUp: 'Dodatno pitanje',
+  closeAria: 'Zatvori skočni prozor',
+  loadingAria: 'Učitavanje ankete',
+  errorRequired: 'Molimo odgovorite na obavezno pitanje kako biste nastavili.',
+  errorInvalidEmail: 'Unesite valjanu e-adresu.',
+  errorSubmit: 'Došlo je do pogreške pri slanju. Pokušajte ponovno ili zatvorite prozor.',
+  errorLoad: 'Nismo uspjeli učitati ovu anketu.',
+};
+
+const HU: PopupLabels = {
+  accept: 'Küldés',
+  decline: 'Mégse',
+  start: 'Kérdőív indítása',
+  complete: 'Kérdőív befejezése',
+  back: 'Vissza',
+  question: 'Kérdés',
+  of: '/',
+  followUp: 'Kiegészítő kérdés',
+  closeAria: 'Felugró ablak bezárása',
+  loadingAria: 'Kérdőív betöltése',
+  errorRequired: 'Kérjük, válaszoljon a kötelező kérdésre a továbblépéshez.',
+  errorInvalidEmail: 'Kérjük, adjon meg érvényes e-mail-címet.',
+  errorSubmit: 'Hiba történt a küldés során. Próbálja újra, vagy zárja be az ablakot.',
+  errorLoad: 'Nem sikerült betölteni ezt a kérdőívet.',
+};
+
+const IT: PopupLabels = {
+  accept: 'Invia',
+  decline: 'Annulla',
+  start: 'Inizia il sondaggio',
+  complete: 'Completa il sondaggio',
+  back: 'Indietro',
+  question: 'Domanda',
+  of: 'di',
+  followUp: 'Approfondimento',
+  closeAria: 'Chiudi popup',
+  loadingAria: 'Caricamento del sondaggio',
+  errorRequired: 'Rispondi alla domanda obbligatoria per continuare.',
+  errorInvalidEmail: 'Inserisci un indirizzo email valido.',
+  errorSubmit: 'Si è verificato un errore durante l\'invio. Riprova o chiudi il popup.',
+  errorLoad: 'Non è stato possibile caricare questo sondaggio.',
+};
+
+const LT: PopupLabels = {
+  accept: 'Siųsti',
+  decline: 'Atšaukti',
+  start: 'Pradėti apklausą',
+  complete: 'Baigti apklausą',
+  back: 'Atgal',
+  question: 'Klausimas',
+  of: 'iš',
+  followUp: 'Papildomas klausimas',
+  closeAria: 'Uždaryti iššokantį langą',
+  loadingAria: 'Įkeliama apklausa',
+  errorRequired: 'Norėdami tęsti, atsakykite į privalomą klausimą.',
+  errorInvalidEmail: 'Įveskite galiojantį el. pašto adresą.',
+  errorSubmit: 'Siunčiant įvyko klaida. Bandykite dar kartą arba uždarykite langą.',
+  errorLoad: 'Nepavyko įkelti šios apklausos.',
+};
+
+const LV: PopupLabels = {
+  accept: 'Nosūtīt',
+  decline: 'Atcelt',
+  start: 'Sākt aptauju',
+  complete: 'Pabeigt aptauju',
+  back: 'Atpakaļ',
+  question: 'Jautājums',
+  of: 'no',
+  followUp: 'Papildjautājums',
+  closeAria: 'Aizvērt uznirstošo logu',
+  loadingAria: 'Notiek aptaujas ielāde',
+  errorRequired: 'Lūdzu, atbildiet uz obligāto jautājumu, lai turpinātu.',
+  errorInvalidEmail: 'Lūdzu, ievadiet derīgu e-pasta adresi.',
+  errorSubmit: 'Nosūtot radās kļūda. Lūdzu, mēģiniet vēlreiz vai aizveriet logu.',
+  errorLoad: 'Neizdevās ielādēt šo aptauju.',
+};
+
+const MT: PopupLabels = {
+  accept: 'Ibgħat',
+  decline: 'Ikkanċella',
+  start: 'Ibda l-istħarriġ',
+  complete: 'Lesti l-istħarriġ',
+  back: 'Lura',
+  question: 'Mistoqsija',
+  of: 'minn',
+  followUp: 'Mistoqsija ta\' segwitu',
+  closeAria: 'Agħlaq il-popup',
+  loadingAria: 'Qed jitgħabba l-istħarriġ',
+  errorRequired: 'Jekk jogħġbok wieġeb il-mistoqsija obbligatorja biex tkompli.',
+  errorInvalidEmail: 'Jekk jogħġbok daħħal indirizz tal-email validu.',
+  errorSubmit: 'Seħħ żball waqt il-bgħit. Erġa\' pprova jew agħlaq il-popup.',
+  errorLoad: 'Ma stajniex intellgħu dan l-istħarriġ.',
+};
+
+const NL: PopupLabels = {
+  accept: 'Verzenden',
+  decline: 'Annuleren',
+  start: 'Enquête starten',
+  complete: 'Enquête afronden',
+  back: 'Terug',
+  question: 'Vraag',
+  of: 'van',
+  followUp: 'Vervolgvraag',
+  closeAria: 'Pop-up sluiten',
+  loadingAria: 'Enquête wordt geladen',
+  errorRequired: 'Beantwoord de verplichte vraag om verder te gaan.',
+  errorInvalidEmail: 'Voer een geldig e-mailadres in.',
+  errorSubmit: 'Er is iets misgegaan bij het verzenden. Probeer het opnieuw of sluit de pop-up.',
+  errorLoad: 'We konden deze enquête niet laden.',
+};
+
+const PL: PopupLabels = {
+  accept: 'Wyślij',
+  decline: 'Anuluj',
+  start: 'Rozpocznij ankietę',
+  complete: 'Zakończ ankietę',
+  back: 'Wstecz',
+  question: 'Pytanie',
+  of: 'z',
+  followUp: 'Pytanie uzupełniające',
+  closeAria: 'Zamknij okno',
+  loadingAria: 'Ładowanie ankiety',
+  errorRequired: 'Odpowiedz na wymagane pytanie, aby przejść dalej.',
+  errorInvalidEmail: 'Wpisz prawidłowy adres e-mail.',
+  errorSubmit: 'Podczas wysyłania wystąpił błąd. Spróbuj ponownie lub zamknij okno.',
+  errorLoad: 'Nie udało się wczytać tej ankiety.',
+};
+
+const RO: PopupLabels = {
+  accept: 'Trimiteți',
+  decline: 'Anulați',
+  start: 'Începeți sondajul',
+  complete: 'Finalizați sondajul',
+  back: 'Înapoi',
+  question: 'Întrebarea',
+  of: 'din',
+  followUp: 'Întrebare suplimentară',
+  closeAria: 'Închideți fereastra pop-up',
+  loadingAria: 'Se încarcă sondajul',
+  errorRequired: 'Vă rugăm să răspundeți la întrebarea obligatorie pentru a continua.',
+  errorInvalidEmail: 'Vă rugăm să introduceți o adresă de e-mail validă.',
+  errorSubmit: 'A apărut o eroare la trimitere. Încercați din nou sau închideți fereastra.',
+  errorLoad: 'Nu am putut încărca acest sondaj.',
+};
+
+const SK: PopupLabels = {
+  accept: 'Odoslať',
+  decline: 'Zrušiť',
+  start: 'Začať prieskum',
+  complete: 'Dokončiť prieskum',
+  back: 'Späť',
+  question: 'Otázka',
+  of: 'z',
+  followUp: 'Doplňujúca otázka',
+  closeAria: 'Zavrieť vyskakovacie okno',
+  loadingAria: 'Načítava sa prieskum',
+  errorRequired: 'Ak chcete pokračovať, odpovedzte, prosím, na povinnú otázku.',
+  errorInvalidEmail: 'Zadajte, prosím, platnú e-mailovú adresu.',
+  errorSubmit: 'Pri odosielaní sa vyskytla chyba. Skúste to znova alebo okno zatvorte.',
+  errorLoad: 'Tento prieskum sa nepodarilo načítať.',
+};
+
+const SL: PopupLabels = {
+  accept: 'Pošlji',
+  decline: 'Prekliči',
+  start: 'Začni anketo',
+  complete: 'Zaključi anketo',
+  back: 'Nazaj',
+  question: 'Vprašanje',
+  of: 'od',
+  followUp: 'Dodatno vprašanje',
+  closeAria: 'Zapri pojavno okno',
+  loadingAria: 'Nalaganje ankete',
+  errorRequired: 'Za nadaljevanje odgovorite na obvezno vprašanje.',
+  errorInvalidEmail: 'Vnesite veljaven e-poštni naslov.',
+  errorSubmit: 'Pri pošiljanju je prišlo do napake. Poskusite znova ali zaprite okno.',
+  errorLoad: 'Ankete ni bilo mogoče naložiti.',
 };
 
 /** Tabla completa de traducciones, indexada por locale. */
@@ -252,6 +540,22 @@ export const LABELS: Record<PopupLocale, PopupLabels> = {
   ar: AR,
   bn: BN,
   'zh-CN': ZH_CN,
+  bg: BG,
+  cs: CS,
+  el: EL,
+  et: ET,
+  ga: GA,
+  hr: HR,
+  hu: HU,
+  it: IT,
+  lt: LT,
+  lv: LV,
+  mt: MT,
+  nl: NL,
+  pl: PL,
+  ro: RO,
+  sk: SK,
+  sl: SL,
 };
 
 /** Locales con traducción propia del SDK. */
@@ -260,6 +564,9 @@ export const SUPPORTED_LANGUAGES: PopupLocale[] = [
   // traía). Si la plataforma añade uno nuevo, hay que añadirlo aquí o el chrome saldrá en
   // inglés bajo un survey traducido.
   'en', 'es', 'da', 'no', 'sv', 'fi', 'de', 'fr', 'pt', 'ar', 'bn', 'zh-CN',
+  // El resto de idiomas oficiales de la UE (DD-67), traducidos a máquina: pendientes de
+  // revisión nativa.
+  'bg', 'cs', 'el', 'et', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'nl', 'pl', 'ro', 'sk', 'sl',
 ];
 
 /**
@@ -290,6 +597,22 @@ export function resolveLocale(lang?: string | null): PopupLocale {
     case 'pt': return 'pt';
     case 'ar': return 'ar';
     case 'bn': return 'bn';
+    case 'bg': return 'bg';
+    case 'cs': return 'cs';
+    case 'el': return 'el';
+    case 'et': return 'et';
+    case 'ga': return 'ga';
+    case 'hr': return 'hr';
+    case 'hu': return 'hu';
+    case 'it': return 'it';
+    case 'lt': return 'lt';
+    case 'lv': return 'lv';
+    case 'mt': return 'mt';
+    case 'nl': return 'nl';
+    case 'pl': return 'pl';
+    case 'ro': return 'ro';
+    case 'sk': return 'sk';
+    case 'sl': return 'sl';
     default: return 'en';
   }
 }
@@ -370,5 +693,21 @@ export const RESOLVE_LOCALE_JS = `function ddResolveLocale(lang){
   if(p==='pt') return 'pt';
   if(p==='ar') return 'ar';
   if(p==='bn') return 'bn';
+  if(p==='bg') return 'bg';
+  if(p==='cs') return 'cs';
+  if(p==='el') return 'el';
+  if(p==='et') return 'et';
+  if(p==='ga') return 'ga';
+  if(p==='hr') return 'hr';
+  if(p==='hu') return 'hu';
+  if(p==='it') return 'it';
+  if(p==='lt') return 'lt';
+  if(p==='lv') return 'lv';
+  if(p==='mt') return 'mt';
+  if(p==='nl') return 'nl';
+  if(p==='pl') return 'pl';
+  if(p==='ro') return 'ro';
+  if(p==='sk') return 'sk';
+  if(p==='sl') return 'sl';
   return 'en';
 }`;

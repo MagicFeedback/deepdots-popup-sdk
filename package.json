@@ -1,14 +1,16 @@
 {
   "name": "@magicfeedback/popup-sdk",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "description": "TypeScript SDK to render and manage survey popups for MagicFeedback",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "react-native": "dist/index.native.js",
   "autho": "sarias@deepdots.com",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "react-native": "./dist/index.native.js",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
@@ -19,7 +21,10 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "ios",
+    "MagicfeedbackPopupSdk.podspec",
+    "react-native.config.js"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean && rm -rf dist/assets && mkdir -p dist/assets/assets && cp -R src/assets/. dist/assets/assets/ && tsup --config tsup.rn.config.ts",
@@ -34,8 +39,9 @@
     "e2e:report": "playwright show-report",
     "test-app": "node apps/test-app/server.mjs",
     "test-app:e2e": "playwright test -c apps/test-app/playwright.config.ts",
-    "prepublishOnly": "npm run build && npm run check:layout",
-    "release": "export $(grep -v '^#' .npm.env | grep -v '^$' | xargs) && npm publish --access public",
+    "test-app:visual": "node apps/test-app/visual/run.mjs --docker",
+    "visual:approve": "node scripts/visual/approve.mjs --suite apps/test-app/visual",
+    "prepublishOnly": "node -e \"console.error('Publishing from a laptop is disabled (DD-27): releases go through .github/workflows/release.yml (npm run release:prepare, then npm run release:tag). Emergency: docs/VERSIONING.md, Emergency exception.'); process.exit(1)\"",
     "release:prepare": "node scripts/release.mjs prepare",
     "release:tag": "node scripts/release.mjs tag",
     "release:check": "node scripts/release/check.mjs pr",
@@ -82,7 +88,7 @@
     }
   },
   "devDependencies": {
-    "@magicfeedback/native": "^2.2.37",
+    "@magicfeedback/native": "^2.2.39",
     "@playwright/test": "^1.60.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.3.31",
@@ -92,6 +98,9 @@
     "eslint": "^8.54.0",
     "happy-dom": "^20.11.1",
     "jsdom": "^27.1.0",
+    "marked": "18.1.2",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "react": "^18.3.1",
     "ts-json-schema-generator": "^2.9.0",
     "tsup": "^8.0.1",
