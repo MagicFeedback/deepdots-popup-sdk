@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Catalan (`ca`) popup texts.** Buttons, progress, aria-labels and error notices in Catalan; `ca`/`ca-ES` resolve to it. Catalan is not an official EU language; asked for in the v2.2.29 review. Same strings as the native SDK's `DefaultLabels.kt`.
+
 ## [1.19.0] — 2026-11-06
 
 Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1); bundled: 2.2.39. Compatibility table: docs.deepdots.com/popup-web/reference/survey-compatibility/.

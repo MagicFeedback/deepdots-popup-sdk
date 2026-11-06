@@ -15,7 +15,9 @@ import type { PopupActions } from '../types';
 export type PopupLocale =
   | 'en' | 'es' | 'da' | 'no' | 'sv' | 'fi' | 'de' | 'fr' | 'pt' | 'ar' | 'bn' | 'zh-CN'
   // El resto de idiomas oficiales de la UE (DD-67).
-  | 'bg' | 'cs' | 'el' | 'et' | 'ga' | 'hr' | 'hu' | 'it' | 'lt' | 'lv' | 'mt' | 'nl' | 'pl' | 'ro' | 'sk' | 'sl';
+  | 'bg' | 'cs' | 'el' | 'et' | 'ga' | 'hr' | 'hu' | 'it' | 'lt' | 'lv' | 'mt' | 'nl' | 'pl' | 'ro' | 'sk' | 'sl'
+  // Catalán: no es oficial de la UE, se pidió en la review v2.2.29.
+  | 'ca';
 
 export interface PopupLabels {
   /** Acción principal: enviar la respuesta. */
@@ -526,6 +528,23 @@ const SL: PopupLabels = {
   errorLoad: 'Ankete ni bilo mogoče naložiti.',
 };
 
+const CA: PopupLabels = {
+  accept: 'Envia',
+  decline: 'Cancel·la',
+  start: "Comença l'enquesta",
+  complete: "Completa l'enquesta",
+  back: 'Enrere',
+  question: 'Pregunta',
+  of: 'de',
+  followUp: 'Seguiment',
+  closeAria: 'Tanca la finestra emergent',
+  loadingAria: "S'està carregant l'enquesta",
+  errorRequired: 'Respon la pregunta obligatòria per continuar.',
+  errorInvalidEmail: 'Introdueix una adreça de correu electrònic vàlida.',
+  errorSubmit: "S'ha produït un error en enviar. Torna-ho a provar o tanca la finestra.",
+  errorLoad: "No s'ha pogut carregar l'enquesta.",
+};
+
 /** Tabla completa de traducciones, indexada por locale. */
 export const LABELS: Record<PopupLocale, PopupLabels> = {
   en: EN,
@@ -556,6 +575,7 @@ export const LABELS: Record<PopupLocale, PopupLabels> = {
   ro: RO,
   sk: SK,
   sl: SL,
+  ca: CA,
 };
 
 /** Locales con traducción propia del SDK. */
@@ -567,6 +587,8 @@ export const SUPPORTED_LANGUAGES: PopupLocale[] = [
   // El resto de idiomas oficiales de la UE (DD-67), traducidos a máquina: pendientes de
   // revisión nativa.
   'bg', 'cs', 'el', 'et', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'nl', 'pl', 'ro', 'sk', 'sl',
+  // Catalán (no oficial de la UE).
+  'ca',
 ];
 
 /**
@@ -613,6 +635,7 @@ export function resolveLocale(lang?: string | null): PopupLocale {
     case 'ro': return 'ro';
     case 'sk': return 'sk';
     case 'sl': return 'sl';
+    case 'ca': return 'ca';
     default: return 'en';
   }
 }
@@ -709,5 +732,6 @@ export const RESOLVE_LOCALE_JS = `function ddResolveLocale(lang){
   if(p==='ro') return 'ro';
   if(p==='sk') return 'sk';
   if(p==='sl') return 'sl';
+  if(p==='ca') return 'ca';
   return 'en';
 }`;
