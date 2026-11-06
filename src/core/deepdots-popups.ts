@@ -86,7 +86,28 @@ export const MAX_PENDING_TRIGGERS = 20;
 /** Disparo del host recibido antes de que lleguen las definiciones de popups. */
 type PendingTrigger =
     | { kind: 'event'; name: string }
-    | { kind: 'survey'; surveyId: string; popupId?: string };
+    | { kind: 'survey'; surveyId: string; popupId?: string; delaySeconds?: number };
+
+/**
+ * Popup cuyo trigger ya saltó y espera su "Delay (seconds)" del Admin. Vive solo en memoria
+ * (a diferencia de la cola de exit, no sobrevive a una recarga). Lo cancela cambiar de
+ * pantalla/ruta o que la app pase a background; al vencer se vuelve a evaluar.
+ */
+interface DelayedPopup {
+    popupId: string;
+    timer: ReturnType<typeof setTimeout>;
+    /** Cuándo saltó el trigger: si el popup se mostró después por otra vía, se descarta. */
+    firedAt: number;
+    /** Ruta (web) y pantalla (`setScreen`, React Native) en las que saltó. */
+    href: string;
+    screen: string | null;
+}
+
+/** "Delay (seconds)" del Admin → ms. Negativo, NaN o ausente = 0 (al momento). */
+export function triggerDelayMs(delaySeconds: unknown): number {
+    const n = typeof delaySeconds === 'number' ? delaySeconds : Number(delaySeconds);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 1000) : 0;
+}
 
 interface DeferredExitPopup {
     id: string;
@@ -141,6 +162,10 @@ export class DeepdotsPopups {
     private lastShown: Map<string, number> = new Map(); // popupId -> timestamp mostrado
     private surveyToPopupId: Map<string, string> = new Map(); // surveyId -> popupId
     private deferredExitTimers: number[] = [];
+    /** Popups esperando su `delaySeconds` (uno por popup). */
+    private delayedPopups = new Map<string, DelayedPopup>();
+    /** Última pantalla de `setScreen` (React Native). */
+    private currentScreen: string | null = null;
 
     private baseUrl: string = '';
     private env: 'production' | 'development' = 'production';
@@ -577,6 +602,12 @@ export class DeepdotsPopups {
      * El host la llama en cada cambio de pantalla; emite `page_view` al salir de la anterior.
      */
     setScreen(name: string): void {
+        const screen = typeof name === 'string' ? name.trim() : '';
+        if (screen) {
+            // Un popup esperando su retraso pertenece a la pantalla en la que saltó el trigger.
+            this.cancelDelayedPopups('screen change', (entry) => entry.screen !== screen);
+            this.currentScreen = screen;
+        }
         if (!this.navObserver) return;
         if (!this.navStarted) {
             this.navObserver.begin(name);
@@ -600,6 +631,7 @@ export class DeepdotsPopups {
      * Es la única señal disponible en móvil: el kill de la app (swipe) NO da callback.
      */
     onBackground(): void {
+        this.cancelDelayedPopups('app to background');
         this.closeSession('background');
         this.engagement?.pause();
     }
@@ -1049,7 +1081,7 @@ export class DeepdotsPopups {
                 const value = type === 'time' && typeof trigger.value === 'number'
                     ? trigger.value * 1000
                     : trigger.value;
-                derived.push({ type, value, surveyId: def.surveyId, popupId: def.id });
+                derived.push({ type, value, surveyId: def.surveyId, popupId: def.id, delaySeconds: trigger.delaySeconds });
             });
         });
 
@@ -1058,9 +1090,14 @@ export class DeepdotsPopups {
         }
     }
 
-    /** Lógica para evaluar condiciones antes de mostrar una encuesta */
-    triggerSurvey(surveyId: string, popupId?: string): void {
-        if (this.bufferIfAwaitingPopups({ kind: 'survey', surveyId, popupId })) return;
+    /**
+     * Lógica para evaluar condiciones antes de mostrar una encuesta. `options.delaySeconds`
+     * (lo pasan los triggers time/scroll/click con el "Delay" del Admin) espera ese tiempo y
+     * vuelve a evaluar antes de mostrar; sin él, al momento como siempre.
+     */
+    triggerSurvey(surveyId: string, popupId?: string, options?: { delaySeconds?: number }): void {
+        const delaySeconds = options?.delaySeconds;
+        if (this.bufferIfAwaitingPopups({ kind: 'survey', surveyId, popupId, delaySeconds })) return;
         const def = this.findPopupDefinition(surveyId, popupId);
         if (!def) {
             this.debug('No popup definition for trigger', { surveyId, popupId });
@@ -1070,7 +1107,7 @@ export class DeepdotsPopups {
             this.debug('Conditions prevented showing popup', def.id);
             return;
         }
-        this.showDefinition(def);
+        this.showAfterDelay(def, delaySeconds);
     }
 
     /** Trigger popups configured with trigger.type = 'event' and matching trigger.value */
@@ -1106,7 +1143,74 @@ export class DeepdotsPopups {
             return;
         }
 
-        this.showDefinition(matched);
+        const trigger = matched.triggers.find(
+            (t) => t.type === 'event' && String(t.value ?? '').trim() === normalized,
+        );
+        this.showAfterDelay(matched, trigger?.delaySeconds);
+    }
+
+    /**
+     * Muestra `def` ya, o tras su "Delay (seconds)" del Admin. Mientras espera:
+     *  - el mismo popup no se programa dos veces (el primer vencimiento manda);
+     *  - cambiar de ruta/pantalla o pasar a background lo cancela;
+     * y al vencer se vuelve a evaluar todo (segmentos, idioma, cooldowns) como un disparo nuevo.
+     * Si entonces hay otro popup abierto, `showDefinition` lo salta sin efectos, igual que hoy.
+     */
+    private showAfterDelay(def: NormalizedPopupDefinition, delaySeconds: unknown): void {
+        const delayMs = triggerDelayMs(delaySeconds);
+        if (delayMs <= 0) {
+            this.showDefinition(def);
+            return;
+        }
+        if (this.delayedPopups.has(def.id)) {
+            this.debug('Popup already waiting for its delay', def.id);
+            return;
+        }
+        const entry: DelayedPopup = {
+            popupId: def.id,
+            timer: setTimeout(() => this.showDelayedPopup(def.id), delayMs),
+            firedAt: Date.now(),
+            href: this.currentHref(),
+            screen: this.currentScreen,
+        };
+        this.delayedPopups.set(def.id, entry);
+        this.debug(`Popup delayed ${delayMs}ms`, def.id);
+    }
+
+    private showDelayedPopup(popupId: string): void {
+        const entry = this.delayedPopups.get(popupId);
+        if (!entry) return;
+        this.delayedPopups.delete(popupId);
+        const def = this.popupDefinitions.find((popup) => popup.id === popupId);
+        if (!def) return;
+        if (this.currentHref() !== entry.href || this.currentScreen !== entry.screen) {
+            this.debug('Delayed popup dropped: route changed', popupId);
+            return;
+        }
+        if (!this.shouldShow(def)) {
+            this.debug('Delayed popup dropped by conditions at due time', popupId);
+            return;
+        }
+        // `shouldShow` acaba de fusionar el estado del storage: ve también otra pestaña.
+        if ((this.lastShown.get(popupId) ?? 0) >= entry.firedAt) {
+            this.debug('Delayed popup dropped: already shown while waiting', popupId);
+            return;
+        }
+        this.showDefinition(def);
+    }
+
+    private cancelDelayedPopups(reason: string, predicate: (entry: DelayedPopup) => boolean = () => true): void {
+        this.delayedPopups.forEach((entry, popupId) => {
+            if (!predicate(entry)) return;
+            clearTimeout(entry.timer);
+            this.delayedPopups.delete(popupId);
+            this.debug(`Delayed popup cancelled (${reason})`, popupId);
+        });
+    }
+
+    private currentHref(): string {
+        if (typeof window === 'undefined' || !window.location) return '';
+        return this.normalizeUrl(window.location.href || '');
     }
 
     /**
@@ -1142,7 +1246,7 @@ export class DeepdotsPopups {
         this.debug('Replaying triggers received before popups loaded', replay.length);
         replay.forEach((trigger) => {
             if (trigger.kind === 'event') this.evaluateEvent(trigger.name);
-            else this.triggerSurvey(trigger.surveyId, trigger.popupId);
+            else this.triggerSurvey(trigger.surveyId, trigger.popupId, { delaySeconds: trigger.delaySeconds });
         });
     }
 
@@ -1834,10 +1938,13 @@ export class DeepdotsPopups {
         const items = Array.isArray(value) ? value : value ? [value] : [];
         return items
             .filter((trigger): trigger is PopupTrigger => this.isPopupTrigger(trigger))
-            .map((trigger) => ({
-                type: trigger.type,
-                value: trigger.value,
-            }));
+            .map((trigger) => {
+                // `delaySeconds` es opcional y no invalida el popup: un valor raro cuenta como 0.
+                const delayMs = triggerDelayMs(trigger.delaySeconds);
+                return delayMs > 0
+                    ? { type: trigger.type, value: trigger.value, delaySeconds: delayMs / 1000 }
+                    : { type: trigger.type, value: trigger.value };
+            });
     }
 
     private normalizeCooldown(value: unknown): PopupTriggerCondition[] {

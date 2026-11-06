@@ -170,6 +170,11 @@ export interface TriggerConfig {
     surveyId: string;
     /** Optional popup definition id (used to disambiguate repeated survey ids) */
     popupId?: string;
+    /**
+     * Seconds to wait once the trigger fires before showing the popup ("Delay" in the Admin).
+     * For `exit` it is the wait on the next route. 0 or missing = at once.
+     */
+    delaySeconds?: number;
 }
 
 /**
@@ -265,6 +270,11 @@ export interface PopupTriggerCondition {
 export interface PopupTrigger {
     type: PopupTriggerType;
     value: number | string; // seconds on page, scroll percentage, click id, or event name
+    /**
+     * "Delay (seconds)" in the Admin: wait this long after the trigger fires before showing the
+     * popup. 0 or missing = at once. For `exit` the Admin stores the delay here and `value` is 0.
+     */
+    delaySeconds?: number;
 }
 
 /** Accept action (open survey) */
