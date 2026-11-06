@@ -1,0 +1,694 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deepdots web popup SDK 1.19.0 Release Validation Report</title>
+<style>@page { size: A4; margin: 18mm 16mm; }
+body { font: 10.5pt/1.5 -apple-system, "Helvetica Neue", Arial, sans-serif; color: #1a1d24; background: #fff; max-width: 180mm; margin: auto; padding: 0 16px; }
+h1 { font-size: 20pt; margin: 0 0 4pt; } h2 { font-size: 14pt; margin-top: 20pt; border-bottom: 1px solid #ddd; padding-bottom: 3pt; }
+h3 { font-size: 11.5pt; margin-top: 14pt; } code { font-size: 9pt; background: #f2f3f5; padding: 0 3px; border-radius: 3px; }
+table { border-collapse: collapse; width: 100%; font-size: 8.5pt; margin: 8pt 0; page-break-inside: avoid; display: block; overflow-x: auto; }
+th, td { border: 1px solid #d6d8dc; padding: 3pt 4pt; text-align: left; vertical-align: top; } th { background: #f2f3f5; }
+details table { font-size: 7pt; } summary { cursor: pointer; color: #1f5fbf; }
+@media print { details { display: none; } table { display: table; } body { padding: 0; } }
+hr { border: 0; border-top: 1px solid #ddd; margin: 16pt 0; } h2:has(+ *) { page-break-after: avoid; }
+a { color: #1f5fbf; }</style></head><body>
+<h1>Deepdots | Popup SDK Release Validation Report</h1>
+<p><strong>SDK:</strong> Deepdots web popup SDK <strong>1.19.0</strong> (npm <code>@magicfeedback/popup-sdk@1.19.0</code>)<br><strong>Validation date:</strong> 2026-11-06<br><strong>Platforms:</strong> Desktop web / Mobile web<br><strong>Overall status:</strong> <strong>FAILED</strong><br><strong>Report type:</strong> Automated release validation, generated from the CI test results (no manual edits)</p>
+<hr>
+<h2>1. Executive Summary</h2>
+<p>SDK 1.19.0 was validated as published on npm, loaded from the CDN by a test store that integrates it the same way a customer site does, on desktop and mobile Chromium.</p>
+<p>Results (<a href="https://github.com/MagicFeedback/deepdots-popup-sdk/actions/runs/42234122724/attempts/1">CI run</a>):</p>
+<ul>
+<li><strong>86</strong> automated test executions on <strong>2</strong> configurations (1 Desktop web, 1 Mobile web)</li>
+<li><strong>83</strong> passed (1 on the automatic retry)</li>
+<li><strong>2</strong> failed</li>
+<li><strong>1</strong> not applicable on that platform</li>
+<li>Manual pass on real devices: <strong>pending</strong> (section 7)</li>
+</ul>
+<p><strong>Desktop web:</strong> FAILED · <strong>Mobile web:</strong> PASSED</p>
+<p><strong>Validation status:</strong> <strong>FAILED</strong></p>
+<h3>Failures</h3>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Configuration</th>
+<th>Test</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Desktop web</td>
+<td>Desktop web</td>
+<td>triggers › evento + Delay 60 s (MOM): no sale al momento ni a los 59 s, sí a los 60 s, una vez</td>
+<td></td>
+</tr>
+<tr>
+<td>Desktop web</td>
+<td>Desktop web</td>
+<td>triggers › evento + Delay 60 s: cambiar de página durante la espera lo cancela</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>2. Test Results</h2>
+<table>
+<thead>
+<tr>
+<th>Test category</th>
+<th>Desktop web</th>
+<th>Mobile web</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SDK initialization and version check</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Path-based triggers and excluded screens</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Time-based triggers</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Scroll triggers</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Event and click triggers</td>
+<td><strong>FAIL</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Exit triggers</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Re-display rules (cooldown)</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Audience segmentation by language</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Popup layout, opening and closing</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Survey interactions and submission</td>
+<td>PASS</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>SPA navigation with a popup open</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Network failures and recovery</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Host page safety</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Detection check: a missing navigation event is caught</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Survey SDK versions assigned in the Admin (DD-70)</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Visual regression</td>
+<td>NOT YET AUTOMATED</td>
+<td>NOT YET AUTOMATED</td>
+</tr>
+</tbody></table>
+<p><code>—</code> = not part of that platform&#39;s suite.</p>
+<details><summary>Every test on every configuration</summary><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Desktop web</th>
+<th>Mobile web</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>host safety › el chunk del renderer no se descarga: sin errores en la página, y el SDK no se queda bloqueado</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › encuesta a medio pintar (respuesta corrupta): el popup se puede cerrar y el host sigue</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › encuesta lenta: mientras carga el host responde, y si se cierra no reaparece al llegar</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › errores 500 en eventos y respuestas: el popup avisa al enviar y el host sigue</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › la API de popups no contesta nunca: ni popup ni bloqueo</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › popup en esquina (bottom-right): fuera de la tarjeta, los clics llegan al host</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › popup en esquina (top-left): fuera de la tarjeta, los clics llegan al host</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › ráfaga de navegación con popups de por medio: la tienda sigue respondiendo</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › sin red (offline) al abrir: el popup avisa, se cierra y la SPA sigue navegando</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>host safety › tras cerrar un popup en esquina no queda ninguna capa</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>init › carga tras el consentimiento de cookies: los triggers funcionan desde ese momento</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>init › evento del host antes de que lleguen las definiciones: se guarda y sale al cargar</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>init › init + autoLaunch dos veces (StrictMode): un GET, un popup y un solo SHOWED</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>init › un init: un solo GET de popups y el trigger de tiempo funciona</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>known issues (host widgets) › la burbuja de chat del host no tapa la X de un popup abajo a la derecha</td>
+<td>retry</td>
+<td>–</td>
+</tr>
+<tr>
+<td>live DEV config › ?popups=live: la API de DEV sirve la config de la test app y el popup sale</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>missing navigation event › control: con navegación normal el mismo flujo sí lo muestra</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>missing navigation event › sin evento de navegación, el exit trigger no salta y el test lo detecta</td>
+<td>expected</td>
+<td>–</td>
+</tr>
+<tr>
+<td>multi-language › el selector de idioma del host cambia la tienda y el popup</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>multi-language › lang=en: solo sale la variante inglesa, con la encuesta en inglés</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>navigation › atrás del navegador (popstate) desde /checkout dispara el exit en la ruta anterior</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>navigation › con un popup abierto, el host sigue navegando (atrás del navegador)</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>navigation › ida y vuelta a /checkout antes del retraso del exit: no sale (el usuario volvió)</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>navigation › navegación rápida saliendo varias veces de /checkout: un solo popup de exit</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>navigation › pushState: llegar a /checkout antes de que venza el tiempo muestra el popup allí</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>navigation › salir de /checkout antes de que venza el tiempo: el popup no sale en otra ruta</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>popup UI › cerrar con la X: no queda nada del popup que estorbe al host</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › envío completo contra DEV: survey_completed y la respuesta llega a la integración de DEV</td>
+<td>pass</td>
+<td>skip</td>
+</tr>
+<tr>
+<td>popup UI › posición bottom-left: dentro del viewport, anclado donde toca, y se cierra</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › posición bottom-right: dentro del viewport, anclado donde toca, y se cierra</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › posición bottom: dentro del viewport, anclado donde toca, y se cierra</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › posición center: dentro del viewport, anclado donde toca, y se cierra</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › posición top-left: dentro del viewport, anclado donde toca, y se cierra</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › posición top-right: dentro del viewport, anclado donde toca, y se cierra</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › posición top: dentro del viewport, anclado donde toca, y se cierra</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup UI › redimensionar con el popup abierto (escritorio → móvil → escritorio): sigue dentro y anclado</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>popup load failure keeps the host usable › GET de popups con 500: no sale ningún popup y la tienda sigue funcionando</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>popup load failure keeps the host usable › el SDK no llega a cargar (CDN caído): la tienda sigue funcionando</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>popup load failure keeps the host usable › encuesta con network: el popup avisa, se cierra y la tienda sigue funcionando</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>popup load failure keeps the host usable › encuesta con survey406: el popup avisa, se cierra y la tienda sigue funcionando</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>re-display and audience › cooldown COMPLETED de 30 días: contestada no vuelve, y a los 31 días sí</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>re-display and audience › cooldown SHOWED de 1 día: a las 23 h no vuelve y a las 25 h sí</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>re-display and audience › dos pestañas: lo que vio la primera cuenta en la segunda (localStorage compartido)</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>re-display and audience › segmentación: idioma y rutas excluidas a la vez (lang=en, not-on-cart)</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>release fixtures › full-definition: se muestra con el evento fixture_full</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>release fixtures › hash-route-dark: se muestra con el evento fixture_hash</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>release fixtures › minimal-event: se muestra con el evento fixture_minimal</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › CSS del host en conflicto y overlays: el popup se puede usar y cerrar</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › carga la versión pedida, en DEV, y lo deja en el log del run</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › click: el botón de ayuda del footer abre su popup</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › event: «Valorar» dispara el evento del host y abre la encuesta compleja</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › excludedPaths: no sale en /cart y sí en el resto</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › exit: al salir de /checkout sale el popup en la ruta de destino</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › path targeting: el mismo popup NO sale fuera de /checkout</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › re-display: con cooldown SHOWED no vuelve a salir tras recargar, y sí tras borrar el historial</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>smoke › time_on_page + path: el popup sale a los 3 s en /checkout y carga la encuesta de DEV</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>survey SDK versions (DD-70) › 2.2.38: JS y CSS de esa versión, el survey se pinta y se responde</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>survey SDK versions (DD-70) › 2.2.39: JS y CSS de esa versión, el survey se pinta y se responde</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>survey SDK versions (DD-70) › la lista de versiones se lee del código</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>triggers › click: doble clic en el botón de ayuda abre un solo popup</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>triggers › dos popups distintos a la vez: sale el primero y el segundo no cuenta como mostrado</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>triggers › evento + Delay 60 s (MOM): no sale al momento ni a los 59 s, sí a los 60 s, una vez</td>
+<td>fail</td>
+<td>–</td>
+</tr>
+<tr>
+<td>triggers › evento + Delay 60 s: cambiar de página durante la espera lo cancela</td>
+<td>fail</td>
+<td>–</td>
+</tr>
+<tr>
+<td>triggers › evento del host repetido 5 veces seguidas: un popup, un popup_shown y un SHOWED</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>triggers › scroll 50 %: al 30 % no sale y al pasar del 50 % sí, una sola vez</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+<tr>
+<td>triggers › time_on_page 3 s: a los 2 s no ha salido y a los 3,5 s sí</td>
+<td>pass</td>
+<td>–</td>
+</tr>
+</tbody></table>
+</details><h2>3. Tested Environments</h2>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>OS version</th>
+<th>Device</th>
+<th>Build</th>
+<th>SDK resolved</th>
+<th>Engine</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Desktop web</td>
+<td>Linux (CI)</td>
+<td>Desktop 1280×860</td>
+<td>Chromium</td>
+<td>1.19.0</td>
+<td>Playwright 1.60.0</td>
+<td><strong>FAIL</strong></td>
+</tr>
+<tr>
+<td>Mobile web</td>
+<td>Linux (CI)</td>
+<td>Pixel 7 emulation (412×915)</td>
+<td>Chromium</td>
+<td>1.19.0</td>
+<td>Playwright 1.60.0</td>
+<td>PASS</td>
+</tr>
+</tbody></table>
+<p>All automated tests ran against the Deepdots development environment with test companies only. No customer data was used, and the test store blocks and fails on any request to the production API.</p>
+<h2>4. Critical Safety Validation</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Desktop web</th>
+<th>Mobile web</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Clicks outside a corner popup reach the page</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>No invisible layer left after closing a popup</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Slow survey: the page responds while it loads</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>No network: notice, the popup can be closed, the page stays usable</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Survey that cannot load (406): notice, can be closed, page usable</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>SDK script not reachable (CDN down): the page stays usable</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Popups API that never answers: no popup, nothing blocked</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Server errors on popups, events and answers</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Broken survey response: the popup can be closed</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Host CSS conflicts and overlays</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Rapid navigation with popups</td>
+<td>PASS</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>SDK initialised twice (React StrictMode): one popup</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+<tr>
+<td>The same host event 5 times: one popup</td>
+<td>PASS</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<h2>5. Detection Controls and Backward Compatibility</h2>
+<p>The test system has to prove it catches real problems. These controls run in every validation:</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Expected failure detected: missing navigation event › sin evento de navegación, el exit trigger no salta y el test lo detecta</td>
+<td>Desktop web PASS</td>
+</tr>
+</tbody></table>
+<h2>6. Known Issues &amp; Limitations</h2>
+<p><strong>Known blocking issues:</strong> see Failures in section 1.</p>
+<p><strong>Known non-blocking issues:</strong></p>
+<ul>
+<li>None.</li>
+</ul>
+<p><strong>Test limitations:</strong></p>
+<ul>
+<li>Automated on Chromium (desktop, and mobile with Pixel 7 emulation). Safari and Firefox are checked by hand (section 7).</li>
+<li>On mobile the host-safety and popup layout suites run; triggers and navigation run on desktop and use the same code path.</li>
+<li>Visual regression (screenshot comparison) is not yet automated for the web SDK.</li>
+<li>Tests marked as known issues are expected to fail until their fix ships; if one passes, the run fails so the mark is removed.</li>
+</ul>
+<h2>7. Real Devices (manual)</h2>
+<p><strong>Status: PENDING.</strong> Filled in by hand after this report is generated: the test store with this exact version in the browsers the automated suite does not run.</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Safari (macOS)</th>
+<th>Safari (iPhone)</th>
+<th>Firefox</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Popup appears complete, once</td>
+<td>pending</td>
+<td>pending</td>
+<td>pending</td>
+</tr>
+<tr>
+<td>Survey answered and sent to the end</td>
+<td>pending</td>
+<td>pending</td>
+<td>pending</td>
+</tr>
+<tr>
+<td>Not shown again within its cooldown</td>
+<td>pending</td>
+<td>pending</td>
+<td>pending</td>
+</tr>
+<tr>
+<td>Clicks outside the popup reach the page; X closes it</td>
+<td>pending</td>
+<td>pending</td>
+<td>pending</td>
+</tr>
+<tr>
+<td>Exit popup on leaving /checkout</td>
+<td>pending</td>
+<td>pending</td>
+<td>pending</td>
+</tr>
+<tr>
+<td>No network: notice, can be closed, page usable</td>
+<td>pending</td>
+<td>pending</td>
+<td>pending</td>
+</tr>
+</tbody></table>
+<h2>8. Release Information</h2>
+<ul>
+<li><strong>SDK version:</strong> 1.19.0</li>
+<li><strong>Release:</strong> <a href="https://github.com/MagicFeedback/deepdots-popup-sdk/releases/tag/v1.19.0">GitHub release v1.19.0</a></li>
+<li><strong>Changelog:</strong> <a href="https://github.com/MagicFeedback/deepdots-popup-sdk/blob/main/CHANGELOG.md">CHANGELOG</a></li>
+<li><strong>Test execution:</strong> <a href="https://github.com/MagicFeedback/deepdots-popup-sdk/actions/runs/42234122724/attempts/1">CI run</a> (logs, screenshots and per-configuration artifacts)</li>
+<li><strong>Validation date:</strong> 2026-11-06</li>
+<li><strong>Results file SHA-256:</strong> <code>9bce63e8a1d930c69b7ac96f45203ffc6a988ca9bb00d801bcc8a3ba66b23b10</code></li>
+</ul>
+<h3>Release notes 1.19.0</h3>
+<p>Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1); bundled: 2.2.39. Compatibility table: docs.deepdots.com/popup-web/reference/survey-compatibility/.</p>
+<h4>Added</h4>
+<ul>
+<li><strong>Popups follow the survey version assigned in the Admin (DD-70).</strong> <code>GET /sdk/{publicKey}/popups</code> sends <code>surveyFrontend.sdkVersion</code> per popup (latest or pinned, resolved through the version registry). When it is one of <code>SUPPORTED_SURVEY_SDK_VERSIONS</code> (2.2.38, 2.2.39) the popup draws the survey with that exact <code>@magicfeedback/native</code> and with that version&#39;s survey CSS (vendored per version in <code>src/assets/survey-css</code>, scoped to the popup): in the DOM popup the JS comes from jsDelivr (unpkg as fallback) and the CSS from a lazy chunk; in the React Native WebView both come from the CDN. Missing, unsupported or failing to load → the bundled JS and CSS together (a load failure or an invalid version warns; unsupported only logs with <code>debug</code>). Debug log and <code>data-survey-sdk</code> on the popup say which one was used. <code>scripts/vendor-survey-css.mjs</code> takes <code>--src/--version/--out</code>. Release gate: the test app runs every supported version (<code>apps/test-app/e2e/survey-sdk.spec.ts</code>, <code>?surveySdk=&lt;v&gt;</code> in the service worker) inside &quot;Smoke + regression · SDK local&quot;, a required check of the release PR, so a version whose JS or CSS does not load, draw or answer blocks the release.</li>
+<li><strong>The popup&#39;s own texts in the 24 official EU languages (DD-67).</strong> Buttons (Send, Cancel, Start/Complete survey, Back), the progress counter, the follow-up badge, the accessibility labels and the notices are now translated into bg, cs, el, et, ga, hr, hu, it, lt, lv, mt, nl, pl, ro, sk and sl too (28 locales with en, es, da, no, sv, fi, de, fr, pt, ar, bn and zh-CN). A Polish survey used to show its own buttons in English. <code>resolveLocale</code> and the WebView mirror <code>RESOLVE_LOCALE_JS</code> recognise the new codes; anything else still falls back to English. Machine-translated, pending native review. Mirror of the native SDK&#39;s <code>DefaultLabels.kt</code>.</li>
+<li><strong>The SDK identifies itself on the data it sends (DD-3, Collection dashboard).</strong> Every popup response now carries <code>deepdots_channel=popup</code> and <code>deepdots_sdk=web@&lt;version&gt;</code> (<code>react-native@&lt;version&gt;</code> from the React Native entry) in its feedback metadata, also with tracking off, so a response that came through a popup can be told apart from a MagicSurvey link and attributed to an SDK version. Every analytics batch carries <code>deepdots_sdk</code> too. The version is injected at build time from <code>package.json</code> (<code>scripts/sdk-version-define.mjs</code>), never kept by hand.</li>
+<li><strong>&quot;Please enter a valid email address.&quot; for an email with a typo.</strong> <code>@magicfeedback/native</code> 2.2.39 reports it as <code>SubmitError</code> with code <code>INVALID_EMAIL</code>, where earlier versions said <code>REQUIRED</code> / &quot;No response&quot; and the popup asked the visitor to answer a question they had answered (reported by Lemvigh-Müller). The popup shows the new <code>errorInvalidEmail</code> label (translated in all 28 locales) and keeps the page, like a required question; it is validation, so no <code>survey_error</code> is emitted. The reason is <code>invalid_email</code> in <code>classifySubmitError</code> and in the WebView mirror.</li>
+<li><strong>Session close on iOS without waiting for the next launch, with no code in the app (DD-55).</strong> Measured in a production React Native app on SDK 1.17, about one iOS session in three was closed late, when the user opened the app again, or never, against about 2 % on Android: iOS suspends the app with the closing request in flight. The package now ships a tiny iOS native module (<code>ios/DeepdotsBackgroundTask.m</code>, podspec <code>MagicfeedbackPopupSdk</code>) that React Native autolinking links on <code>pod install</code>; every analytics request runs inside an iOS background task, ended when it settles or after 25 s (<code>BACKGROUND_TASK_MAX_MS</code>). Without the module (Expo Go, an app not rebuilt yet) nothing changes: the closing batch is still stored before it is sent and resent on the next launch. <code>init({ backgroundTask })</code> replaces the module with your own function; <code>backgroundTimerTask(BackgroundTimer)</code> adapts <code>react-native-background-timer</code>.</li>
+<li><strong>React Native lifecycle is automatic (<code>autoTrack.lifecycle</code>, on by default).</strong> A React Native entry of the package (<code>dist/index.native.js</code>, picked by Metro through the <code>react-native</code> export condition, so imports do not change) lets the SDK listen to <code>AppState</code> itself: <code>active</code> opens a session, <code>inactive</code> sends what is pending with a <code>user_engagement</code> carrying the current screen (new <code>onInactive()</code>), <code>background</code> closes it. Hosts that already call <code>onForeground</code> / <code>onBackground</code> keep working and nothing is sent twice. <code>autoTrack: { lifecycle: false }</code> turns it off. Without <code>platform</code> in <code>init</code>, React Native now uses <code>Platform.OS</code> (it used to report <code>web</code>).</li>
+</ul>
+<h4>Changed</h4>
+<ul>
+<li><strong><code>@magicfeedback/native</code> 2.2.39</strong> (from 2.2.37), in the web bundle and as the default CDN version of the React Native WebView. It brings the <code>INVALID_EMAIL</code> submit error, so the popup now shows &quot;Please enter a valid email address.&quot; for an email with a typo; the 24 official EU languages for the survey (DD-67); and the email field&#39;s <code>Option/Alt + 2</code> shortcut and optional @ button (DD-47). <code>src/assets/style.css</code> is re-vendored with the email @ rules. The 2.2.39 package ships its CSS minified, which <code>scripts/vendor-survey-css.mjs</code> cannot read, so this copy was vendored from the package&#39;s readable source (<code>src/styles/magicfeedback-default.css</code> at ba14d87, the commit 2.2.39 was published from).</li>
+</ul>
+<h4>Fixed</h4>
+<ul>
+<li><strong>The &quot;Delay (seconds)&quot; set in the Admin is honoured for every trigger type</strong> (reported by MOM: an event trigger with a 60 s delay showed the popup at once). The SDK dropped <code>trigger.delaySeconds</code> when it read the popups, so the delay never applied to <code>event</code>, <code>click</code>, <code>scroll</code> or <code>time_on_page</code>; and for <code>exit</code>, where the Admin stores the delay in <code>delaySeconds</code> and <code>value</code> is 0, the exit popup always showed with no wait. Now the delay counts from the moment the trigger fires (for <code>time_on_page</code>, after the time on page). Exit popups made before <code>delaySeconds</code> existed, with the delay in <code>value</code>, keep working. While a popup waits: firing the same trigger again neither restarts nor duplicates it; changing route (or screen with <code>setScreen</code> in React Native) or the app going to background cancels it; and when it is due everything is checked again (segments, language, cooldowns), it is dropped if the same popup was shown in the meantime, and if another popup is open it is skipped without effects, as before. A delay of 0, or no delay, shows the popup at once, as before. Pending delays live in memory only, unlike the exit queue. <code>triggerSurvey(surveyId, popupId, { delaySeconds })</code> takes an optional delay too. Test app: scenario <code>rate-delay</code> (event + 60 s) in <code>e2e/regression/triggers.spec.ts</code>.</li>
+</ul>
+
+</body></html>

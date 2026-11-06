@@ -1,0 +1,31 @@
+{
+  "version": "1.19.0",
+  "status": "FAILED",
+  "platforms": {
+    "Desktop web": "FAILED",
+    "Mobile web": "PASSED"
+  },
+  "failures": [
+    {
+      "platform": "Desktop web",
+      "row": "Desktop web",
+      "flow": "triggers › evento + Delay 60 s (MOM): no sale al momento ni a los 59 s, sí a los 60 s, una vez",
+      "message": ""
+    },
+    {
+      "platform": "Desktop web",
+      "row": "Desktop web",
+      "flow": "triggers › evento + Delay 60 s: cambiar de página durante la espera lo cancela",
+      "message": ""
+    }
+  ],
+  "knownIssues": {},
+  "counts": {
+    "executions": 86,
+    "passed": 83,
+    "retried": 1,
+    "failed": 2,
+    "skipped": 1,
+    "known": 0
+  }
+}
