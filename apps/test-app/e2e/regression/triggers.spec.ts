@@ -84,4 +84,36 @@ test.describe(`SDK ${SDK} · triggers`, () => {
     const state = await page.evaluate(() => JSON.parse(localStorage.getItem('deepdots.popups.state') || '{}'));
     expect(Object.keys(state.lastShown ?? {})).toEqual(['lab-help-click-es']);
   });
+  test('evento + Delay 60 s (MOM): no sale al momento ni a los 59 s, sí a los 60 s, una vez', async ({ rlab, page }) => {
+    rlab.expectPopups('lab-rate-delay-es');
+    await rlab.open('/products/42', { scenario: 'rate-delay' });
+    await rlab.popupsLoaded();
+    await rlab.knownBug('trigger-delay-ignored');
+    await rlab.freeze();
+    await page.evaluate(() => (window as any).__lab.sdk.triggerEvent('rate_product'));
+    await page.waitForTimeout(300);
+    expect(await rlab.shownPopups()).toEqual([]);
+    await rlab.advance(59_000);
+    await page.waitForTimeout(300);
+    expect(await rlab.shownPopups()).toEqual([]);
+    await rlab.advance(1_500);
+    await rlab.resume();
+    await rlab.expectPopupShown('lab-rate-delay-es');
+    expect(await rlab.showedPosts()).toHaveLength(1);
+  });
+
+  test('evento + Delay 60 s: cambiar de página durante la espera lo cancela', async ({ rlab, page }) => {
+    rlab.expectPopups();
+    await rlab.open('/products/42', { scenario: 'rate-delay' });
+    await rlab.popupsLoaded();
+    await rlab.knownBug('trigger-delay-ignored');
+    await rlab.freeze();
+    await page.evaluate(() => (window as any).__lab.sdk.triggerEvent('rate_product'));
+    await rlab.advance(10_000);
+    await rlab.navigate('/account');
+    await rlab.advance(60_000);
+    await page.waitForTimeout(500);
+    expect(await rlab.shownPopups()).toEqual([]);
+    expect(await rlab.showedPosts()).toHaveLength(0);
+  });
 });

@@ -7,7 +7,7 @@ export const PARAMS = {
   scenario: {
     default: 'all',
     label: 'scenario',
-    options: ['all', 'checkout-time', 'exit-checkout', 'rate-product', 'help-click', 'redisplay', 'not-on-cart', 'scroll-products', 'release-fixtures'],
+    options: ['all', 'checkout-time', 'exit-checkout', 'rate-product', 'rate-delay', 'help-click', 'redisplay', 'not-on-cart', 'scroll-products', 'release-fixtures'],
   },
   popups: { default: 'fixture', label: 'popups', options: ['fixture', 'live'] },
   survey: { default: 'dev', label: 'survey', options: ['dev', 'fixture'] },

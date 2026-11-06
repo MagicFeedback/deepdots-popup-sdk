@@ -45,6 +45,10 @@ export const KNOWN_BUGS = {
     fixedIn: '1.17.2' as string | null,
     summary: 'otro popup que toca con uno abierto emite popup_shown + SHOWED y gasta su cooldown sin pintarse',
   },
+  'trigger-delay-ignored': {
+    fixedIn: 'local' as string | null,
+    summary: 'el "Delay (seconds)" del Admin (trigger.delaySeconds) se ignora: el popup sale en cuanto salta el trigger',
+  },
 } as const;
 
 export type KnownBug = keyof typeof KNOWN_BUGS;

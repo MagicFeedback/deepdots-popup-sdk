@@ -280,6 +280,10 @@
             "number",
             "string"
           ]
+        },
+        "delaySeconds": {
+          "type": "number",
+          "description": "\"Delay (seconds)\" in the Admin: wait this long after the trigger fires before showing the popup. 0 or missing = at once. For `exit` the Admin stores the delay here and `value` is 0."
         }
       },
       "required": [

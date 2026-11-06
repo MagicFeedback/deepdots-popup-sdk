@@ -27,7 +27,7 @@ describe('time trigger', () => {
     vi.advanceTimersByTime(999);
     expect(popups.triggerSurvey).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
-    expect(popups.triggerSurvey).toHaveBeenCalledWith('s-1', undefined);
+    expect(popups.triggerSurvey).toHaveBeenCalledWith('s-1', undefined, { delaySeconds: undefined });
   });
 
   it('acepta value como string numérico (viene así de la API)', () => {

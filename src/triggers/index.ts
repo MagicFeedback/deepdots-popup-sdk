@@ -30,7 +30,7 @@ export function setupTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): vo
 function setupTimeTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
   const delay = toNumericValue(trigger.value, 5000);
   setTimeout(() => {
-    popups.triggerSurvey(trigger.surveyId, trigger.popupId);
+    popups.triggerSurvey(trigger.surveyId, trigger.popupId, { delaySeconds: trigger.delaySeconds });
   }, delay);
   popups.debug(`Time trigger set for ${delay}ms`);
 }
@@ -40,7 +40,7 @@ function setupScrollTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): voi
   const handler = () => {
     const scrollPercentage = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
     if (scrollPercentage >= threshold) {
-      popups.triggerSurvey(trigger.surveyId, trigger.popupId);
+      popups.triggerSurvey(trigger.surveyId, trigger.popupId, { delaySeconds: trigger.delaySeconds });
       window.removeEventListener('scroll', handler);
     }
   };
@@ -51,7 +51,11 @@ function setupScrollTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): voi
 function setupExitTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void {
   if (typeof window === 'undefined') return;
 
-  const delaySeconds = parseExitDelaySeconds(trigger.value);
+  // El Admin guarda el retraso del exit en `delaySeconds` (y `value` = 0); los popups de
+  // antes de ese campo lo llevaban en `value`.
+  const delaySeconds = typeof trigger.delaySeconds === 'number' && trigger.delaySeconds > 0
+    ? trigger.delaySeconds
+    : parseExitDelaySeconds(trigger.value);
   const historyRef = window.history;
   const originalPushState = historyRef.pushState.bind(historyRef);
   const originalReplaceState = historyRef.replaceState.bind(historyRef);
@@ -182,7 +186,7 @@ function setupClickTrigger(popups: DeepdotsPopups, trigger: TriggerConfig): void
     }
     const handler = (e: MouseEvent) => {
       if (e.defaultPrevented) return;
-      popups.triggerSurvey(trigger.surveyId, trigger.popupId);
+      popups.triggerSurvey(trigger.surveyId, trigger.popupId, { delaySeconds: trigger.delaySeconds });
       el.removeEventListener('click', handler);
     };
     el.addEventListener('click', handler);
