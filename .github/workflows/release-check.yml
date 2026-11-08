@@ -25,7 +25,7 @@ concurrency:
 jobs:
   version:
     name: Version & changelog
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       kind: ${{ steps.gate.outputs.kind }}
@@ -55,7 +55,7 @@ jobs:
     needs: version
     # Tambien cuando "Version & changelog" falla: asi se ve que el gate de publicacion bloquea igual.
     if: ${{ !cancelled() && needs.version.outputs.kind == 'release' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
