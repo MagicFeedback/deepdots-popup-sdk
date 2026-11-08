@@ -58,7 +58,7 @@ env:
 jobs:
   web:
     name: Web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Due this hour?
@@ -200,7 +200,7 @@ jobs:
     needs: web
     # Manual runs only with `heartbeat` (the failure test should not report the platforms silent).
     if: always() && (github.event_name == 'schedule' || inputs.heartbeat)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
