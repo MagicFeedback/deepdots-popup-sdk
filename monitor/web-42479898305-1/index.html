@@ -1,0 +1,72 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Popup SDK monitor · web</title>
+<style>@page { size: A4; margin: 18mm 16mm; }
+body { font: 10.5pt/1.5 -apple-system, "Helvetica Neue", Arial, sans-serif; color: #1a1d24; background: #fff; max-width: 180mm; margin: auto; padding: 0 16px; }
+h1 { font-size: 20pt; margin: 0 0 4pt; } h2 { font-size: 14pt; margin-top: 20pt; border-bottom: 1px solid #ddd; padding-bottom: 3pt; }
+h3 { font-size: 11.5pt; margin-top: 14pt; } code { font-size: 9pt; background: #f2f3f5; padding: 0 3px; border-radius: 3px; }
+table { border-collapse: collapse; width: 100%; font-size: 8.5pt; margin: 8pt 0; page-break-inside: avoid; display: block; overflow-x: auto; }
+th, td { border: 1px solid #d6d8dc; padding: 3pt 4pt; text-align: left; vertical-align: top; } th { background: #f2f3f5; }
+details table { font-size: 7pt; } summary { cursor: pointer; color: #1f5fbf; }
+@media print { details { display: none; } table { display: table; } body { padding: 0; } }
+hr { border: 0; border-top: 1px solid #ddd; margin: 16pt 0; } h2:has(+ *) { page-break-after: avoid; }
+a { color: #1f5fbf; }</style></head><body>
+<h1>Popup SDK monitor · Web · FAIL</h1>
+<p>Synthetic check of the published SDK in the internal test app against DEV. Generated 2026-11-08 12:22 UTC from the run&#39;s real results.</p>
+<h2>monitor run · monitor_error</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Platform</td>
+<td>Web</td>
+</tr>
+<tr>
+<td>SDK version</td>
+<td>? (npm <code>latest</code>)</td>
+</tr>
+<tr>
+<td>Environment</td>
+<td>DEV · <a href="https://api-dev.deepdots.com">https://api-dev.deepdots.com</a></td>
+</tr>
+<tr>
+<td>Failed scenario</td>
+<td>monitor run (<code>monitor</code>)</td>
+</tr>
+<tr>
+<td>Timestamp</td>
+<td>2026-11-08T12:22:13.133Z · failed on the retry too</td>
+</tr>
+<tr>
+<td>Injected fault</td>
+<td>none</td>
+</tr>
+</tbody></table>
+<pre><code>no test results: the Web job ended skipped before the scenarios ran
+</code></pre>
+<h2>Other checks in this run</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>monitor run</td>
+<td><strong>FAIL</strong></td>
+</tr>
+</tbody></table>
+<h2>What to do</h2>
+<ol>
+<li>SDK or backend? The same failure on the previous SDK version (run the workflow by hand with that version) or in the survey monitors points at the API or the survey frontend.</li>
+<li>Only the latest SDK fails: move npm <code>latest</code> back to the previous version and purge jsDelivr (runbook), then ship a fix.</li>
+<li>This is a synthetic check of our test app in DEV, not of customer apps.</li>
+</ol>
+<p><a href="https://github.com/MagicFeedback/deepdots-popup-sdk/blob/dev/docs/MONITORING.md">Runbook</a> · <a href="https://github.com/MagicFeedback/deepdots-popup-sdk/actions/runs/42479898305">Run</a> · <a href="https://dash.deepdots.com/d/survey-ops">Dashboard</a></p>
+
+</body></html>
