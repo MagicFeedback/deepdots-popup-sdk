@@ -119,7 +119,7 @@ describe('RESOLVE_LOCALE_JS (paridad con resolveLocale)', () => {
       'zh', 'zh-Hans', 'zh-CN', 'zh-TW', 'de', 'de-DE', 'fr', 'fr-CA', 'pt', 'pt-BR',
       'ar', 'ar-EG', 'bn', 'bn-BD', 'is-IS', '', '   ',
       'bg', 'cs', 'el', 'et', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'nl', 'pl', 'ro', 'sk', 'sl',
-      'pl-PL', 'el_GR', 'ga-IE', 'mt-MT', 'HR-hr',
+      'pl-PL', 'el_GR', 'ga-IE', 'mt-MT', 'HR-hr', 'ca', 'ca-ES',
     ];
     for (const tag of tags) {
       expect(inline(tag), tag).toBe(resolveLocale(tag));

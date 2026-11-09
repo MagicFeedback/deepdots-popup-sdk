@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Catalan (`ca`) popup texts.** Buttons, progress, aria-labels and error notices in Catalan; `ca`/`ca-ES` resolve to it. Catalan is not an official EU language; asked for in the v2.2.29 review. Same strings as the native SDK's `DefaultLabels.kt`.
+
 ### Fixed
 - **CI and the SDK monitor run on Ubuntu 24.04.** GitHub moved `ubuntu-latest` to Ubuntu 26.04 on 8 Nov 2026 and Playwright does not support Chromium there yet, so the hourly web monitor failed before running any scenario ("no test results"). Every workflow now pins `ubuntu-24.04`. No SDK change.
 
