@@ -73,7 +73,7 @@ concurrency:
 jobs:
   matrix:
     name: Versions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       versions: ${{ steps.pick.outputs.versions }}
     steps:
@@ -92,7 +92,7 @@ jobs:
   smoke:
     name: Smoke + regression · SDK ${{ matrix.sdk }}
     needs: matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -187,7 +187,7 @@ jobs:
     name: Validation report
     needs: [matrix, smoke]
     if: always() && (inputs.report || inputs.publish) && needs.matrix.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write # validation-reports branch (publish)
       actions: write # demo-gh-pages.yml (publish)

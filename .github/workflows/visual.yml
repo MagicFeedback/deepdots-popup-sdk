@@ -35,7 +35,7 @@ concurrency:
 jobs:
   visual:
     name: Visual regression · SDK ${{ inputs.sdk || 'local' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     container:
       # ⚠️ Misma versión que @playwright/test en package-lock.json (el primer paso lo comprueba).
