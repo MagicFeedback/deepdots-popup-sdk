@@ -665,6 +665,66 @@ describe('DeepdotsPopups analytics (canal separado, dry-run)', () => {
       vi.unstubAllGlobals();
     });
 
+    function startParams(sdk: DeepdotsPopups) {
+      return sdk.previewAnalytics().events.find((e) => e.name === 'deepdots_session_start')?.params ?? {};
+    }
+
+    it('anónimo → identificado: la sesión nueva enlaza el id anónimo y el registro anterior', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sessionId: 'fbk-anon' }) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk(); // la app arranca sin userId
+      const anon = sdk.getUserId();
+      expect(anon).toBeTruthy();
+
+      sdk.track('cta_click');
+      sdk.flushAnalytics();
+      const record = bodies(fetchSpy)[0].sessionId;
+      await vi.waitFor(() => expect(sdk.getFeedbackSessionId()).toBe(record));
+
+      sdk.setUserId('user-a'); // login
+
+      // El registro anónimo se cierra con su propio id, como antes.
+      const closing = bodies(fetchSpy).at(-1);
+      expect(closing.completed).toBe(true);
+      expect(closing.feedback.profile).toEqual([{ key: 'external-user-id', value: [anon] }]);
+
+      expect(sdk.getUserId()).toBe('user-a');
+      expect(startParams(sdk)).toEqual({
+        reason: 'user_change',
+        identified: true,
+        previous_user_id: anon,
+        previous_session_id: record,
+      });
+      vi.unstubAllGlobals();
+    });
+
+    it('anónimo → identificado sin registro abierto aún: enlaza solo el id anónimo', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk();
+      const anon = sdk.getUserId();
+
+      sdk.init({ apiKey: 'pk-1', nodeEnv: 'development', analytics: { publicKey: 'pub-a', integration: 'int-7' }, userId: 'user-a' });
+
+      const params = startParams(sdk);
+      expect(params).toMatchObject({ reason: 'user_change', identified: true, previous_user_id: anon });
+      expect(params.previous_session_id).toBeUndefined();
+      vi.unstubAllGlobals();
+    });
+
+    it('de un usuario a otro, o al hacer logout, no hay enlace: son personas distintas', () => {
+      const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchSpy);
+      const sdk = initSdk({ userId: 'user-a' });
+
+      sdk.setUserId('user-b');
+      expect(startParams(sdk)).toEqual({ reason: 'user_change' });
+
+      sdk.setUserId(undefined);
+      expect(startParams(sdk)).toEqual({ reason: 'user_change' });
+      vi.unstubAllGlobals();
+    });
+
     it('setTrackingEnabled(false) cierra la sesión antes de apagar el canal; (true) abre otra', () => {
       const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
       vi.stubGlobal('fetch', fetchSpy);

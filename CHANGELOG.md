@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Logging in links the anonymous visitor to the user.** An app that starts without `userId` and sets it at login (`setUserId()` or `init()` again) used to look like two people: the anonymous id "left" at the login screen and a new user appeared, so a registration funnel counted people who did register as lost. Anonymous → identified is now treated as the same person: the new session's `deepdots_session_start` carries `identified: true`, `previous_user_id` (the anonymous id) and `previous_session_id` (the record just closed), and the popup history (shown, answered, message guards) is kept, so the user does not see the same popup again. The anonymous record is still closed with `user_change` and its own id, so nothing changes for the backend. User to user and logout behave as before, with no link.
 - **Catalan (`ca`) popup texts.** Buttons, progress, aria-labels and error notices in Catalan; `ca`/`ca-ES` resolve to it. Catalan is not an official EU language; asked for in the v2.2.29 review. Same strings as the native SDK's `DefaultLabels.kt`.
 
 ### Fixed

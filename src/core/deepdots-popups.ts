@@ -685,11 +685,28 @@ export class DeepdotsPopups {
      * anterior (`session_end` con `reason: 'user_change'` + `completed:true`), cambia la
      * identidad y abre una sesión nueva. Sin `userId` vuelve al id anónimo del SDK.
      *
+     * Anónimo → identificado (la app arranca sin `userId` y lo pone al hacer login) es la MISMA
+     * persona, no otra: el `session_start` de la sesión nueva lleva `identified: true`,
+     * `previous_user_id` (el id anónimo) y `previous_session_id` (el registro que se acaba de
+     * cerrar), para que el backend una las dos sin adivinar; y el estado de popups (mostrados,
+     * respondidos, protecciones de mensajes) se conserva. Sin esto, cada persona que se registra
+     * contaba dos veces: una que "abandona" en el login y otra registrada nueva.
+     *
      * Equivale a llamar a `init()` otra vez con otro `userId`.
      */
     setUserId(userId?: string): void {
         const next = userId || undefined;
         if (!this.initialized || !this.config || next === this.config.userId) return;
+
+        // Anónimo → identificado: la misma persona que hace login (ver arriba).
+        const identifying = !this.config.userId && !!next;
+        const previous = identifying
+            ? {
+                  identified: true,
+                  previous_user_id: this.tracking?.getUserId() ?? undefined,
+                  previous_session_id: this.analyticsFeedbackSessionId,
+              }
+            : undefined;
 
         this.closeSession('user_change');
 
@@ -706,17 +723,23 @@ export class DeepdotsPopups {
                   post: (body) => this.postContact(body),
               })
             : null;
-        // Atributos, métricas y protecciones de messaging pertenecían al usuario anterior.
+        // Atributos y métricas eran del id anterior: el host manda los del usuario identificado.
         this.analytics?.resetUserScope();
-        this.messageGuard.reset();
-        // El historial de redisplay era del usuario anterior: el nuevo empieza de cero.
-        this.lastShown.clear();
-        this.surveyProgress.clear();
-        this.answeredSurveys.clear();
-        clearPopupState(storage);
+        if (!identifying) {
+            // Otra persona: protecciones de messaging e historial de redisplay empiezan de cero.
+            // Al identificarse es la misma persona, que no debe volver a ver lo que ya vio.
+            this.messageGuard.reset();
+            this.lastShown.clear();
+            this.surveyProgress.clear();
+            this.answeredSurveys.clear();
+            clearPopupState(storage);
+        }
 
-        this.log('tracking · user_change · user_id:', this.tracking.getUserId());
-        this.openSession('user_change');
+        this.log(
+            identifying ? 'tracking · user identified · user_id:' : 'tracking · user_change · user_id:',
+            this.tracking.getUserId(),
+        );
+        this.openSession('user_change', previous);
     }
 
     /**
@@ -760,14 +783,14 @@ export class DeepdotsPopups {
      *  - `bfcache_restore`: vuelta desde la bfcache fuera de la ventana de reanudación.
      * Si hay una sesión suspendida a tiempo emite `deepdots_session_resume` en su lugar, sin reason.
      */
-    private openSession(reason: SessionStartReason): void {
+    private openSession(reason: SessionStartReason, extra?: Record<string, unknown>): void {
         if (this.sessionOpen) return;
         if (!this.tracking?.isTrackingEnabled()) return;
         const suspendedMs = this.takeSuspendedSession();
         this.sessionOpen = true;
         this.lastEngagementAt = Date.now();
         if (suspendedMs === null) {
-            this.track('deepdots_session_start', { reason });
+            this.track('deepdots_session_start', { reason, ...extra });
         } else {
             // Misma sesión: sin `session_start`, que contaría una sesión de más.
             this.track('deepdots_session_resume', { suspended_ms: suspendedMs });
