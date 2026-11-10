@@ -689,8 +689,8 @@ export class DeepdotsPopups {
      * persona, no otra: el `session_start` de la sesión nueva lleva `identified: true`,
      * `previous_user_id` (el id anónimo) y `previous_session_id` (el registro que se acaba de
      * cerrar), para que el backend una las dos sin adivinar; y el estado de popups (mostrados,
-     * respondidos, protecciones de mensajes) se conserva. Sin esto MOM contaba a cada persona
-     * que se registra dos veces: una que "abandona" en el login y otra registrada nueva.
+     * respondidos, protecciones de mensajes) se conserva. Sin esto, cada persona que se registra
+     * contaba dos veces: una que "abandona" en el login y otra registrada nueva.
      *
      * Equivale a llamar a `init()` otra vez con otro `userId`.
      */
