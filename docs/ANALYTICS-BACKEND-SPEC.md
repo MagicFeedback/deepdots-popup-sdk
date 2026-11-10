@@ -248,6 +248,11 @@ Se emite al abrir sesión. Base para Crash-Free Users (#14). El `reason` (web de
 | `idle_timeout` | La pestaña vuelve a verse tras más de 30 min oculta (web): la anterior se cerró o se descartó |
 | `bfcache_restore` | La página vuelve de la bfcache (botón atrás) fuera de la ventana de reanudación (web) |
 
+**Identificación (anónimo → `userId`, desde 1.20.0).** Cuando la app arranca sin `userId` y lo pone al hacer login, es la misma persona: el `session_start` de la sesión nueva (`reason: "user_change"`) lleva además `identified: true`, `previous_user_id` (el id anónimo del SDK) y, si el registro anterior ya existía, `previous_session_id`. Para contar personas, el backend une `previous_user_id` con el `deepdots_user_id` de la sesión. De un usuario a otro, o al hacer logout, no se envían.
+```json
+{ "timestamp": 1750000000000, "reason": "user_change", "identified": true, "previous_user_id": "6f1c…", "previous_session_id": "a2b9…" }
+```
+
 #### `deepdots_session_end`
 Último evento de la sesión: viaja en el lote que lleva `completed: true` (ver §7). El `reason` dice qué lo provocó.
 ```json
