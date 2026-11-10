@@ -39,7 +39,7 @@ jobs:
     timeout-minutes: 20
     container:
       # ⚠️ Misma versión que @playwright/test en package-lock.json (el primer paso lo comprueba).
-      image: mcr.microsoft.com/playwright:v1.60.0-noble
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --ipc=host
     env:
       SDK_VERSION: ${{ inputs.sdk || 'local' }}
@@ -60,8 +60,8 @@ jobs:
       - name: Playwright version matches the image
         run: |
           v="$(node -p "require('@playwright/test/package.json').version")"
-          if [ "$v" != "1.60.0" ]; then
-            echo "::error::@playwright/test is $v but the container image is v1.60.0: update the image in visual.yml (and re-approve the baselines if the rendering changes)"
+          if [ "$v" != "1.64.1" ]; then
+            echo "::error::@playwright/test is $v but the container image is v1.64.1: update the image in visual.yml (and re-approve the baselines if the rendering changes)"
             exit 1
           fi
 
