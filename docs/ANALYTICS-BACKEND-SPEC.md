@@ -261,20 +261,23 @@ Se emite al abrir sesión. Base para Crash-Free Users (#14). El `reason` (web de
 | `reason` | Cuándo |
 |---|---|
 | `page_hide` | La página web se cierra o se navega fuera (`pagehide`) **sin poder suspenderse** (aún no se conocía el registro o no hay `sessionStorage`). Con el registro conocido, el `pagehide` suspende (ver `deepdots_session_suspend`); este `reason` lo añade también el backend al cerrar una sesión suspendida |
-| `background` | La app pasa a background (RN/nativo) |
+| `background` | La app pasa a background (nativo; React Native solo si aún no se conocía el registro). Desde 1.21.0 React Native **suspende** al pasar a background (ver `deepdots_session_suspend`); este `reason` lo añade el backend al cerrar una sesión suspendida en background |
 | `user_change` | `setUserId()` o un `init()` con otro `userId` (login/logout) |
 | `tracking_disabled` | `setTrackingEnabled(false)` (consentimiento revocado) |
 | `manual` | El host llamó a `endSession()` |
 | `idle_timeout` | La pestaña vuelve a verse tras más de 30 min oculta (web, desde 1.8.3): se cierra y se abre otra |
 
-#### `deepdots_session_suspend` (web, desde 1.11.0)
-La página se ocultó (`pagehide`: recarga, navegación con carga completa o cierre de la pestaña, que el navegador no distingue). Viaja en el último lote de esa carga, **sin `completed`**: la sesión sigue abierta. Ver §7.
+#### `deepdots_session_suspend` (web desde 1.11.0, React Native desde 1.21.0)
+- Web (`reason: page_hide`): la página se ocultó (`pagehide`: recarga, navegación con carga completa o cierre de la pestaña, que el navegador no distingue).
+- React Native (`reason: background`): la app pasó a background. Si vuelve en menos de 5 min sigue la misma sesión (salir a firmar en otra app y volver es una visita, no dos).
+
+Viaja en el último lote, **sin `completed`**: la sesión sigue abierta. Ver §7.
 ```json
 { "timestamp": 1750000090000, "reason": "page_hide" }
 ```
 
-#### `deepdots_session_resume` (web, desde 1.11.0)
-La página volvió a cargar en la misma pestaña (o volvió de la bfcache) a menos de 1 min de su `deepdots_session_suspend`, y sigue en el mismo registro. Sustituye al `deepdots_session_start`: no es una sesión nueva. `suspended_ms` = tiempo entre la suspensión y la reanudación.
+#### `deepdots_session_resume` (web desde 1.11.0, React Native desde 1.21.0)
+La página volvió a cargar en la misma pestaña (o volvió de la bfcache) a menos de 1 min de su `deepdots_session_suspend`, o la app volvió de background a menos de 5 min, y sigue en el mismo registro. Sustituye al `deepdots_session_start`: no es una sesión nueva. `suspended_ms` = tiempo entre la suspensión y la reanudación.
 ```json
 { "timestamp": 1750000092000, "suspended_ms": 2000 }
 ```
@@ -482,8 +485,9 @@ Ahora el `pagehide` **suspende** la sesión:
    `sessionId` y un `deepdots_session_resume` en lugar de `deepdots_session_start`.
 4. Si no vuelve (pestaña cerrada), **el backend cierra la sesión**: Run_Jobs
    `incomplete-surveys` cierra una sesión cuyo último lote lleva `deepdots_session_suspend` y
-   que lleva `SUSPEND_GRACE_MINUTES` (3 min) sin otro lote, sin esperar a los 60 min de
-   inactividad, y le añade el `deepdots_session_end` con `reason: page_hide`. El feedback
+   que lleva `SUSPEND_GRACE_MINUTES` (8 min desde el 11-nov-2026; antes 3) sin otro lote, sin
+   esperar a los 60 min de inactividad, y le añade el `deepdots_session_end` con el `reason` de
+   la suspensión (`page_hide` o `background`) y su hora. El feedback
    llega a los pocos minutos de cerrar la pestaña (lo que tarde el siguiente barrido).
 
 Si en el `pagehide` aún no se conoce el registro (el primer POST sigue en vuelo) o no hay

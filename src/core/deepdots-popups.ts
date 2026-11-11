@@ -76,6 +76,16 @@ const ANALYTICS_SESSION_DISCARD_MS = ANALYTICS_SERVER_IDLE_MS - 10 * 60_000;
  * el backend ya montó la partiría en dos feedbacks. Mantener en sincronía.
  */
 const ANALYTICS_RESUME_WINDOW_MS = 60_000;
+/**
+ * React Native: una app que vuelve de background dentro de este tiempo SIGUE en la misma
+ * sesión, en vez de abrir otra. Salir a firmar en otra app y volver, o mirar una notificación,
+ * es la misma visita: en una app en producción (nov-2026) un tercio de las sesiones eran una
+ * vuelta en menos de 2 min. Por debajo del margen con el que el backend cierra una sesión
+ * suspendida (Run_Jobs `incomplete-surveys`, `SUSPEND_GRACE_MINUTES`, 8 min desde el
+ * 11-nov-2026): reanudar una sesión que el backend ya cerró la partiría en dos feedbacks.
+ * Mantener en sincronía.
+ */
+const ANALYTICS_BACKGROUND_RESUME_WINDOW_MS = 5 * 60_000;
 /** Namespace reservado para los eventos que emite el propio SDK (page_view, message, mini_service…). */
 const RESERVED_EVENT_PREFIX = 'deepdots_';
 /** Prefijo que se antepone a los eventos custom del host para poder identificarlos frente a los reservados. */
@@ -213,13 +223,15 @@ export class DeepdotsPopups {
     private lastEngagementAt = 0;
     /** Cuándo se ocultó la pestaña por última vez (ms epoch); null si está visible. */
     private hiddenAt: number | null = null;
+    /** `init({ autoTrack: { errors } })`: captura automática de errores. Activa por defecto. */
+    private autoTrackErrors = true;
     /** Suscripción automática a AppState (React Native, `autoTrack.lifecycle`). */
     private appStateSubscription: { remove: () => void } | void = undefined;
     /**
      * Sesión suspendida por un `pagehide` (ms epoch y `deepdots_user_id`); null si no hay.
      * `openSession` la reanuda si sigue a tiempo (ver ANALYTICS_RESUME_WINDOW_MS).
      */
-    private suspended: { at: number; userId: string | null } | null = null;
+    private suspended: { at: number; userId: string | null; windowMs: number } | null = null;
     /** Integración de analytics del init: la sesión suspendida solo la hereda la misma. */
     private analyticsIntegration: string | undefined = undefined;
     /**
@@ -267,6 +279,7 @@ export class DeepdotsPopups {
         this.surveyCss = config.surveyCss;
         this.cspNonce = config.cspNonce;
         this.onFeedbackSession = config.onFeedbackSession;
+        this.autoTrackErrors = config.autoTrack?.errors !== false;
 
         this.config = {
             apiKey: config.apiKey || undefined,
@@ -309,7 +322,7 @@ export class DeepdotsPopups {
         const resumable = this.readResumableSession();
         if (resumable) {
             this.analyticsFeedbackSessionId = resumable.sessionId;
-            this.suspended = { at: resumable.at, userId: resumable.userId };
+            this.suspended = { at: resumable.at, userId: resumable.userId, windowMs: ANALYTICS_RESUME_WINDOW_MS };
         }
 
         // Analytics: se envía como Feedback a la integración (`POST /sdk/feedback`) si se
@@ -515,12 +528,18 @@ export class DeepdotsPopups {
      */
     private installCrashHandlers(): void {
         if (!this.crashReporter || !this.tracking?.isTrackingEnabled()) return;
-        this.crashReporter.install();
+        // `autoTrack.errors: false` apaga lo automático; el ErrorUtils que pase el host a mano
+        // (`installReactNativeCrashHandler`) se engancha igual.
+        const auto = this.autoTrackErrors;
+        if (auto) this.crashReporter.install();
         const errorUtils = this.rnErrorUtils
-            ?? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils;
+            ?? (auto ? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils : undefined);
         if (errorUtils && typeof errorUtils.setGlobalHandler === 'function') {
             this.crashReporter.installReactNative(errorUtils);
         }
+        // Promesas rechazadas sin `catch` (Hermes): encadena a Sentry/Crashlytics.
+        const rejections = auto ? getReactNativePlatform()?.promiseRejections : null;
+        if (rejections) this.crashReporter.installPromiseRejections(rejections);
     }
 
     /**
@@ -617,22 +636,29 @@ export class DeepdotsPopups {
         }
     }
 
-    /** App a foreground (RN: AppState 'active'): reanuda el engagement time y abre sesión nueva. */
+    /**
+     * App a foreground (RN: AppState 'active'): reanuda el engagement time. Si la app estuvo en
+     * background menos de ANALYTICS_BACKGROUND_RESUME_WINDOW_MS sigue en la misma sesión
+     * (`deepdots_session_resume`); si no, abre una nueva (`session_start` `foreground`).
+     */
     onForeground(): void {
         this.engagement?.resume();
         this.openSession('foreground');
     }
 
     /**
-     * App a background (RN: AppState 'background'): FIN DE SESIÓN. Cierra pantalla actual
-     * (page_view), mini-services (mini_service_exit), emite engagement + `session_end` y
-     * envía el último lote con `completed:true`.
-     *
-     * Es la única señal disponible en móvil: el kill de la app (swipe) NO da callback.
+     * App a background (RN: AppState 'background'): SUSPENDE la sesión. Cierra la pantalla
+     * actual (page_view), los mini-services (mini_service_exit) y envía lo acumulado con un
+     * `deepdots_session_suspend` (`reason: background`) y SIN `completed`:
+     *  - si la app vuelve dentro de ANALYTICS_BACKGROUND_RESUME_WINDOW_MS, `onForeground` sigue
+     *    en el mismo registro;
+     *  - si no vuelve (o la matan: el swipe NO da callback), el backend la cierra pasados unos
+     *    minutos con un `session_end` `background` a la hora de la suspensión.
+     * Si aún no se conoce el registro (el primer POST sigue en vuelo), FIN DE SESIÓN como antes.
      */
     onBackground(): void {
         this.cancelDelayedPopups('app to background');
-        this.closeSession('background');
+        if (!this.suspendSession('background')) this.closeSession('background');
         this.engagement?.pause();
     }
 
@@ -825,7 +851,7 @@ export class DeepdotsPopups {
      * `final: true` (cierre de página/app): el lote no espera al primer POST en vuelo, porque
      * el documento se muere; un lote que falle por red o 5xx se re-encola para el siguiente flush.
      */
-    flushAnalytics(options?: { final?: boolean; sessionEnd?: boolean }): void {
+    flushAnalytics(options?: { final?: boolean; sessionEnd?: boolean; persist?: boolean }): void {
         if (!this.tracking?.isTrackingEnabled()) return;
         this.analytics?.flush(this.analyticsIdentity(), options);
     }
@@ -903,28 +929,40 @@ export class DeepdotsPopups {
      *  - si la página vuelve a cargar en esta pestaña, `init()` sigue en el mismo registro;
      *  - si la pestaña se cerró, el backend lo cierra a los pocos minutos sin otro lote.
      *
+     * En React Native (`background`) la suspensión vive en memoria: la app sigue viva en
+     * background y, si el SO la mata, el arranque siguiente es otra sesión (`cold_start`).
+     *
      * Devuelve false cuando no se puede suspender — aún no se conoce el registro (el primer
-     * POST sigue en vuelo) o no hay `sessionStorage` — y entonces el caller cierra como antes.
+     * POST sigue en vuelo) o, en web, no hay `sessionStorage` — y entonces el caller cierra
+     * como antes.
      */
-    private suspendSession(): boolean {
+    private suspendSession(reason: 'page_hide' | 'background'): boolean {
         if (!this.sessionOpen || !this.tracking?.isTrackingEnabled()) return false;
         const sessionId = this.analyticsFeedbackSessionId;
         const integration = this.analyticsIntegration;
-        const storage = getSessionStorage();
-        if (!sessionId || !integration || !storage) return false;
+        if (!sessionId || !integration) return false;
         const at = Date.now();
         const userId = this.tracking.getUserId();
-        if (!writeSuspendedSession(storage, { sessionId, integration, userId, at })) return false;
+        if (reason === 'page_hide') {
+            const storage = getSessionStorage();
+            if (!storage || !writeSuspendedSession(storage, { sessionId, integration, userId, at })) return false;
+        }
 
         this.sessionOpen = false;
-        this.suspended = { at, userId };
+        this.suspended = {
+            at,
+            userId,
+            windowMs: reason === 'page_hide' ? ANALYTICS_RESUME_WINDOW_MS : ANALYTICS_BACKGROUND_RESUME_WINDOW_MS,
+        };
         this.navObserver?.stop(); // cierra la pantalla actual → page_view
         this.navStarted = false;
         this.analytics?.exitAllMiniServices();
         this.flushEngagement();
         this.engagement?.pause(); // como en closeSession: nada de engagement tras el pagehide
-        this.track('deepdots_session_suspend', { reason: 'page_hide' });
-        this.flushAnalytics({ final: true });
+        this.track('deepdots_session_suspend', { reason });
+        // Web: el documento se muere (`final`, keepalive). RN: la app sigue viva en background,
+        // pero el SO puede matarla, así que el lote se guarda antes de enviarlo (`persist`).
+        this.flushAnalytics(reason === 'page_hide' ? { final: true } : { persist: true });
         this.log('tracking · session suspended:', sessionId);
         return true;
     }
@@ -948,7 +986,8 @@ export class DeepdotsPopups {
 
     /**
      * Consume la sesión suspendida al abrir: los ms que estuvo suspendida si se puede seguir en
-     * ella (mismo usuario, dentro de ANALYTICS_RESUME_WINDOW_MS); null si no había o ya no toca.
+     * ella (mismo usuario, dentro de su ventana: ANALYTICS_RESUME_WINDOW_MS tras un `pagehide`,
+     * ANALYTICS_BACKGROUND_RESUME_WINDOW_MS tras un background); null si no había o ya no toca.
      * En ese caso se olvida su registro sin enviar nada: lo cierra el backend, y la sesión que
      * se abre ahora va a uno nuevo.
      */
@@ -961,7 +1000,7 @@ export class DeepdotsPopups {
         const suspendedMs = Math.max(0, Date.now() - suspended.at);
         if (
             this.analyticsFeedbackSessionId &&
-            suspendedMs <= ANALYTICS_RESUME_WINDOW_MS &&
+            suspendedMs <= suspended.windowMs &&
             suspended.userId === (this.tracking?.getUserId() ?? null)
         ) {
             return suspendedMs;
@@ -1053,7 +1092,7 @@ export class DeepdotsPopups {
         window.addEventListener('pagehide', () => {
             clearInterval(this.analyticsFlushTimer);
             if (this.closeStaleHiddenSession()) return;
-            if (!this.suspendSession()) this.closeSession('page_hide');
+            if (!this.suspendSession('page_hide')) this.closeSession('page_hide');
         });
         // Vuelta desde la bfcache (botón atrás): la página no se recarga, así que `init()` no
         // vuelve a correr. El `pagehide` suspendió (o cerró) la sesión y paró el flush; sin
