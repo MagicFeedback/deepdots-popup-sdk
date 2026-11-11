@@ -47,6 +47,11 @@ export interface ReactNativeErrorUtils {
   setGlobalHandler(handler: (error: unknown, isFatal?: boolean) => void): void;
 }
 
+/** Fuente de promesas rechazadas sin `catch` (en RN, el hub del tracker de Hermes). */
+export interface UnhandledRejectionSource {
+  addUnhandledListener(listener: (error: unknown) => void): () => void;
+}
+
 export interface CrashReporterOptions {
   storage: KeyValueStorage;
   /** Emite un evento deepdots_app_crash AHORA (app viva). */
@@ -92,6 +97,8 @@ export class CrashReporter {
   private windowInstalled = false;
   /** ErrorUtils ya enganchados: engancharlos dos veces capturaría cada error dos veces. */
   private hookedErrorUtils = new Set<ReactNativeErrorUtils>();
+  /** Fuentes de rejections ya enganchadas (idempotente, como ErrorUtils). */
+  private hookedRejections = new Set<UnhandledRejectionSource>();
 
   constructor(options: CrashReporterOptions) {
     this.options = options;
@@ -208,6 +215,19 @@ export class CrashReporter {
     errorUtils.setGlobalHandler((error: unknown, isFatal?: boolean) => {
       if (this.isEnabled()) this.captureUnhandled(error);
       previous?.(error, isFatal);
+    });
+  }
+
+  /**
+   * Promesas rechazadas sin `catch` en React Native: como el `unhandledrejection` de web, se
+   * persisten y se reenvían en el arranque siguiente. La fuente encadena al tracker del host.
+   * Idempotente por fuente.
+   */
+  installPromiseRejections(source: UnhandledRejectionSource): void {
+    if (this.hookedRejections.has(source)) return;
+    this.hookedRejections.add(source);
+    source.addUnhandledListener((error) => {
+      if (this.isEnabled()) this.captureUnhandled(error ?? 'unhandledrejection');
     });
   }
 

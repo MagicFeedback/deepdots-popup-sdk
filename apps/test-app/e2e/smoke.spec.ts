@@ -115,12 +115,29 @@ test.describe(`SDK ${SDK} · known issues (host widgets)`, () => {
   // terceros (Intercom, Zendesk…) suelen ir en 2147483000. Un popup abajo a la derecha queda con
   // la X debajo de la burbuja de chat y el usuario no puede cerrarlo.
   // `test.fail()`: el día que el SDK lo arregle, este test se pondrá en rojo para quitar la marca.
+  //
+  // Determinista a propósito (10-nov): con la burbuja en su sitio el centro de la X solo quedaba
+  // ~12 px dentro de ella, y la altura de la tarjeta depende del survey de DEV, de las fuentes del
+  // runner y de si ya había cargado. Con la tarjeta unos px más alta la X sale de la burbuja y el
+  // clic entra: "Expected to fail, but passed" intermitente en CI, también con 1.16.1, que no
+  // tiene ningún arreglo (el contenedor sigue en z-index 999999). Ahora se espera al survey
+  // pintado y se pone la burbuja encima de la X, así que el resultado depende solo del z-index.
   test('la burbuja de chat del host no tapa la X de un popup abajo a la derecha', async ({ lab, page }) => {
     test.fail(true, 'known issue: popup z-index 999999 < host chat widget');
     await lab.open('/account', { scenario: 'help-click' });
     await page.getByTestId('help-button').click();
     await lab.expectPopupShown('lab-help-click-es');
-    await page.locator('#deepdots-popup-container #dd-close').click({ timeout: 3_000 });
+    await expect(lab.popup.locator('.magicfeedback-container')).toBeVisible();
+    await expect(lab.popup.locator('.mf-spinner')).toBeHidden();
+    const close = page.locator('#deepdots-popup-container #dd-close');
+    const box = await close.boundingBox();
+    expect(box, 'la X del popup tiene caja').not.toBeNull();
+    await page.getByTestId('chat-bubble').evaluate((el, b) => {
+      const s = (el as HTMLElement).style;
+      s.right = `${Math.round(window.innerWidth - (b.x + b.width / 2) - 26)}px`;
+      s.bottom = `${Math.round(window.innerHeight - (b.y + b.height / 2) - 26)}px`;
+    }, box!);
+    await close.click({ timeout: 3_000 });
   });
 });
 

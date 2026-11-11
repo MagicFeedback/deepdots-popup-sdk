@@ -8,8 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- **CI and the SDK monitor run on Ubuntu 24.04.** GitHub moved `ubuntu-latest` to Ubuntu 26.04 on 8 Nov 2026 and Playwright does not support Chromium there yet, so the hourly web monitor failed before running any scenario ("no test results"). Every workflow now pins `ubuntu-24.04`. No SDK change.
 - **Playwright 1.64.1 (from 1.60.0), which supports Ubuntu 26.04.** The cause of the failure above: Playwright learned Ubuntu 26.04 in 1.61, so 1.60 could not install Chromium there. Same version as MagicSurvey's monitors, which already pass on 26.04. The visual regression image moves to `mcr.microsoft.com/playwright:v1.64.1-noble`. With this the `ubuntu-24.04` pin is no longer needed to make the monitor work; it stays so that a runner image change never lands unannounced. Dev dependency only, no SDK change.
+
+## [1.20.0] — 2026-11-11
+
+Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.
+
+### Added
+- **React Native: promise rejections without `catch` are collected on their own.** Uncaught JS errors were already collected with no host code (`window` on web, `ErrorUtils` in React Native); a promise rejected without `catch` under Hermes was not. The React Native entry now wraps `HermesInternal.enablePromiseRejectionTracker` when the package is imported, before the app's `Sentry.init()`, so a tracker the host installs later (Sentry, Crashlytics) is composed with ours instead of replacing it, and its `allRejections: false` filter is respected. The rejection is stored and sent as a `deepdots_app_crash` (unhandled) like the other uncaught errors. `init({ autoTrack: { errors: false } })` turns automatic error collection off (a handler passed by hand with `installReactNativeCrashHandler` still works). Without Hermes (JSC) nothing changes. Taken from the parked auto-detection work (#82).
+- **Logging in links the anonymous visitor to the user.** An app that starts without `userId` and sets it at login (`setUserId()` or `init()` again) used to look like two people: the anonymous id "left" at the login screen and a new user appeared, so a registration funnel counted people who did register as lost. Anonymous → identified is now treated as the same person: the new session's `deepdots_session_start` carries `identified: true`, `previous_user_id` (the anonymous id) and `previous_session_id` (the record just closed), and the popup history (shown, answered, message guards) is kept, so the user does not see the same popup again. The anonymous record is still closed with `user_change` and its own id, so nothing changes for the backend. User to user and logout behave as before, with no link.
+- **Catalan (`ca`) popup texts.** Buttons, progress, aria-labels and error notices in Catalan; `ca`/`ca-ES` resolve to it. Catalan is not an official EU language; asked for in the v2.2.29 review. Same strings as the native SDK's `DefaultLabels.kt`.
+
+### Fixed
+- **CI and the SDK monitor run on Ubuntu 24.04.** GitHub moved `ubuntu-latest` to Ubuntu 26.04 on 8 Nov 2026 and Playwright does not support Chromium there yet, so the hourly web monitor failed before running any scenario ("no test results"). Every workflow now pins `ubuntu-24.04`. No SDK change.
 
 ## [1.19.0] — 2026-11-06
 
