@@ -70,7 +70,7 @@ describe('cierre de sesión (DD-55)', () => {
     return sdk;
   };
 
-  it('background: el lote de cierre sale dentro de una background task, que se cierra al responder', async () => {
+  it('background: el lote de la suspensión sale dentro de una background task, que se cierra al responder', async () => {
     let respond!: () => void;
     const order: string[] = [];
     const end = vi.fn(() => order.push('end'));
@@ -96,9 +96,11 @@ describe('cierre de sesión (DD-55)', () => {
     sdk.onBackground();
     await settle();
 
+    // Background SUSPENDE (sin `completed`): si vuelve en 5 min sigue la misma sesión; si no,
+    // la cierra el backend.
     const closing = bodies('int-close-bg').at(-1)!;
-    expect(closing.completed).toBe(true);
-    expect(eventsOf(closing).map((e) => e.name)).toContain('deepdots_session_end');
+    expect(closing.completed).toBe(false);
+    expect(eventsOf(closing).find((e) => e.name === 'deepdots_session_suspend')).toMatchObject({ reason: 'background' });
     expect(order).toEqual(['begin', 'post']); // la tarea se abre ANTES del POST
     expect(end).not.toHaveBeenCalled();
 
@@ -141,16 +143,16 @@ describe('cierre de sesión (DD-55)', () => {
     expect(sent.some((e) => e.name === 'deepdots_session_end')).toBe(false);
     expect(afterInactive.every((b) => !b.completed)).toBe(true);
 
-    // ...y el `background` siguiente cierra ESA sesión, no otra.
+    // ...y el `background` siguiente suspende ESA sesión, no otra.
     handlers[0]('background');
     await settle();
     const all = bodies('int-close-inactive');
     const closing = all.at(-1)!;
-    expect(closing.completed).toBe(true);
+    expect(eventsOf(closing).map((e) => e.name)).toContain('deepdots_session_suspend');
     expect(closing.sessionId).toBe(afterInactive[0].sessionId);
   }, 5000);
 
-  it('app matada: el cierre que no llegó a salir se reenvía en el arranque siguiente', async () => {
+  it('app matada: la suspensión que no llegó a salir se reenvía en el arranque siguiente', async () => {
     const storage = new InMemoryStorage();
     const before = startRn('int-close-killed', {}, storage);
     before.setScreen('/home');
@@ -170,9 +172,11 @@ describe('cierre de sesión (DD-55)', () => {
     await settle();
 
     const resent = bodies('int-close-killed').slice(sentBeforeRelaunch);
-    const resentClose = resent.find((b) => b.completed && b.sessionId === sessionId);
-    expect(resentClose).toBeDefined();
-    expect(eventsOf(resentClose!).map((e) => e.name)).toContain('deepdots_session_end');
+    const resentSuspend = resent.find(
+      (b) => b.sessionId === sessionId && eventsOf(b).some((e) => e.name === 'deepdots_session_suspend'),
+    );
+    expect(resentSuspend).toBeDefined();
+    expect(resentSuspend!.completed).toBe(false);
   });
 
   it('inactividad (web): tras más de 30 min oculta, la sesión se cierra con idle_timeout dentro de la background task', async () => {
