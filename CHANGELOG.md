@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Catalan (`ca`) popup texts.** Buttons, progress, aria-labels and error notices in Catalan; `ca`/`ca-ES` resolve to it. Catalan is not an official EU language; asked for in the v2.2.29 review. Same strings as the native SDK's `DefaultLabels.kt`.
 
 ### Fixed
+- **Closing a tab that was hidden for a long time no longer reopens a session the backend already closed.** `pagehide` always suspended the session with one last batch (page view + `deepdots_session_suspend`) on its record, even when the tab had been hidden for hours and `incomplete-surveys` had already closed that record for inactivity. The backend rebuilt the feedback and ran its FEEDBACK_DONE actions again, so `#platform-visitors` got a second "Session journey" hours later (10 Nov: tab hidden at 13:56, session closed at 15:00, tab closed at 20:58, second message at 21:20). `pagehide` now applies the same rule as coming back to a hidden tab: hidden 30–50 min → the session is closed with `idle_timeout`; hidden longer → it is dropped without sending anything. Under 30 min nothing changes (a reload still continues the session).
 - **CI and the SDK monitor run on Ubuntu 24.04.** GitHub moved `ubuntu-latest` to Ubuntu 26.04 on 8 Nov 2026 and Playwright does not support Chromium there yet, so the hourly web monitor failed before running any scenario ("no test results"). Every workflow now pins `ubuntu-24.04`. No SDK change.
 
 ## [1.19.0] — 2026-11-06
