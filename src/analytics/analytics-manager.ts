@@ -61,6 +61,12 @@ export interface AnalyticsFlushMeta {
    * registro nuevo, igual que tras `sessionEnd`, pero sin POST.
    */
   resetSession?: boolean;
+  /**
+   * `true` cuando el lote puede ser lo último que salga de la sesión sin cerrarla (app a
+   * background en RN: la sesión queda suspendida). El sink lo guarda ANTES de enviarlo, como
+   * el lote de cierre, para reenviarlo en el arranque siguiente si el SO mata la app.
+   */
+  persist?: boolean;
 }
 
 /**
