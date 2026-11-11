@@ -213,6 +213,8 @@ export class DeepdotsPopups {
     private lastEngagementAt = 0;
     /** Cuándo se ocultó la pestaña por última vez (ms epoch); null si está visible. */
     private hiddenAt: number | null = null;
+    /** `init({ autoTrack: { errors } })`: captura automática de errores. Activa por defecto. */
+    private autoTrackErrors = true;
     /** Suscripción automática a AppState (React Native, `autoTrack.lifecycle`). */
     private appStateSubscription: { remove: () => void } | void = undefined;
     /**
@@ -267,6 +269,7 @@ export class DeepdotsPopups {
         this.surveyCss = config.surveyCss;
         this.cspNonce = config.cspNonce;
         this.onFeedbackSession = config.onFeedbackSession;
+        this.autoTrackErrors = config.autoTrack?.errors !== false;
 
         this.config = {
             apiKey: config.apiKey || undefined,
@@ -515,12 +518,18 @@ export class DeepdotsPopups {
      */
     private installCrashHandlers(): void {
         if (!this.crashReporter || !this.tracking?.isTrackingEnabled()) return;
-        this.crashReporter.install();
+        // `autoTrack.errors: false` apaga lo automático; el ErrorUtils que pase el host a mano
+        // (`installReactNativeCrashHandler`) se engancha igual.
+        const auto = this.autoTrackErrors;
+        if (auto) this.crashReporter.install();
         const errorUtils = this.rnErrorUtils
-            ?? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils;
+            ?? (auto ? (globalThis as { ErrorUtils?: ReactNativeErrorUtils }).ErrorUtils : undefined);
         if (errorUtils && typeof errorUtils.setGlobalHandler === 'function') {
             this.crashReporter.installReactNative(errorUtils);
         }
+        // Promesas rechazadas sin `catch` (Hermes): encadena a Sentry/Crashlytics.
+        const rejections = auto ? getReactNativePlatform()?.promiseRejections : null;
+        if (rejections) this.crashReporter.installPromiseRejections(rejections);
     }
 
     /**

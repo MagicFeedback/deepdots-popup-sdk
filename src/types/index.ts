@@ -36,6 +36,12 @@ export interface FeedbackSession {
 export interface AutoTrackOptions {
     /** React Native: listen to `AppState` for session start/end. Default `true`. */
     lifecycle?: boolean;
+    /**
+     * Uncaught errors: `window` `error`/`unhandledrejection` (web), `ErrorUtils` and promise
+     * rejections without `catch` under Hermes (React Native). Default `true`. Handlers installed
+     * by other tools (Sentry, Crashlytics) keep receiving everything.
+     */
+    errors?: boolean;
 }
 
 export interface DeepdotsInitParams {
