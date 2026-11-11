@@ -115,6 +115,18 @@ describe('DeepdotsPopups · persistencia del cooldown', () => {
     expect(shown).toHaveBeenCalledTimes(2);
   });
 
+  it('identificarse (anónimo → userId) es la misma persona: no vuelve a ver el popup', async () => {
+    const storage = new InMemoryStorage();
+
+    const { popups, shown } = await boot(storage);
+    popups.triggerEvent(EVENT);
+    expect(shown).toHaveBeenCalledTimes(1);
+
+    popups.setUserId('user-a'); // login
+    popups.triggerEvent(EVENT);
+    expect(shown).toHaveBeenCalledTimes(1);
+  });
+
   /**
    * Dos pestañas comparten `localStorage` pero cada instancia leía el historial SOLO en su
    * `init()`: la que ya estaba abierta no se enteraba de lo que hacía la otra.

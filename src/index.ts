@@ -58,3 +58,5 @@ export { setupReactNative, mmkvStorage, collectRnDevice } from './react-native/s
 export { backgroundTimerTask, BACKGROUND_TASK_MAX_MS } from './analytics/background-task';
 export type { BackgroundTaskRunner, BackgroundTimerLike } from './analytics/background-task';
 export type { ReactNativeSetupDeps, MmkvLike, DeviceInfoLike, AppStateLike } from './react-native/setup';
+export { createHermesRejectionHub } from './platform/react-native-platform';
+export type { PromiseRejectionHub, RejectionTrackingOptions, HermesRejectionTrackerLike } from './platform/react-native-platform';

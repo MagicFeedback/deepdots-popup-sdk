@@ -57,6 +57,13 @@ describe('resolveLocale', () => {
     expect(resolveLocale('ga-IE')).toBe('ga');
   });
 
+  it('cubre el catalán', () => {
+    expect(resolveLocale('ca')).toBe('ca');
+    expect(resolveLocale('ca-ES')).toBe('ca');
+    expect(SUPPORTED_LANGUAGES).toContain('ca');
+    expect(LABELS.ca.accept).not.toBe(LABELS.en.accept);
+  });
+
   it('normaliza las variantes regionales de los idiomas nuevos', () => {
     expect(resolveLocale('de-AT')).toBe('de');
     expect(resolveLocale('pt-BR')).toBe('pt');
