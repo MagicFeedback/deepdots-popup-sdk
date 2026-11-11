@@ -16,15 +16,11 @@ import { WebView } from 'react-native-webview';
 import { DeepdotsPopups } from '../core/deepdots-popups';
 import { ReactNativePopupRenderer, type ReactNativeSurveyPayload } from '../platform/react-native-renderer';
 import { setupReactNative } from './setup';
-import { registerReactNativePlatform } from '../platform/react-native-platform';
+import { registerReactNativeDefaults } from '../platform/react-native-defaults';
 
 // Igual que la entrada principal en RN (`index.native.ts`): el módulo nativo de background
-// (iOS) lo usa el sink sin que el host haga nada.
-registerReactNativePlatform({
-  os: Platform.OS,
-  appState: AppState,
-  backgroundTaskModule: NativeModules?.DeepdotsBackgroundTask ?? null,
-});
+// (iOS) y las promesas rechazadas sin `catch` (Hermes) los usa el SDK sin que el host haga nada.
+registerReactNativeDefaults({ AppState, NativeModules, Platform });
 import type { DeepdotsInitParams } from '../types';
 
 const sdk = new DeepdotsPopups();
