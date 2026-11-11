@@ -81,8 +81,18 @@ jobs:
           cache-dependency-path: package-lock.json
       - if: steps.due.outputs.run == 'true'
         run: npm ci
-      - if: steps.due.outputs.run == 'true'
-        run: npx playwright install --with-deps chromium
+      # The runner's Ubuntu mirror sometimes stops resolving for hours (11-nov): retry the system
+      # deps, then fall back to Chromium alone (ubuntu-24.04 already has what headless Chromium
+      # needs), so a mirror outage is not reported as a monitor error every hour.
+      - name: Install Chromium
+        if: steps.due.outputs.run == 'true'
+        run: |
+          for i in 1 2; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (try $i)"; sleep 20
+          done
+          echo "::warning::system deps unavailable; installing Chromium without them"
+          npx playwright install chromium
 
       - name: Resolve SDK version
         id: version

@@ -112,8 +112,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Retry the system deps; if the Ubuntu mirror is down, Chromium alone (ubuntu-24.04 has its deps).
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: |
+          for i in 1 2; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (try $i)"; sleep 20
+          done
+          echo "::warning::system deps unavailable; installing Chromium without them"
+          npx playwright install chromium
 
       # Solo hace falta para ?sdk=local; el resto carga el paquete publicado desde jsDelivr.
       - name: Build SDK
