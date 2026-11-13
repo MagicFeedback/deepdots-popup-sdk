@@ -157,6 +157,51 @@ describe('analytics session heartbeat and timeout', () => {
     expect(after[0].sessionId).not.toBe(oldRecord);
   });
 
+  // Caso real (10-nov, admin de FCK): pestaña oculta a las 13:56, el backend cerró la sesión
+  // a las 15:00 y a las 20:58 se cerró la pestaña; el lote del `pagehide` volvió a abrir el
+  // registro y el aviso de Slack salió otra vez a las 21:20.
+  it('closing a tab hidden for hours posts nothing to the session the backend already closed', async () => {
+    start('int-hidden-hours');
+    await vi.advanceTimersByTimeAsync(30_000);
+    setVisibility('hidden');
+    await vi.advanceTimersByTimeAsync(0);
+    const sentBefore = bodies('int-hidden-hours').length;
+    await vi.advanceTimersByTimeAsync(7 * 60 * MIN);
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(bodies('int-hidden-hours').slice(sentBefore)).toHaveLength(0);
+    expect(sessionStorage.getItem('deepdots.analytics.suspended')).toBeNull();
+  });
+
+  it('closing a tab hidden 30–50 minutes closes its session as idle_timeout', async () => {
+    start('int-hidden-40');
+    await vi.advanceTimersByTimeAsync(30_000);
+    setVisibility('hidden');
+    await vi.advanceTimersByTimeAsync(40 * MIN);
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    const last = bodies('int-hidden-40').at(-1)!;
+    expect(last.completed).toBe(true);
+    const evs = eventsOf(last);
+    expect(evs.find((e) => e.name === 'deepdots_session_end')?.reason).toBe('idle_timeout');
+    expect(evs.some((e) => e.name === 'deepdots_session_suspend')).toBe(false);
+  });
+
+  it('closing a tab hidden only a few minutes still suspends (reload keeps the session)', async () => {
+    start('int-hidden-5');
+    await vi.advanceTimersByTimeAsync(30_000);
+    setVisibility('hidden');
+    await vi.advanceTimersByTimeAsync(5 * MIN);
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    const last = bodies('int-hidden-5').at(-1)!;
+    expect(last.completed).toBe(false);
+    expect(eventsOf(last).some((e) => e.name === 'deepdots_session_suspend')).toBe(true);
+  });
+
   // `pagehide` suspende la sesión en vez de cerrarla (ver deepdots-popups.resume.test.ts).
   it('leaving the page after a rotation suspends the new session, not the old one', async () => {
     start('int-session-close');

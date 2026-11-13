@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Playwright 1.64.1 (from 1.60.0), which supports Ubuntu 26.04.** The cause of the failure above: Playwright learned Ubuntu 26.04 in 1.61, so 1.60 could not install Chromium there. Same version as MagicSurvey's monitors, which already pass on 26.04. The visual regression image moves to `mcr.microsoft.com/playwright:v1.64.1-noble`. With this the `ubuntu-24.04` pin is no longer needed to make the monitor work; it stays so that a runner image change never lands unannounced. Dev dependency only, no SDK change.
 
+## [1.21.0] — 2026-11-13
+
+Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.
+
+### Changed
+- **React Native: coming back from the background within 5 minutes is the same session.** Going to the background used to close the session, so leaving to sign in in another app and coming back, or checking a notification, counted as two sessions. On a production app about a third of all sessions were a return within 2 minutes. `onBackground` now suspends the session (it sends what is pending with a `deepdots_session_suspend`, `reason: background`, and no `completed`) and `onForeground` resumes it with `deepdots_session_resume` when the app is back within `ANALYTICS_BACKGROUND_RESUME_WINDOW_MS` (5 min). Later, a new session starts as before (`foreground`), and the backend closes the old one with a `session_end` `background` at the time the app left. The suspend batch is stored before it is sent and resent on the next launch if the OS kills the app, like the closing batch was (DD-55). Needs Run_Jobs `incomplete-surveys` with `SUSPEND_GRACE_MINUTES` ≥ 8 (live since 11 Nov 2026). Expect fewer, longer sessions after upgrading.
+
+### Fixed
+- **Closing a tab that was hidden for a long time no longer reopens a session the backend already closed.** `pagehide` always suspended the session with one last batch (page view + `deepdots_session_suspend`) on its record, even when the tab had been hidden for hours and `incomplete-surveys` had already closed that record for inactivity. The backend rebuilt the feedback and ran its FEEDBACK_DONE actions again, so `#platform-visitors` got a second "Session journey" hours later (10 Nov: tab hidden at 13:56, session closed at 15:00, tab closed at 20:58, second message at 21:20). `pagehide` now applies the same rule as coming back to a hidden tab: hidden 30–50 min → the session is closed with `idle_timeout`; hidden longer → it is dropped without sending anything. Under 30 min nothing changes (a reload still continues the session).
+
 ## [1.20.0] — 2026-11-11
 
 Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.
