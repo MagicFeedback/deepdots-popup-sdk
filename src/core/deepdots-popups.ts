@@ -1011,6 +1011,28 @@ export class DeepdotsPopups {
         return null;
     }
 
+    /**
+     * `pagehide` de una pestaña que llevaba oculta más de ANALYTICS_SESSION_TIMEOUT_MS: la
+     * misma regla que `onDocumentVisible`. Suspenderla mandaba un lote más al registro viejo
+     * (page_view + session_suspend) aunque el backend ya lo hubiera cerrado por inactividad:
+     * el backend lo volvía a montar y las acciones de FEEDBACK_DONE (el aviso de Slack de
+     * #platform-visitors) salían otra vez, horas después. Pasó con una pestaña oculta 7 h.
+     *  - Oculta menos de ANALYTICS_SESSION_DISCARD_MS: se cierra con `idle_timeout`.
+     *  - Más: el backend ya la cerró → se descarta sin enviar nada.
+     * Devuelve false si la pestaña no llevaba tanto oculta (el caller suspende como siempre).
+     */
+    private closeStaleHiddenSession(): boolean {
+        if (!this.sessionOpen || this.hiddenAt === null) return false;
+        const hiddenFor = Date.now() - this.hiddenAt;
+        if (hiddenFor < ANALYTICS_SESSION_TIMEOUT_MS) return false;
+        if (hiddenFor < ANALYTICS_SESSION_DISCARD_MS) {
+            this.closeSession('idle_timeout');
+        } else {
+            this.discardSession();
+        }
+        return true;
+    }
+
     /** Olvida la sesión abierta sin enviar nada (ver onDocumentVisible). */
     private discardSession(): void {
         this.sessionOpen = false;
@@ -1069,6 +1091,7 @@ export class DeepdotsPopups {
         // último lote con completed:true.
         window.addEventListener('pagehide', () => {
             clearInterval(this.analyticsFlushTimer);
+            if (this.closeStaleHiddenSession()) return;
             if (!this.suspendSession('page_hide')) this.closeSession('page_hide');
         });
         // Vuelta desde la bfcache (botón atrás): la página no se recarga, así que `init()` no
