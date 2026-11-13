@@ -64,14 +64,14 @@ describe('lotes cuya respuesta se pierde al pasar a background (RN)', () => {
   /** Registros que recibió la API, en orden, con los nombres de sus eventos. */
   const records = () => [...stored.entries()].map(([id, bodies]) => ({ id, events: bodies.flatMap(names) }));
 
-  it('el mini_service_exit de un cierre fallido no acaba en el registro de la sesión siguiente', async () => {
+  it('el mini_service_exit de una suspensión fallida no se duplica al volver en la misma sesión', async () => {
     const sdk = start();
     sdk.setScreen('/home');
     sdk.enterMiniService('events & activities', 'home');
     sdk.flushAnalytics();
     await settle();
 
-    // 'background': el POST de cierre llega a la API, pero la app no ve la respuesta.
+    // 'background': el POST de la suspensión llega a la API, pero la app no ve la respuesta.
     fetchSpy.mockImplementationOnce(async (_url: string, init: RequestInit) => {
       store(init);
       throw new TypeError('Network request failed');
@@ -84,17 +84,18 @@ describe('lotes cuya respuesta se pierde al pasar a background (RN)', () => {
     sdk.onBackground();
     await settle();
 
-    const [first, second] = records();
-    expect(records()).toHaveLength(2);
+    // Vuelve enseguida: misma sesión (un solo registro), reanudada, no una nueva.
+    const [first] = records();
+    expect(records()).toHaveLength(1);
     expect(first.events.filter((e) => e === 'deepdots_mini_service_enter')).toHaveLength(1);
     expect(first.events).toContain('deepdots_mini_service_exit');
-    expect(second.events).not.toContain('deepdots_mini_service_exit');
-    expect(second.events).not.toContain('deepdots_mini_service_enter');
-    expect(second.events.filter((e) => e === 'deepdots_session_start')).toHaveLength(1);
-    expect(second.events.filter((e) => e === 'deepdots_session_end')).toHaveLength(1);
+    expect(first.events.filter((e) => e === 'deepdots_session_start')).toHaveLength(1);
+    expect(first.events).toContain('deepdots_session_resume');
+    expect(first.events).toContain('deepdots_session_suspend');
+    expect(first.events).not.toContain('deepdots_session_end'); // lo pone el backend si no vuelve
   });
 
-  it('si la app muere con el cierre sin entregar, el arranque siguiente lo manda a su registro', async () => {
+  it('si la app muere con la suspensión sin entregar, el arranque siguiente la manda a su registro', async () => {
     const storage = new InMemoryStorage();
     const sdk = start(storage);
     sdk.setScreen('/home');
@@ -111,9 +112,12 @@ describe('lotes cuya respuesta se pierde al pasar a background (RN)', () => {
     start(storage); // arranque en frío: proceso nuevo, mismo storage (MMKV)
     await settle();
 
-    const closings = stored.get(record)!.filter((b) => b.completed);
-    expect(closings).toHaveLength(1);
-    expect(names(closings[0])).toEqual(expect.arrayContaining(['deepdots_page_view', 'deepdots_session_end']));
+    // El lote de la suspensión se guardó antes de enviarse y sale al arrancar, a SU registro y
+    // sin `completed`: lo cierra el backend (session_end `background`) pasado el margen.
+    const suspends = stored.get(record)!.filter((b) => names(b).includes('deepdots_session_suspend'));
+    expect(suspends).toHaveLength(1);
+    expect(suspends[0].completed).toBe(false);
+    expect(names(suspends[0])).toEqual(expect.arrayContaining(['deepdots_page_view', 'deepdots_session_suspend']));
   });
 
   it('en web no persiste los pendientes (el cierre sale con keepalive y las pestañas comparten storage)', async () => {

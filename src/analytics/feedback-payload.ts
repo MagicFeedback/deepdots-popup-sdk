@@ -431,11 +431,14 @@ export function createFeedbackSink(options: FeedbackSinkOptions): AnalyticsSink 
     options.log?.('[DeepdotsAnalytics] POST /sdk/feedback →', body);
     const batch: PendingBatch = { body, at: now() };
 
-    if (sessionEnd) {
-      // Registro cerrado con `completed:true`: el lote siguiente abre otro con un id nuevo.
-      feedbackSessionId = undefined;
-      options.onSessionReset?.();
-      // El cierre es lo que se pierde si la app muere: se guarda ANTES de enviarlo.
+    if (sessionEnd || meta?.persist) {
+      if (sessionEnd) {
+        // Registro cerrado con `completed:true`: el lote siguiente abre otro con un id nuevo.
+        feedbackSessionId = undefined;
+        options.onSessionReset?.();
+      }
+      // El cierre (o la suspensión al ir a background) es lo que se pierde si la app muere:
+      // se guarda ANTES de enviarlo y se reenvía en el arranque siguiente si no llegó.
       addPending(batch);
       await drain();
       return;
