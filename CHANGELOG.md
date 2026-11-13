@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.21.0] — 2026-11-13
 
+Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.
+
 ### Changed
 - **React Native: coming back from the background within 5 minutes is the same session.** Going to the background used to close the session, so leaving to sign in in another app and coming back, or checking a notification, counted as two sessions. On a production app about a third of all sessions were a return within 2 minutes. `onBackground` now suspends the session (it sends what is pending with a `deepdots_session_suspend`, `reason: background`, and no `completed`) and `onForeground` resumes it with `deepdots_session_resume` when the app is back within `ANALYTICS_BACKGROUND_RESUME_WINDOW_MS` (5 min). Later, a new session starts as before (`foreground`), and the backend closes the old one with a `session_end` `background` at the time the app left. The suspend batch is stored before it is sent and resent on the next launch if the OS kills the app, like the closing batch was (DD-55). Needs Run_Jobs `incomplete-surveys` with `SUSPEND_GRACE_MINUTES` ≥ 8 (live since 11 Nov 2026). Expect fewer, longer sessions after upgrading.
 
