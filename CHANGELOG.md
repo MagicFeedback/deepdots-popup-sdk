@@ -28,6 +28,7 @@ Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 
 
 ### Fixed
 - **CI and the SDK monitor run on Ubuntu 24.04.** GitHub moved `ubuntu-latest` to Ubuntu 26.04 on 8 Nov 2026 and Playwright does not support Chromium there yet, so the hourly web monitor failed before running any scenario ("no test results"). Every workflow now pins `ubuntu-24.04`. No SDK change.
+- **Playwright 1.64.1 (from 1.60.0), which supports Ubuntu 26.04.** The cause of the failure above: Playwright learned Ubuntu 26.04 in 1.61, so 1.60 could not install Chromium there. Same version as MagicSurvey's monitors, which already pass on 26.04. The visual regression image moves to `mcr.microsoft.com/playwright:v1.64.1-noble`. With this the `ubuntu-24.04` pin is no longer needed to make the monitor work; it stays so that a runner image change never lands unannounced. Dev dependency only, no SDK change.
 
 ## [1.19.0] — 2026-11-06
 
