@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Playwright 1.64.1 (from 1.60.0), which supports Ubuntu 26.04.** The cause of the failure above: Playwright learned Ubuntu 26.04 in 1.61, so 1.60 could not install Chromium there. Same version as MagicSurvey's monitors, which already pass on 26.04. The visual regression image moves to `mcr.microsoft.com/playwright:v1.64.1-noble`. With this the `ubuntu-24.04` pin is no longer needed to make the monitor work; it stays so that a runner image change never lands unannounced. Dev dependency only, no SDK change.
 
+## [1.22.0] — 2026-11-18
+
+Survey SDK supported: 2.2.38–2.2.44 (survey frontend 3.4.1–3.6.0); bundled: 2.2.44.
+
+### Changed
+- **`@magicfeedback/native` 2.2.44** (from 2.2.39), in the web bundle and as the default CDN version of the React Native WebView. It brings the survey dark palette (DD-238): a dark `boxBackgroundColor` in the survey Style, a forced `mode` from the host (DD-241) or the Style's `dark` colours (DD-239) now render the questions dark instead of black text on white boxes. Also Catalan, star colour, subtitle alignment, end screens and host-scoped CSS (2.2.40–2.2.43). `src/assets/style.css` is re-vendored from the readable source of the 2.2.44 commit (1909633). Since 2.2.43 the package scopes its element selectors itself (`:where(.magicfeedback-container, …)`); `scripts/vendor-survey-css.mjs` maps that scope to `.deepdots-popup`, the same scope as before, so the popup title and thank-you text look unchanged.
+
+### Added
+- **Light / dark from the app (DD-241, Danske Spil).** New `init({ appearance: 'system' | 'light' | 'dark' })` and `setAppearance()` / `getAppearance()`. Without it nothing changes: the survey Style colours decide (DD-247). `'system'` follows `prefers-color-scheme`; the popup frame follows a change while it is open, the survey keeps the mode it opened with. In dark the card, primary and secondary buttons and progress bar use the Style's optional `dark` colours (DD-239), else the Style colour if it is already dark, else a default dark palette (light primary button with dark text). The survey gets the mode through the survey SDK `mode` option (DD-238; older versions ignore it). Same in the React Native WebView (`system` resolved inside it). Mirrors the native SDK (DD-240).
+
+### Fixed
+- **Popup text follows the survey Style background, not the theme (DD-247).** With a dark `boxBackgroundColor` in the survey Style and the default light `theme`, the title, close button, progress text and Back stayed near-black on the dark card, and form controls used a light `color-scheme`. Once the Style loads, the popup now picks those colours and `color-scheme` from the luminance of the final background (WCAG relative luminance, dark below 0.2, the same cut as the survey SDK and the native popup). `theme` is only the default background when the Style has none, and a colour the SDK cannot read (not hex or `rgb()`) leaves things as before. `buttonSecondaryColor` still wins on Back. In the React Native WebView the colours are CSS variables, so the host `surveyCss` keeps the last word.
+
 ## [1.21.1] — 2026-11-18
 
 Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.

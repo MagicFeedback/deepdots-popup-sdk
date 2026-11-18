@@ -44,6 +44,9 @@ export interface AutoTrackOptions {
     errors?: boolean;
 }
 
+export type { Appearance } from '../ui/appearance';
+import type { Appearance } from '../ui/appearance';
+
 export interface DeepdotsInitParams {
     /** API key for authentication */
     apiKey?: string;
@@ -144,6 +147,13 @@ export interface DeepdotsInitParams {
      * en vez de cambiar los defaults que comparten todos los clientes.
      */
     surveyCss?: string;
+    /**
+     * Claro u oscuro desde la app (DD-241): `'system'` sigue al sistema (`prefers-color-scheme`),
+     * `'light'` / `'dark'` lo fuerzan. Sin él mandan los colores del Style del survey (un Style
+     * oscuro ya sale en oscuro). En oscuro se usan los colores opcionales `dark` del Style; el
+     * survey recibe el modo. Se cambia luego con `setAppearance()`. Paridad con nativo (DD-240).
+     */
+    appearance?: Appearance;
     /**
      * Nonce de la Content-Security-Policy de la página, para hosts con una CSP estricta
      * (`style-src 'nonce-…'` sin `'unsafe-inline'`). El popup lo pone en cada `<style>` que
@@ -411,6 +421,8 @@ export interface FormStyle
     showProgressBar: boolean;
     showProgressUnit: boolean;
     progressUnit: 'percentage' | 'fraction';
+    /** Colores opcionales para modo oscuro (DD-239), mismas claves que los claros. */
+    dark?: Partial<Pick<FormStyle, 'backgroundColor' | 'boxBackgroundColor' | 'buttonPrimaryColor' | 'buttonSecondaryColor' | 'buttonOnTopColor' | 'loadingBarColor' | 'logo'>> | null;
 }
 
 

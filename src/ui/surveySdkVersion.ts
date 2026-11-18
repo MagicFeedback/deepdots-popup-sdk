@@ -16,7 +16,7 @@ import { SDK_VERSION } from '../version';
  * carga el WebView de RN si la API no asigna otra). Un test la compara con la instalada: al subir
  * la dep hay que subirla aquí (y regenerar `src/assets/style.css`).
  */
-export const BUNDLED_SURVEY_SDK_VERSION = '2.2.39';
+export const BUNDLED_SURVEY_SDK_VERSION = '2.2.44';
 
 /**
  * Versiones de survey SDK que este popup SDK sabe pintar: las que tienen su CSS vendorizado en
@@ -28,7 +28,7 @@ export const BUNDLED_SURVEY_SDK_VERSION = '2.2.39';
  * (`apps/test-app/e2e/survey-sdk.spec.ts`, dentro de "Smoke + regression · SDK local").
  * Añadir una: vendorizar su hoja y sumarla aquí y a `src/ui/surveyCss.ts`.
  */
-export const SUPPORTED_SURVEY_SDK_VERSIONS = ['2.2.38', '2.2.39'] as const;
+export const SUPPORTED_SURVEY_SDK_VERSIONS = ['2.2.38', '2.2.39', '2.2.44'] as const;
 
 /** Por qué se usa la versión que va dentro en vez de la asignada. */
 export type BundledReason =

@@ -1,3 +1,4 @@
+import type { Appearance } from '../ui/appearance';
 import {DeepdotsEventType, PopupActions, PopupStyle} from '../types';
 import { isReactNativeEnv, createReactNativeRenderer } from './react-native-renderer';
 import { schedulePreloadRenderPopup } from '../ui/preload';
@@ -38,6 +39,8 @@ export interface PopupRenderOptions {
   surveySdkVersion?: string | null;
   /** `init({debug})`, para el log de la versión de survey SDK elegida. */
   debug?: boolean;
+  /** Claro/oscuro de la app (DD-241). Sin él mandan los colores del Style. */
+  appearance?: Appearance;
 }
 
 export interface PopupRenderer {

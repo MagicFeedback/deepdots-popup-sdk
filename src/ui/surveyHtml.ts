@@ -5,6 +5,8 @@ import type { PopupActions, PopupFont } from '../types';
 import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS } from './reveal';
 import { PRIMARY_COLOR_JS } from './surveyPalette';
+import { CHROME_CONTRAST_JS } from './chromeContrast';
+import { APPEARANCE_JS, normalizeAppearance, type Appearance } from './appearance';
 import { BUSY_JS } from './busy';
 import { SUBMIT_ERROR_JS } from './submitError';
 import magicfeedbackCss from '../assets/style.css';
@@ -71,6 +73,11 @@ export interface BuildSurveyHtmlOptions {
   version?: string;
   font?: PopupFont; // fuente personalizada (family + url opcional)
   theme?: 'light' | 'dark';
+  /**
+   * Claro/oscuro de la app (DD-241). `system` se resuelve dentro del WebView con
+   * `prefers-color-scheme`. Sin él mandan los colores del Style.
+   */
+  appearance?: Appearance;
   position?: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
   actions?: PopupActions;
   /**
@@ -160,7 +167,11 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const fontFamilyValue = opts.font ? buildFontFamilyValue(opts.font.family) : '-apple-system,system-ui,sans-serif';
   const popupClass = opts.font?.family ? 'deepdots-popup deepdots-has-font' : 'deepdots-popup';
 
-  const isDark = opts.theme === 'dark';
+  // Modo fijado por la app (light/dark) ya se conoce aquí; `system` se resuelve en el WebView.
+  const appearance = normalizeAppearance(opts.appearance);
+  const isDark = appearance === 'dark' || appearance === 'light' ? appearance === 'dark' : opts.theme === 'dark';
+  const appearanceJson = jsonForScript(appearance ?? null);
+  const themeJson = jsonForScript(opts.theme ?? null);
   const popupBg = isDark ? '#1e1e1e' : '#fff';
   const colorScheme = isDark ? 'dark' : 'light';
   const textPrimary = isDark ? '#f0f0f0' : '#111';
@@ -243,22 +254,22 @@ body{display:${bodyDisplay};justify-content:${pos.justifyContent};align-items:${
 body.dd-ready{background:${bodyBg}}
 #dd-popup{visibility:hidden}
 body.dd-ready #dd-popup{visibility:visible}
-.deepdots-popup{position:relative;display:flex;flex-direction:column;justify-content:flex-start;background:${cardBg};color-scheme:${colorScheme};border-radius:${cardRadius};padding:24px;box-shadow:${cardShadow};max-width:${cardMaxWidth};width:${cardWidth};min-height:${cardMinHeight};height:${cardHeight};max-height:${cardMaxHeight};box-sizing:border-box}
+.deepdots-popup{position:relative;display:flex;flex-direction:column;justify-content:flex-start;background:${cardBg};color-scheme:var(--dd-color-scheme,${colorScheme});border-radius:${cardRadius};padding:24px;box-shadow:${cardShadow};max-width:${cardMaxWidth};width:${cardWidth};min-height:${cardMinHeight};height:${cardHeight};max-height:${cardMaxHeight};box-sizing:border-box}
 .deepdots-popup-header{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;flex:0 0 auto}
 /* Neutraliza la regla \`.deepdots-popup h2\` del CSS del survey (uppercase, centrado y
    margin-bottom 40px), pensada para los enunciados y no para el título de la cabecera. */
-#dd-title{margin:0;font-family:var(--deepdots-font,'Montserrat',inherit);font-size:17px;font-weight:600;line-height:1.3;color:${textPrimary};text-transform:none;text-align:start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:${textPrimary};padding:4px;flex:0 0 auto;margin-inline-start:auto}
+#dd-title{margin:0;font-family:var(--deepdots-font,'Montserrat',inherit);font-size:17px;font-weight:600;line-height:1.3;color:var(--dd-text-primary,${textPrimary});text-transform:none;text-align:start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dd-close{background:transparent;border:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:var(--dd-text-primary,${textPrimary});padding:4px;flex:0 0 auto;margin-inline-start:auto}
 /* Progreso alineado con la cabecera: sin padding horizontal propio, lo marca la tarjeta.
    El vertical es el mismo arriba y abajo, y del mismo valor que el padding de la tarjeta. */
 .deepdots-progress{display:none;flex-direction:column;gap:8px;width:100%;flex:0 0 auto;padding:16px 0;box-sizing:border-box}
 .deepdots-progress-head{display:flex;flex-direction:row;justify-content:space-between;align-items:center;width:100%;gap:8px}
 #dd-progress-label{font-size:13px;line-height:1.2}
 /* "Question 1" en negrita y "of 3" en regular gris, como el mockup. */
-#dd-progress-current{font-weight:700;color:${textPrimary}}
-#dd-progress-total{font-weight:400;color:${textMuted}}
+#dd-progress-current{font-weight:700;color:var(--dd-text-primary,${textPrimary})}
+#dd-progress-total{font-weight:400;color:var(--dd-text-muted,${textMuted})}
 #dd-progress-followup{display:none;font-size:12px;font-weight:600;color:#fff;background:rgba(59,130,246,0.44);border-radius:999px;padding:2px 10px}
-.deepdots-progress-track{width:100%;height:4px;border-radius:999px;background:${trackBg};overflow:hidden}
+.deepdots-progress-track{width:100%;height:4px;border-radius:999px;background:var(--dd-progress-track,${trackBg});overflow:hidden}
 #dd-progress-bar{height:100%;width:0%;background:#22C55E;border-radius:999px;transition:width 450ms ease}
 /* El popup es una columna: solo el bloque de preguntas hace scroll, para que el footer
    con las acciones quede siempre visible en el borde inferior (antes vivía dentro del
@@ -286,14 +297,14 @@ body.dd-ready #dd-popup{visibility:visible}
 #dd-logo{max-height:40px;max-width:100%;object-fit:contain;display:block;margin:12px 0 0 0}
 .deepdots-error-hint{display:none;margin:12px 0 0 0;padding:10px 12px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;font-size:13px}
 /* Pantalla final: el HTML del editor de la plataforma (imagen + texto), centrado. */
-.deepdots-load-error{display:none;width:100%;text-align:center;padding:24px 0;font-size:15px;color:${textPrimary}}
-.deepdots-success{display:none;width:100%;text-align:center;padding:24px 0;color:${textPrimary}}
+.deepdots-load-error{display:none;width:100%;text-align:center;padding:24px 0;font-size:15px;color:var(--dd-text-primary,${textPrimary})}
+.deepdots-success{display:none;width:100%;text-align:center;padding:24px 0;color:var(--dd-text-primary,${textPrimary})}
 .deepdots-success img{max-width:100%;height:auto;margin:0 auto 16px auto;display:block}
 .deepdots-success p{margin:0;font-size:16px;font-weight:600;line-height:1.4}
 .deepdots-popup-footer{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:4px;margin-top:auto;width:100%;padding-top:12px}
 .dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:999px;cursor:pointer;font-size:15px;font-weight:600;align-items:center;justify-content:center;text-align:center}
 /* Secundario como botón de texto: sin borde ni fondo, para que el primario sea la única CTA. */
-#dd-back{background:transparent;color:${textMuted};border:none}
+#dd-back{background:transparent;color:var(--dd-text-muted,${textMuted});border:none}
 #dd-start,#dd-complete,#dd-submit,#dd-cancel{background:#1E293B;color:#fff;border:none}
 #dd-submit:disabled,#dd-start:disabled,#dd-back:disabled,#dd-complete:disabled{opacity:0.6;cursor:not-allowed}
 .mf-spinner{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
@@ -531,6 +542,40 @@ ${customCss}
   }
 
 ${PRIMARY_COLOR_JS}
+${CHROME_CONTRAST_JS}
+${APPEARANCE_JS}
+// Textos del chrome y color-scheme según el fondo final (Style), no el theme. Van como variables
+// CSS para que el surveyCss del host, que va el último en la cascada, siga mandando.
+function ddApplyChromeContrast(bg){
+  var dark=ddIsDarkBackground(bg);
+  if(dark===null){ return; }
+  var pal=ddChromePalette(dark);
+  var el=document.getElementById('dd-popup');
+  if(!el){ return; }
+  el.style.setProperty('--dd-color-scheme', pal.colorScheme);
+  el.style.setProperty('--dd-text-primary', pal.textPrimary);
+  el.style.setProperty('--dd-text-muted', pal.textMuted);
+  el.style.setProperty('--dd-progress-track', pal.progressTrack);
+  var meta=document.querySelector('meta[name="color-scheme"]');
+  if(meta){ meta.setAttribute('content', pal.colorScheme); }
+}
+// DD-241: modo de la app y colores del chrome (Style + theme + modo; bloque dark del Style).
+var ddTheme=${themeJson};
+var ddForcedMode=ddResolveForcedMode(${appearanceJson});
+function ddApplyAppearanceColors(s){
+  var c=ddChromeColors(s, ddTheme, ddForcedMode);
+  if(chromeOn){ popup.style.background=c.background; ddApplyChromeContrast(c.background); }
+  if(c.loadingBar){ progressBar.style.background=c.loadingBar; progressFollowUp.style.background=c.loadingBar; }
+  if(c.primary){
+    var btns=[submitBtn,startBtn,completeBtn];
+    for(var bi=0;bi<btns.length;bi++){ btns[bi].style.background=c.primary; btns[bi].style.border='none'; btns[bi].style.color=c.onPrimary; }
+  }
+  if(c.secondary){
+    // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
+    backBtn.style.background='transparent'; backBtn.style.color=c.secondary; backBtn.style.border='none';
+  }
+}
+if(ddForcedMode){ ddApplyAppearanceColors(null); }
 ${BUSY_JS}
 ${SUBMIT_ERROR_JS}
 ${REVEAL_JS}
@@ -616,6 +661,8 @@ ${REVEAL_JS}
         // Foco en la primera pregunta de escribir tras Start, Siguiente o Atrás. Las versiones
         // de native sin esta opción la ignoran.
         autofocus:'navigation',
+        // Paleta del survey (DD-238); las versiones sin la opción la ignoran.
+        mode: ddForcedMode||undefined,
         onLoadedEvent:function(args){
           if(args && args.error){ ddShowLoadError('error:load', args.error); return; }
           // Idioma en el que native muestra el survey: manda sobre el del init para que el
@@ -636,22 +683,13 @@ ${REVEAL_JS}
             if(progressPref===null){ progressEnabled=s.showProgressBar===true; }
             if(s.showProgressUnit!==undefined){ progressShowUnit=s.showProgressUnit!==false; }
             if(s.progressUnit){ progressUnit=s.progressUnit; }
-            if(s.loadingBarColor){ progressBar.style.background=s.loadingBarColor; progressFollowUp.style.background=s.loadingBarColor; }
-            if(chromeOn && s.boxBackgroundColor){ popup.style.background=s.boxBackgroundColor; }
+            // Fondo, textos, botones y barra: Style + theme + modo de la app (DD-247, DD-241).
+            ddApplyAppearanceColors(s);
             if(s.contentAlign){ main.style.justifyContent = s.contentAlign==='center' ? 'center' : 'flex-start'; }
             // El survey pinta sus controles con --mf-primary, que sale de primaryColor; si la
             // integración solo configura el del botón, el popup mezclaría el color de la marca
             // con el gris azulado por defecto del paquete.
             ddApplySurveyPrimaryColor(popup, s);
-            if(s.buttonPrimaryColor){
-              submitBtn.style.background=s.buttonPrimaryColor; submitBtn.style.border='none'; submitBtn.style.color='#fff';
-              startBtn.style.background=s.buttonPrimaryColor; startBtn.style.border='none'; startBtn.style.color='#fff';
-              completeBtn.style.background=s.buttonPrimaryColor; completeBtn.style.border='none'; completeBtn.style.color='#fff';
-            }
-            if(s.buttonSecondaryColor){
-              // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
-              backBtn.style.background='transparent'; backBtn.style.color=s.buttonSecondaryColor; backBtn.style.border='none';
-            }
             if(s.logo && !document.getElementById('dd-logo')){
               var logoImg=document.createElement('img');
               logoImg.id='dd-logo'; logoImg.src=s.logo; logoImg.alt='Logo';
