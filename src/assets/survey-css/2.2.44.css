@@ -7,8 +7,9 @@
  *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
  *     página del host, y la tipografía la decide el popup.
  *  2. .magicfeedback-container hereda la fuente del popup (var(--deepdots-font, inherit)).
- *  3. Los selectores de elementos (h2, p, input…) ya vienen acotados por el paquete con
- *     :where(.magicfeedback-container, …) desde 2.2.43 (DD-180): no repintan la web del host.
+ *  3. Los selectores de elementos (h2, p, input…) vienen acotados por el paquete con
+ *     :where(.magicfeedback-container, …) desde 2.2.43 (DD-180); ese prefijo se cambia por
+ *     .deepdots-popup, el mismo alcance que antes (también visten título y mensaje final).
  *  4. El grupo .magicfeedback-radio se cualifica como div.magicfeedback-radio (la clase acaba
  *     también en el <input> del boolean).
  *  5. Todo :hover va dentro de @media (hover: hover): en táctil WebKit deja el hover pegado
@@ -449,7 +450,7 @@
    loaded on the host page, so a bare `p` or `input` would restyle the host
    app too. :where() keeps the specificity of the bare selector, so every
    .magicfeedback-* rule still wins over these as before. */
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) h2 {
+.deepdots-popup h2 {
     font-size: var(--mf-font-size-xl);
     font-weight: 600;
     color: var(--mf-text-primary);
@@ -458,7 +459,7 @@
     letter-spacing: -0.01em;
 }
 
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) p {
+.deepdots-popup p {
     margin: 0;
     font-size: var(--mf-font-size-sm);
     color: var(--mf-text-secondary);
@@ -467,13 +468,13 @@
 /* ========================================
    FORM INPUTS
    ======================================== */
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="date"],
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="text"],
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="number"],
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="email"],
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="password"],
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea,
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select {
+.deepdots-popup input[type="date"],
+.deepdots-popup input[type="text"],
+.deepdots-popup input[type="number"],
+.deepdots-popup input[type="email"],
+.deepdots-popup input[type="password"],
+.deepdots-popup textarea,
+.deepdots-popup select {
     padding: 0.75rem 0.9rem;
     font-size: var(--mf-font-size-base);
     font-family: inherit;
@@ -488,24 +489,24 @@
     box-shadow: var(--mf-shadow-sm);
 }
 
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea {
+.deepdots-popup textarea {
     min-height: 100px;
     resize: vertical;
 }
 
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input::placeholder,
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea::placeholder {
+.deepdots-popup input::placeholder,
+.deepdots-popup textarea::placeholder {
     color: var(--mf-text-muted);
 }
 
 /* Remove number input spinners */
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input::-webkit-outer-spin-button,
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input::-webkit-inner-spin-button {
+.deepdots-popup input::-webkit-outer-spin-button,
+.deepdots-popup input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
 
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="number"] {
+.deepdots-popup input[type="number"] {
     /* -moz-appearance: textfield; removed for lint compatibility */
 }
 
@@ -616,7 +617,7 @@
 }
 
 /* Custom Select Arrow */
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select {
+.deepdots-popup select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right var(--mf-space-md) center;
@@ -624,9 +625,9 @@
 }
 
 /* Error State */
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input.error,
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select.error,
-:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea.error {
+.deepdots-popup input.error,
+.deepdots-popup select.error,
+.deepdots-popup textarea.error {
     border-color: var(--mf-error);
 }
 
@@ -2010,13 +2011,13 @@ div.magicfeedback-radio {
         font-size: var(--mf-font-size-base);
     }
 
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="date"],
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="text"],
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="number"],
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="email"],
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="password"],
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea,
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select {
+    .deepdots-popup input[type="date"],
+    .deepdots-popup input[type="text"],
+    .deepdots-popup input[type="number"],
+    .deepdots-popup input[type="email"],
+    .deepdots-popup input[type="password"],
+    .deepdots-popup textarea,
+    .deepdots-popup select {
         padding: 0.85rem 0.95rem;
         font-size: 1rem;
         min-height: 46px;
@@ -2078,9 +2079,9 @@ div.magicfeedback-radio {
    ACCESSIBILITY
    ======================================== */
 @media (prefers-reduced-motion: reduce) {
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop), :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) *,
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)::before, :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) *::before,
-    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)::after, :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) *::after {
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop), .deepdots-popup *,
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)::before, .deepdots-popup *::before,
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)::after, .deepdots-popup *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;

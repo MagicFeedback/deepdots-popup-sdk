@@ -69,8 +69,13 @@ const BARE = [
     'input[type="number"] {',
 ];
 // Desde 2.2.43 (DD-180) el paquete ya acota esos selectores él mismo con
-// `:where(.magicfeedback-container, …)`: no repintan la web del host y no queda nada que acotar.
-const PRESCOPED = css.includes(':where(.magicfeedback-container');
+// `:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)`.
+// Aquí se cambia ese prefijo por `.deepdots-popup`, el mismo alcance (y especificidad) que daba
+// este paso antes: esas reglas de `h2`/`p` también visten el título y el mensaje final del popup,
+// y con el `:where()` del paquete dejarían de hacerlo (cambio visible en el chrome).
+const PACKAGE_SCOPE = ':where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) ';
+const PRESCOPED = css.includes(PACKAGE_SCOPE);
+if (PRESCOPED) css = css.split(PACKAGE_SCOPE).join(`${SCOPE} `);
 for (const sel of PRESCOPED ? [] : BARE) {
     const indent = sel.startsWith('    ') ? '    ' : '';
     const scoped = sel
@@ -188,7 +193,7 @@ const header = `/**
  *     página del host, y la tipografía la decide el popup.
  *  2. .magicfeedback-container hereda la fuente del popup (var(--deepdots-font, inherit)).
  *  3. ${PRESCOPED
-    ? 'Los selectores de elementos (h2, p, input…) ya vienen acotados por el paquete con\n *     :where(.magicfeedback-container, …) desde 2.2.43 (DD-180): no repintan la web del host.'
+    ? 'Los selectores de elementos (h2, p, input…) vienen acotados por el paquete con\n *     :where(.magicfeedback-container, …) desde 2.2.43 (DD-180); ese prefijo se cambia por\n *     .deepdots-popup, el mismo alcance que antes (también visten título y mensaje final).'
     : 'Los selectores desnudos (h2, p, input, textarea, select, ::placeholder, .error) van\n *     acotados a .deepdots-popup: este CSS se inyecta en el <head> del host y sin acotar\n *     repintaría su web.'}
  *  4. El grupo .magicfeedback-radio se cualifica como div.magicfeedback-radio (la clase acaba
  *     también en el <input> del boolean).
