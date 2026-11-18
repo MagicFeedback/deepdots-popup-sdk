@@ -4,6 +4,7 @@ import type { PopupRenderOptions } from '../platform/renderer';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { insertPopupLogo } from './logo';
 import { applySurveyPrimaryColor } from './surveyPalette';
+import { chromePalette, isDarkBackground, type ChromePalette } from './chromeContrast';
 import { setSurveyBusy } from './busy';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
@@ -190,19 +191,12 @@ export async function renderPopup(
     // también en `ltr`, para no heredar la dirección de la página del host.
     let direction = directionFor(options?.language);
 
-    const isDark = style?.theme === 'dark';
-    const theme = {
-        popupBg:          isDark ? '#1e1e1e' : '#fff',
-        // El popup fija su propio fondo, así que debe fijar también el esquema de color.
-        // Sin esto los controles de formulario (input/textarea/select) caen al estilo por
-        // defecto del navegador: en un host con `prefers-color-scheme: dark` se pintan
-        // oscuros con texto blanco sobre el fondo claro del popup.
-        colorScheme:      isDark ? 'dark' : 'light',
-        textPrimary:      isDark ? '#f0f0f0' : '#111',
-        closeBtnHoverColor: isDark ? '#fff' : '#000000',
-        textMuted:        isDark ? '#9ca3af' : '#6b7280',
-        progressTrack:    isDark ? '#3f3f46' : '#e5e7eb',
-    };
+    // `theme` solo decide el fondo por defecto. Si el Style del survey trae `boxBackgroundColor`,
+    // al cargar se recalcula la paleta con la luminancia de ese fondo (`applyChromeContrast`).
+    // El popup fija su propio fondo, así que también fija `color-scheme`: sin esto los controles
+    // de formulario caen al estilo del navegador y en un host con `prefers-color-scheme: dark`
+    // se pintan oscuros con texto blanco sobre el fondo claro del popup.
+    let theme = chromePalette(style?.theme === 'dark');
 
     const positionMap: Record<string, { justifyContent: string; alignItems: string; padding?: string; background: string }> = {
         'center':       { justifyContent: 'center',     alignItems: 'center',                        background: 'rgba(0,0,0,0.5)' },
@@ -497,6 +491,20 @@ export async function renderPopup(
       justify-content: center;
       text-align: center;
     `;
+    // Repinta el chrome con la paleta del fondo final. El fondo lo pone quien llama (el Style);
+    // la pantalla final (`done`) lee `theme` al crearse, así que basta con actualizarlo. El Back
+    // va antes de `buttonSecondaryColor`, que sigue mandando si la integración lo define.
+    const applyChromeContrast = (palette: ChromePalette) => {
+        theme = palette;
+        popup.style.colorScheme = palette.colorScheme;
+        titleEl.style.color = palette.textPrimary;
+        closeBtn.style.color = palette.textPrimary;
+        progressCurrent.style.color = palette.textPrimary;
+        progressTotal.style.color = palette.textMuted;
+        progressTrack.style.background = palette.progressTrack;
+        loadErrorEl.style.color = palette.textPrimary;
+        backButton.style.color = palette.textMuted;
+    };
     backButton.onmouseenter = () => {
         backButton.style.filter = 'brightness(0.9)';
     }
@@ -975,6 +983,9 @@ export async function renderPopup(
                 // Fondo del contenedor popup
                 if (s.boxBackgroundColor) {
                     popup.style.background = s.boxBackgroundColor;
+                    // Textos del chrome y `color-scheme` según el fondo final, no el `theme`.
+                    const dark = isDarkBackground(s.boxBackgroundColor);
+                    if (dark !== null) applyChromeContrast(chromePalette(dark));
                 }
                 // Alineación del contenido principal
                 if (s.contentAlign) {
