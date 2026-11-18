@@ -17,8 +17,8 @@
       "approvalId": "20261104T090712Z-41804431453"
     },
     "web-desktop/complex-4-text.png": {
-      "sha256": "ca27feb2063f1f9ba8434bdbfae41dde01fd5170a63c4a6c0168380510dba9ba",
-      "approvalId": "20261104T090712Z-41804431453"
+      "sha256": "c654140d5b12e5f523030d228b40dcd30e21c0012704e9982b54abc610c1ef10",
+      "approvalId": "20261109T180756Z-42670349453"
     },
     "web-desktop/complex-5-thanks.png": {
       "sha256": "d2e2c05ca5cc8eb5ac2e54243ee8ef81031a4d298685b68436d28d09a7011913",
@@ -37,8 +37,8 @@
       "approvalId": "20261104T090712Z-41804431453"
     },
     "web-desktop/simple-2-text.png": {
-      "sha256": "38848bed6c625bfbd5f1eb0086b305325053e722f9d94d66f3c156f88a63e0c1",
-      "approvalId": "20261104T090712Z-41804431453"
+      "sha256": "b4ce4db1c1b8ba545eb897055f0a49757f26b82647242095e7328a4600c4d679",
+      "approvalId": "20261109T180756Z-42670349453"
     },
     "web-mobile-pixel7/complex-1-open.png": {
       "sha256": "23de0456748b59f88e66b46beaad04fc59053363ad8ac45107281fdf8172f514",
@@ -57,8 +57,8 @@
       "approvalId": "20261104T090712Z-41804431453"
     },
     "web-mobile-pixel7/complex-4-text.png": {
-      "sha256": "0a5343177850c4196263e257e882883e5ff44a2f5bbbee5b8f7359722518adae",
-      "approvalId": "20261104T090712Z-41804431453"
+      "sha256": "01e933b92c6bf394023f9a0c52c650a30f8ddcf2ff3ce9149007968bd54e8e33",
+      "approvalId": "20261109T180756Z-42670349453"
     },
     "web-mobile-pixel7/complex-5-thanks.png": {
       "sha256": "0ed9b6c1fb9997d4ab7770f51b6d736cf528f2a3a1a120d0211eba77a3fc8774",
@@ -77,8 +77,8 @@
       "approvalId": "20261104T090712Z-41804431453"
     },
     "web-mobile-pixel7/simple-2-text.png": {
-      "sha256": "3691a22cbfd4f0861136c6b1d8929a145438963550ca62903c1dfca3bc9e553b",
-      "approvalId": "20261104T090712Z-41804431453"
+      "sha256": "c8f46e4dc00fb07ba06917d64ebccce995d8b869636dfbb0ca9756a244d53ead",
+      "approvalId": "20261109T180756Z-42670349453"
     },
     "web-mobile-small/complex-1-open.png": {
       "sha256": "1225f0bdc6c37ebff965d83230f0795892d82fd2c37b7ba0187abbdba2e586c0",
@@ -97,8 +97,8 @@
       "approvalId": "20261104T090712Z-41804431453"
     },
     "web-mobile-small/complex-4-text.png": {
-      "sha256": "2911dce572de4b0cf2c3e0b373b35ce9e6354131b0b9b54f62890dfee0028632",
-      "approvalId": "20261104T090712Z-41804431453"
+      "sha256": "f1d0f35143b58feb0455f417467e2d8e5f419ac416e4026c33342b9f4ec4af6a",
+      "approvalId": "20261109T180756Z-42670349453"
     },
     "web-mobile-small/complex-5-thanks.png": {
       "sha256": "97478d0ec2fe6644bc3ca54789e2bc975db5b68ed1869d9873e1ada4a9e9dca1",
@@ -117,8 +117,8 @@
       "approvalId": "20261104T090712Z-41804431453"
     },
     "web-mobile-small/simple-2-text.png": {
-      "sha256": "6bdbf13eaaf85a3ff30b2fd36235bd7ce6f6ce340b54aee0f17fffbf419d602b",
-      "approvalId": "20261104T090712Z-41804431453"
+      "sha256": "b6a90f752e9fbda56bad425ec9338fbecfa2a0bc92d999769fd07c361dae8357",
+      "approvalId": "20261109T180756Z-42670349453"
     }
   },
   "approvals": [
@@ -289,6 +289,56 @@
           "key": "web-mobile-small/simple-2-text.png",
           "sha256": "6bdbf13eaaf85a3ff30b2fd36235bd7ce6f6ce340b54aee0f17fffbf419d602b",
           "previousSha256": null
+        }
+      ]
+    },
+    {
+      "id": "20261109T180756Z-42670349453",
+      "approvedAt": "2026-11-09T18:07:56.487Z",
+      "approvedBy": "RESArnau (via Claude Code)",
+      "reason": "Playwright 1.60.0 -> 1.64.1 (newer Chromium, needed for Ubuntu 26.04): only the textarea's native resize grip in the bottom-right corner is drawn differently (21-95 px). Browser chrome, no SDK change.",
+      "source": {
+        "runId": "42670349453",
+        "runUrl": "https://github.com/MagicFeedback/deepdots-popup-sdk/actions/runs/42670349453",
+        "sdk": "local",
+        "sdkVersion": "1.19.0-local",
+        "platform": "web",
+        "devices": {
+          "web-desktop": "Chromium 156.0.8078.80 · 1280×860 @1x",
+          "web-mobile-pixel7": "Chromium 156.0.8078.80 · 412×839 @2.625x · mobile/touch",
+          "web-mobile-small": "Chromium 156.0.8078.80 · 375×667 @2x · mobile/touch"
+        }
+      },
+      "files": [
+        {
+          "key": "web-desktop/complex-4-text.png",
+          "sha256": "c654140d5b12e5f523030d228b40dcd30e21c0012704e9982b54abc610c1ef10",
+          "previousSha256": "ca27feb2063f1f9ba8434bdbfae41dde01fd5170a63c4a6c0168380510dba9ba"
+        },
+        {
+          "key": "web-desktop/simple-2-text.png",
+          "sha256": "b4ce4db1c1b8ba545eb897055f0a49757f26b82647242095e7328a4600c4d679",
+          "previousSha256": "38848bed6c625bfbd5f1eb0086b305325053e722f9d94d66f3c156f88a63e0c1"
+        },
+        {
+          "key": "web-mobile-pixel7/complex-4-text.png",
+          "sha256": "01e933b92c6bf394023f9a0c52c650a30f8ddcf2ff3ce9149007968bd54e8e33",
+          "previousSha256": "0a5343177850c4196263e257e882883e5ff44a2f5bbbee5b8f7359722518adae"
+        },
+        {
+          "key": "web-mobile-pixel7/simple-2-text.png",
+          "sha256": "c8f46e4dc00fb07ba06917d64ebccce995d8b869636dfbb0ca9756a244d53ead",
+          "previousSha256": "3691a22cbfd4f0861136c6b1d8929a145438963550ca62903c1dfca3bc9e553b"
+        },
+        {
+          "key": "web-mobile-small/complex-4-text.png",
+          "sha256": "f1d0f35143b58feb0455f417467e2d8e5f419ac416e4026c33342b9f4ec4af6a",
+          "previousSha256": "2911dce572de4b0cf2c3e0b373b35ce9e6354131b0b9b54f62890dfee0028632"
+        },
+        {
+          "key": "web-mobile-small/simple-2-text.png",
+          "sha256": "b6a90f752e9fbda56bad425ec9338fbecfa2a0bc92d999769fd07c361dae8357",
+          "previousSha256": "6bdbf13eaaf85a3ff30b2fd36235bd7ce6f6ce340b54aee0f17fffbf419d602b"
         }
       ]
     }
