@@ -23,19 +23,33 @@ declare const __DEV__: boolean | undefined;
 
 let hub: PromiseRejectionHub | null | undefined;
 
+/**
+ * Se ejecuta al importar el paquete en React Native: nunca puede lanzar, o la app del host cae al
+ * cargar el bundle (pasó en 1.20.0/1.21.0 con Hermes reciente, que deja `HermesInternal` de solo
+ * lectura). Aquí solo se prepara el hub; el tracker de Hermes no se activa hasta `init()`, y solo
+ * con `autoTrack.errors` activo.
+ */
 export function registerReactNativeDefaults(rn: ReactNativeModules): void {
   // Una sola envoltura del tracker de Hermes aunque las dos entradas se carguen.
   if (hub === undefined) {
-    hub = getReactNativePlatform()?.promiseRejections
-      ?? createHermesRejectionHub(
-        (globalThis as { HermesInternal?: HermesRejectionTrackerLike }).HermesInternal,
-        { dev: typeof __DEV__ !== 'undefined' && !!__DEV__ },
-      );
+    try {
+      hub = getReactNativePlatform()?.promiseRejections
+        ?? createHermesRejectionHub(
+          (globalThis as { HermesInternal?: HermesRejectionTrackerLike }).HermesInternal,
+          { dev: typeof __DEV__ !== 'undefined' && !!__DEV__ },
+        );
+    } catch {
+      hub = null;
+    }
   }
-  registerReactNativePlatform({
-    os: rn.Platform.OS,
-    appState: rn.AppState,
-    backgroundTaskModule: rn.NativeModules?.DeepdotsBackgroundTask ?? null,
-    promiseRejections: hub,
-  });
+  try {
+    registerReactNativePlatform({
+      os: rn.Platform.OS,
+      appState: rn.AppState,
+      backgroundTaskModule: rn.NativeModules?.DeepdotsBackgroundTask ?? null,
+      promiseRejections: hub,
+    });
+  } catch {
+    /* sin plataforma RN registrada el SDK funciona igual que en web */
+  }
 }
