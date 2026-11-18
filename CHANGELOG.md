@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Playwright 1.64.1 (from 1.60.0), which supports Ubuntu 26.04.** The cause of the failure above: Playwright learned Ubuntu 26.04 in 1.61, so 1.60 could not install Chromium there. Same version as MagicSurvey's monitors, which already pass on 26.04. The visual regression image moves to `mcr.microsoft.com/playwright:v1.64.1-noble`. With this the `ubuntu-24.04` pin is no longer needed to make the monitor work; it stays so that a runner image change never lands unannounced. Dev dependency only, no SDK change.
 
+## [1.21.1] — 2026-11-18
+
+Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.
+
+### Fixed
+- **React Native: importing the SDK no longer crashes the app on recent Hermes (Expo SDK 58, React Native 0.88).** Since 1.20.0 the React Native entry wrapped `HermesInternal.enablePromiseRejectionTracker` at import time with a plain assignment. Recent Hermes makes that property read-only, so in a strict-mode bundle the assignment threw `TypeError: Cannot assign to read-only property 'enablePromiseRejectionTracker'` while the bundle loaded, and React Native treated it as fatal in Release builds (`autoTrack: { errors: false }` did not help, because it ran before `init()`). Nothing that runs at import can throw now: the SDK replaces the tracker only when the property is writable (or read-only but configurable), and otherwise leaves Hermes untouched and does not collect unhandled promise rejections, so a tracker installed by the app (Sentry, Crashlytics) keeps working. Uncaught JS errors through `ErrorUtils` are still collected. As before, the tracker is only turned on in `init()` with `autoTrack.errors` on.
+
 ## [1.21.0] — 2026-11-13
 
 Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.

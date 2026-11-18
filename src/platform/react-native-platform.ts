@@ -108,8 +108,15 @@ export function createHermesRejectionHub(
   hermes: HermesRejectionTrackerLike | null | undefined,
   options: { dev: boolean },
 ): PromiseRejectionHub | null {
-  if (!hermes || typeof hermes.enablePromiseRejectionTracker !== 'function') return null;
-  const original = hermes.enablePromiseRejectionTracker.bind(hermes);
+  // Se llama al importar el paquete: nada de aquí puede lanzar (un throw en la carga del bundle
+  // es fatal en Release). Ante cualquier sorpresa, sin hub: el SDK no captura rejections.
+  let original: (options?: RejectionTrackingOptions) => void;
+  try {
+    if (!hermes || typeof hermes.enablePromiseRejectionTracker !== 'function') return null;
+    original = hermes.enablePromiseRejectionTracker.bind(hermes);
+  } catch {
+    return null;
+  }
   const listeners = new Set<(error: unknown) => void>();
   let hostOptions: RejectionTrackingOptions | null = null;
   let active = false;
@@ -119,7 +126,16 @@ export function createHermesRejectionHub(
     && (hostOptions.allRejections === true
       || DEFAULT_REJECTION_WHITELIST.some((type) => error instanceof type));
 
-  const apply = () => {
+  const apply = (): boolean => {
+    try {
+      install();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const install = () => {
     original({
       allRejections: true,
       onUnhandled: (id, error) => {
@@ -140,22 +156,51 @@ export function createHermesRejectionHub(
     });
   };
 
-  hermes.enablePromiseRejectionTracker = (next?: RejectionTrackingOptions) => {
+  const wrapper = (next?: RejectionTrackingOptions) => {
     hostOptions = next ?? null;
-    if (active) apply();
+    if (active) install();
     else original(next);
   };
+
+  // Hermes reciente (RN 0.88 / Expo 58) deja la propiedad de solo lectura. Sin poder envolverla
+  // no se compone con el tracker del host, y activar el nuestro le quitaría las rejections a
+  // Sentry/Crashlytics: mejor no capturarlas.
+  if (!replaceTracker(hermes, wrapper)) return null;
 
   return {
     addUnhandledListener(listener) {
       listeners.add(listener);
       if (!active) {
-        active = true;
-        apply();
+        active = apply();
       }
       return () => {
         listeners.delete(listener);
       };
     },
   };
+}
+
+const TRACKER_KEY = 'enablePromiseRejectionTracker';
+
+/**
+ * Sustituye `hermes.enablePromiseRejectionTracker` sin lanzar nunca: asignación si es escribible,
+ * `defineProperty` si es de solo lectura pero configurable, y si no (objeto congelado) nada.
+ * Devuelve si la sustitución quedó puesta.
+ */
+function replaceTracker(
+  hermes: HermesRejectionTrackerLike,
+  wrapper: (options?: RejectionTrackingOptions) => void,
+): boolean {
+  try {
+    const own = Object.getOwnPropertyDescriptor(hermes, TRACKER_KEY);
+    if (own && own.writable === false && !own.set) {
+      if (!own.configurable) return false;
+      Object.defineProperty(hermes, TRACKER_KEY, { ...own, value: wrapper });
+    } else {
+      hermes.enablePromiseRejectionTracker = wrapper;
+    }
+    return hermes.enablePromiseRejectionTracker === wrapper;
+  } catch {
+    return false;
+  }
 }
