@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Popup text follows the survey Style background, not the theme (DD-247).** With a dark `boxBackgroundColor` in the survey Style and the default light `theme`, the title, close button, progress text and Back stayed near-black on the dark card, and form controls used a light `color-scheme`. Once the Style loads, the popup now picks those colours and `color-scheme` from the luminance of the final background (WCAG relative luminance, dark below 0.179). `theme` is only the default background when the Style has none, and a colour the SDK cannot read (not hex or `rgb()`) leaves things as before. `buttonSecondaryColor` still wins on Back. In the React Native WebView the colours are CSS variables, so the host `surveyCss` keeps the last word.
+
 ## [1.21.1] — 2026-11-18
 
 Survey SDK supported: 2.2.38–2.2.39 (survey frontend 3.4.1–3.6.0); bundled: 2.2.39.

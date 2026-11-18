@@ -70,13 +70,13 @@ describe('buildSurveyHtml chrome (paridad con renderPopup.ts)', () => {
   it('tema dark: fondo del popup oscuro y color-scheme dark', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', theme: 'dark' });
     expect(html).toContain('background:#1e1e1e');
-    expect(html).toContain('color-scheme:dark');
+    expect(html).toContain('color-scheme:var(--dd-color-scheme,dark)');
   });
 
   it('tema claro por defecto (sin theme)', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     expect(html).toContain('background:#fff');
-    expect(html).toContain('color-scheme:light');
+    expect(html).toContain('color-scheme:var(--dd-color-scheme,light)');
   });
 
   it('position center: fondo de página con backdrop semitransparente', () => {
@@ -249,7 +249,7 @@ describe('buildSurveyHtml métricas del diseño', () => {
 
   it('la barra es fina y redondeada, con la pista en gris claro', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain('.deepdots-progress-track{width:100%;height:4px;border-radius:999px;background:#e5e7eb');
+    expect(html).toContain('.deepdots-progress-track{width:100%;height:4px;border-radius:999px;background:var(--dd-progress-track,#e5e7eb)');
     expect(html).toContain('#dd-progress-bar{height:100%;width:0%;background:#22C55E;border-radius:999px');
   });
 
@@ -258,7 +258,7 @@ describe('buildSurveyHtml métricas del diseño', () => {
     expect(html).toContain('id="dd-progress-current"');
     expect(html).toContain('id="dd-progress-total"');
     expect(html).toContain('#dd-progress-current{font-weight:700');
-    expect(html).toContain('#dd-progress-total{font-weight:400;color:#6b7280}');
+    expect(html).toContain('#dd-progress-total{font-weight:400;color:var(--dd-text-muted,#6b7280)}');
     // El texto sale de la tabla de traducciones (i18n del chrome), no de un literal inglés.
     expect(html).toContain("progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label");
     expect(html).toContain("progressTotal.textContent=' '+DD_LABELS_ACTIVE.of+' '+total");
@@ -284,7 +284,7 @@ describe('buildSurveyHtml métricas del diseño', () => {
 
   it('el secundario es un botón de texto: sin borde ni fondo', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain('#dd-back{background:transparent;color:#6b7280;border:none}');
+    expect(html).toContain('#dd-back{background:transparent;color:var(--dd-text-muted,#6b7280);border:none}');
     // y el color de la API tampoco le devuelve el marco
     expect(html).toContain("backBtn.style.background='transparent'; backBtn.style.color=s.buttonSecondaryColor; backBtn.style.border='none'");
   });
@@ -303,8 +303,8 @@ describe('buildSurveyHtml métricas del diseño', () => {
 
   it('en tema dark el texto secundario y la pista se adaptan', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1', theme: 'dark' });
-    expect(html).toContain('#dd-progress-total{font-weight:400;color:#9ca3af}');
-    expect(html).toContain('background:#3f3f46');
+    expect(html).toContain('#dd-progress-total{font-weight:400;color:var(--dd-text-muted,#9ca3af)}');
+    expect(html).toContain('background:var(--dd-progress-track,#3f3f46)');
   });
 });
 
