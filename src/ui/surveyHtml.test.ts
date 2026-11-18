@@ -235,7 +235,7 @@ describe('buildSurveyHtml barra de progreso', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     expect(html).toContain("if(progressUnit==='percentage')");
     expect(html).toContain("progressCurrent.textContent=Math.round(pct)+'%'");
-    expect(html).toContain('if(s.loadingBarColor){ progressBar.style.background=s.loadingBarColor;');
+    expect(html).toContain('if(c.loadingBar){ progressBar.style.background=c.loadingBar;');
   });
 });
 
@@ -286,7 +286,7 @@ describe('buildSurveyHtml métricas del diseño', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     expect(html).toContain('#dd-back{background:transparent;color:var(--dd-text-muted,#6b7280);border:none}');
     // y el color de la API tampoco le devuelve el marco
-    expect(html).toContain("backBtn.style.background='transparent'; backBtn.style.color=s.buttonSecondaryColor; backBtn.style.border='none'");
+    expect(html).toContain("backBtn.style.background='transparent'; backBtn.style.color=c.secondary; backBtn.style.border='none'");
   });
 
   it('chrome:false no duplica los insets de safe-area del contenedor del host', () => {

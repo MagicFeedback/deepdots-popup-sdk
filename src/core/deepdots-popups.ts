@@ -1,3 +1,4 @@
+import { normalizeAppearance, type Appearance } from '../ui/appearance';
 import {
     DeepdotsConfig,
     TriggerConfig,
@@ -186,6 +187,8 @@ export class DeepdotsPopups {
     /** CSS del host inyectado al final de los estilos del popup. */
     private surveyCss: string | undefined = undefined;
     private cspNonce: string | undefined = undefined;
+    /** Claro/oscuro de la app (DD-241). undefined = mandan los colores del Style. */
+    private appearance: Appearance | undefined = undefined;
 
     /** Identidad + sesión (Fase 1 tracking). Null hasta init(). */
     private tracking: TrackingManager | null = null;
@@ -278,6 +281,7 @@ export class DeepdotsPopups {
         this.showProgressBar = config.showProgressBar;
         this.surveyCss = config.surveyCss;
         this.cspNonce = config.cspNonce;
+        this.appearance = normalizeAppearance(config.appearance);
         this.onFeedbackSession = config.onFeedbackSession;
         this.autoTrackErrors = config.autoTrack?.errors !== false;
 
@@ -720,6 +724,20 @@ export class DeepdotsPopups {
      *
      * Equivale a llamar a `init()` otra vez con otro `userId`.
      */
+    /**
+     * Claro u oscuro desde la app, en cualquier momento (apps con su propio interruptor de modo
+     * oscuro). `'system'` sigue al sistema; `null`/`undefined` vuelve a los colores del Style.
+     * Se aplica al siguiente popup que se abra. Paridad con nativo `setAppearance()` (DD-240).
+     */
+    setAppearance(appearance?: Appearance | null): void {
+        this.appearance = normalizeAppearance(appearance);
+    }
+
+    /** El `appearance` actual de la app (`undefined` = mandan los colores del Style). */
+    getAppearance(): Appearance | undefined {
+        return this.appearance;
+    }
+
     setUserId(userId?: string): void {
         const next = userId || undefined;
         if (!this.initialized || !this.config || next === this.config.userId) return;
@@ -1810,7 +1828,7 @@ export class DeepdotsPopups {
             miniService,
             analyticsFeedbackSessionId,
             this.renderChrome,
-            { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language, cspNonce: this.cspNonce, surveySdkVersion, debug: this.config?.debug },
+            { title, showProgressBar: this.showProgressBar, surveyCss: this.surveyCss, language: this.language, cspNonce: this.cspNonce, surveySdkVersion, debug: this.config?.debug, appearance: this.appearance },
         );
     }
 

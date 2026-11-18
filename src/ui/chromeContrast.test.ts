@@ -20,6 +20,13 @@ const SAMPLES = [
 ];
 
 describe('chromeContrast', () => {
+    it('corta en luminancia 0.2, igual que el survey (DD-238)', () => {
+        expect(isDarkBackground('#767676')).toBe(true); // ~0.18
+        expect(isDarkBackground('#808080')).toBe(false); // ~0.22
+        expect(mirror.ddIsDarkBackground('#767676')).toBe(true);
+        expect(mirror.ddIsDarkBackground('#808080')).toBe(false);
+    });
+
     it('lee hex corto, largo, con alfa y rgb()', () => {
         expect(parseColor('#fff')).toEqual([255, 255, 255]);
         expect(parseColor('#1e1e1e')).toEqual([30, 30, 30]);
@@ -50,7 +57,7 @@ describe('chromeContrast', () => {
 
     // En el gris medio ninguna de las dos paletas llega a 4.5:1; lo que se exige es elegir la
     // que más contrasta (con margen de redondeo en el punto de cruce).
-    it('elige siempre el texto que más contrasta con el fondo', () => {
+    it('elige el texto que más contrasta, salvo en la franja 0.179–0.2 (corte común con el survey)', () => {
         const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
         for (let v = 0; v <= 255; v += 5) {
             const bg = `rgb(${v},${v},${v})`;
@@ -59,7 +66,13 @@ describe('chromeContrast', () => {
             const t = relativeLuminance(parseColor(pal.textPrimary)!);
             const other = chromePalette(!isDarkBackground(bg)).textPrimary;
             const o = relativeLuminance(parseColor(other)!);
-            expect(contrast(l, t)).toBeGreaterThanOrEqual(contrast(l, o) - 0.05);
+            if (l >= 0.179 && l < 0.2) {
+                // Ahí el texto claro (#f0f0f0) contrasta algo menos que el negro (≥ 3.8:1, por encima
+                // del 3:1 de texto grande) y va a juego con el survey, que cambia en el mismo punto.
+                expect(contrast(l, t)).toBeGreaterThanOrEqual(3.8);
+            } else {
+                expect(contrast(l, t)).toBeGreaterThanOrEqual(contrast(l, o) - 0.05);
+            }
         }
     });
 

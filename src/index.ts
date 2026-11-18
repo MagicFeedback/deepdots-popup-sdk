@@ -43,6 +43,7 @@ export type { CrashRecord, CrashSeverity, ReportErrorOptions, DeviceSnapshot, Re
 export { ReactNativePopupRenderer } from './platform/react-native-renderer';
 export type { ReactNativeRendererOptions, ReactNativeSurveyPayload } from './platform/react-native-renderer';
 export { buildSurveyHtml } from './ui/surveyHtml';
+export type { Appearance } from './ui/appearance';
 // Techo de la apertura diferida: útil para el host de RN que monte el WebView por su cuenta y
 // quiera alinear su propio temporizador con el del SDK.
 export { REVEAL_TIMEOUT_MS } from './ui/reveal';

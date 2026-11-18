@@ -99,3 +99,32 @@ describe('DeepdotsPopups — nonce de CSP', () => {
     expect(renderer.options?.cspNonce).toBeUndefined();
   });
 });
+
+describe('DeepdotsPopups — appearance (DD-241)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    localStorage.clear();
+  });
+
+  it('pasa al renderer el appearance del init', async () => {
+    const renderer = new CapturingRenderer();
+    const popups = await boot(renderer, { apiKey: 'k', appearance: 'system' });
+    expect(renderer.options?.appearance).toBe('system');
+    expect(popups.getAppearance()).toBe('system');
+  });
+
+  it('sin appearance no lo inventa; un valor desconocido se ignora', async () => {
+    const renderer = new CapturingRenderer();
+    const popups = await boot(renderer, { apiKey: 'k', appearance: 'auto' as never });
+    expect(renderer.options?.appearance).toBeUndefined();
+    expect(popups.getAppearance()).toBeUndefined();
+  });
+
+  it('setAppearance cambia el del siguiente popup y null vuelve al Style', async () => {
+    const popups = new DeepdotsPopups();
+    popups.setAppearance('dark');
+    expect(popups.getAppearance()).toBe('dark');
+    popups.setAppearance(null);
+    expect(popups.getAppearance()).toBeUndefined();
+  });
+});

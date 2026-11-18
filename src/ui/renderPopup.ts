@@ -4,7 +4,8 @@ import type { PopupRenderOptions } from '../platform/renderer';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
 import { insertPopupLogo } from './logo';
 import { applySurveyPrimaryColor } from './surveyPalette';
-import { chromePalette, isDarkBackground, type ChromePalette } from './chromeContrast';
+import { chromePalette, type ChromePalette } from './chromeContrast';
+import { chromeColors, resolveForcedMode, systemPrefersDark, type ColorMode, type StyleColors } from './appearance';
 import { setSurveyBusy } from './busy';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
@@ -196,7 +197,11 @@ export async function renderPopup(
     // El popup fija su propio fondo, así que también fija `color-scheme`: sin esto los controles
     // de formulario caen al estilo del navegador y en un host con `prefers-color-scheme: dark`
     // se pintan oscuros con texto blanco sobre el fondo claro del popup.
-    let theme = chromePalette(style?.theme === 'dark');
+    // Claro/oscuro forzado por la app (DD-241): `system` = el del sistema al abrir. Sin él manda el
+    // Style (DD-247). La paleta inicial ya sale del modo, antes de que cargue el Style.
+    const appearance = options?.appearance;
+    let forcedMode: ColorMode | null = resolveForcedMode(appearance, systemPrefersDark());
+    let theme = chromePalette(chromeColors(null, style?.theme, forcedMode).dark);
 
     const positionMap: Record<string, { justifyContent: string; alignItems: string; padding?: string; background: string }> = {
         'center':       { justifyContent: 'center',     alignItems: 'center',                        background: 'rgba(0,0,0,0.5)' },
@@ -892,6 +897,48 @@ export async function renderPopup(
     if (surveySdkCss) ensureStyle('magicfeedback-sdk-styles', surveySdkCss, cspNonce);
     else ensureMagicFeedbackStyles(cspNonce);
 
+    // Colores del chrome según el Style, el `theme` y el modo de la app (DD-241). Botones y barra
+    // vuelven a sus valores de siempre cuando el modo ya no les da color (cambio de sistema en vivo).
+    const navDefaults = [submitButton, startButton, closeButton].map((b) => ({
+        b, background: b.style.background, border: b.style.border, color: b.style.color,
+    }));
+    const barDefault = { bar: progressBar.style.background, followUp: progressFollowUp.style.background };
+    let loadedStyle: StyleColors | null = null;
+    const applyAppearanceColors = (s: StyleColors | null) => {
+        const c = chromeColors(s, style?.theme, forcedMode);
+        popup.style.background = c.background;
+        applyChromeContrast(chromePalette(c.dark));
+        progressBar.style.background = c.loadingBar || barDefault.bar;
+        progressFollowUp.style.background = c.loadingBar || barDefault.followUp;
+        for (const d of navDefaults) {
+            d.b.style.background = c.primary || d.background;
+            d.b.style.border = c.primary ? 'none' : d.border;
+            d.b.style.color = c.primary ? c.onPrimary : d.color;
+        }
+        if (c.secondary) {
+            // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
+            backButton.style.background = 'transparent';
+            backButton.style.color = c.secondary;
+            backButton.style.border = 'none';
+        }
+    };
+    if (forcedMode) applyAppearanceColors(null);
+    // `system`: el marco sigue al sistema con el popup abierto; el survey se queda con el modo con
+    // el que abrió (su paleta se fija al generarse).
+    if (appearance === 'system' && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        try {
+            const mq = window.matchMedia('(prefers-color-scheme: dark)');
+            const onSchemeChange = () => {
+                if (!popup.isConnected) { mq.removeEventListener?.('change', onSchemeChange); return; }
+                forcedMode = mq.matches ? 'dark' : 'light';
+                applyAppearanceColors(loadedStyle);
+            };
+            mq.addEventListener?.('change', onSchemeChange);
+        } catch {
+            // sin matchMedia usable: el modo se queda el de la apertura
+        }
+    }
+
     try {
         if (!magicfeedback || typeof magicfeedback.form !== 'function') {
             sdkWarn('[MagicFeedback] form() no disponible. Fallback manual.');
@@ -923,6 +970,8 @@ export async function renderPopup(
             afterSubmitEvent?: (args: { error?: string, completed: boolean, progress: number, total: number, followup?: boolean }) => void;
             onBackEvent?: (args: { error?: string, progress: number, total: number, followup: boolean }) => void;
             autofocus?: 'always' | 'navigation' | false;
+            /** Paleta del survey (DD-238); las versiones sin la opción la ignoran. */
+            mode?: ColorMode;
         }
 
         const generateOptions: TypedGenerateOptions = {
@@ -940,6 +989,7 @@ export async function renderPopup(
             // quitado el `inert`. La apertura va aparte (ver autofocusOnOpen).
             autofocus: 'navigation',
         };
+        if (forcedMode) generateOptions.mode = forcedMode;
         generateOptions.onLoadedEvent = ({formData, lang, error}) => {
             if (error) {
                 showLoadError(error);
@@ -976,17 +1026,10 @@ export async function renderPopup(
                 if (options?.showProgressBar === undefined) progressEnabled = s.showProgressBar === true;
                 if (s.showProgressUnit !== undefined) progressShowUnit = s.showProgressUnit !== false;
                 if (s.progressUnit) progressUnit = s.progressUnit;
-                if (s.loadingBarColor) {
-                    progressBar.style.background = s.loadingBarColor;
-                    progressFollowUp.style.background = s.loadingBarColor;
-                }
-                // Fondo del contenedor popup
-                if (s.boxBackgroundColor) {
-                    popup.style.background = s.boxBackgroundColor;
-                    // Textos del chrome y `color-scheme` según el fondo final, no el `theme`.
-                    const dark = isDarkBackground(s.boxBackgroundColor);
-                    if (dark !== null) applyChromeContrast(chromePalette(dark));
-                }
+                // Fondo, textos, `color-scheme`, botones y barra: Style + theme + modo de la app
+                // (DD-247, DD-241). En oscuro, los colores opcionales `dark` del Style (DD-239).
+                loadedStyle = s as StyleColors;
+                applyAppearanceColors(loadedStyle);
                 // Alineación del contenido principal
                 if (s.contentAlign) {
                     // 'top' => start, 'center' => center
@@ -997,26 +1040,6 @@ export async function renderPopup(
                 // si la integración solo configura el del botón, el popup mezclaría el color de
                 // la marca con el gris azulado por defecto del paquete.
                 applySurveyPrimaryColor(popup, s);
-                if (s.buttonPrimaryColor) {
-                    submitButton.style.background = s.buttonPrimaryColor;
-                    submitButton.style.border = 'none';
-                    submitButton.style.color = '#fff';
-
-                    startButton.style.background = s.buttonPrimaryColor;
-                    startButton.style.border = 'none';
-                    startButton.style.color = '#fff';
-
-                    closeButton.style.background = s.buttonPrimaryColor;
-                    closeButton.style.border = 'none';
-                    closeButton.style.color = '#fff';
-                }
-                // Botón secundario (back) — outlined: fondo blanco, letra y borde del color secundario
-                if (s.buttonSecondaryColor) {
-                    // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
-                    backButton.style.background = 'transparent';
-                    backButton.style.color = s.buttonSecondaryColor;
-                    backButton.style.border = 'none';
-                }
                 // El logo va encima de la barra de progreso, como hermano del header.
                 insertPopupLogo(popup, progressEl, s, 'deepdots-popup-logo');
 
