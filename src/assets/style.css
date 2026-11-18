@@ -1,15 +1,14 @@
 /**
  * NO EDITAR A MANO — generado por scripts/vendor-survey-css.mjs
  *
- * Copia de @magicfeedback/native@2.2.39 → dist/styles/magicfeedback-default.css
+ * Copia de @magicfeedback/native@2.2.44 → dist/styles/magicfeedback-default.css
  * (la hoja canónica del paquete, la que apunta su campo "style"), con estos cambios locales:
  *
  *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
  *     página del host, y la tipografía la decide el popup.
  *  2. .magicfeedback-container hereda la fuente del popup (var(--deepdots-font, inherit)).
- *  3. Los selectores desnudos (h2, p, input, textarea, select, ::placeholder, .error) van
- *     acotados a .deepdots-popup: este CSS se inyecta en el <head> del host y sin acotar
- *     repintaría su web.
+ *  3. Los selectores de elementos (h2, p, input…) ya vienen acotados por el paquete con
+ *     :where(.magicfeedback-container, …) desde 2.2.43 (DD-180): no repintan la web del host.
  *  4. El grupo .magicfeedback-radio se cualifica como div.magicfeedback-radio (la clase acaba
  *     también en el <input> del boolean).
  *  5. Todo :hover va dentro de @media (hover: hover): en táctil WebKit deja el hover pegado
@@ -45,11 +44,16 @@
        scale below, not tied to the brand color. */
     --mf-primary: #5d7bad;
     --mf-primary-hover: color-mix(in srgb, var(--mf-primary) 85%, black);
-    --mf-primary-light: color-mix(in srgb, var(--mf-primary) 15%, white);
+    /* --mf-tint-base is what light tints mix into: white here, the dark
+       surface in dark mode (DD-238). */
+    --mf-tint-base: #FFFFFF;
+    --mf-primary-light-mix: 15%;
+    --mf-primary-border-mix: 35%;
+    --mf-primary-light: color-mix(in srgb, var(--mf-primary) var(--mf-primary-light-mix), var(--mf-tint-base));
     /* a translucent tint — mixed with transparent (opacity), not white,
        so it reads as a soft shadow of the brand color rather than a
        pastel of it. */
-    --mf-primary-border: color-mix(in srgb, var(--mf-primary) 35%, transparent);
+    --mf-primary-border: color-mix(in srgb, var(--mf-primary) var(--mf-primary-border-mix), transparent);
 
     --mf-text-primary: #1E293B;
     --mf-text-secondary: #475569;
@@ -69,6 +73,15 @@
     --mf-surface: #FFFFFF;
     --mf-surface-alt: #F1F5F9;
     --mf-accent: #38BDF8;
+
+    /* Colors that used to be hard-coded in rules and render code (DD-238) */
+    --mf-on-primary: #FFFFFF;
+    --mf-text-strong: #000000;
+    --mf-danger-text: #C70039;
+    --mf-star: #fbbf24;
+    --mf-star-empty: #CCCCCC;
+    --mf-overlay: rgba(0, 0, 0, 0.4);
+    --mf-shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.2);
 
     /* Spacing */
     --mf-space-xs: 0.25rem;
@@ -108,6 +121,58 @@
     /* Transitions */
     --mf-transition: all 0.2s ease;
     --mf-transition-fast: all 0.15s ease;
+}
+
+/* ========================================
+   DARK MODE (DD-238)
+   Set by the SDK on the container (and the portaled modal backdrop) when the
+   survey Style background is dark, or when the host forces mode: 'dark'.
+   The Style's own dark background colors are written inline on the same
+   element, so they win over the defaults below; the derived tokens use var()
+   so they resolve against those inline values.
+   ======================================== */
+.magicfeedback-container[data-mf-mode="dark"],
+.magicfeedback-preview[data-mf-mode="dark"],
+.magicfeedback-modal-backdrop[data-mf-mode="dark"] {
+    color-scheme: dark;
+
+    --mf-text-primary: #F1F5F9;
+    --mf-text-secondary: #CBD5E1;
+    --mf-text-muted: #94A3B8;
+    --mf-text-strong: #FFFFFF;
+
+    --mf-bg-primary: #0F172A;
+    --mf-bg-secondary: #1E293B;
+    --mf-surface: #1E293B;
+    --mf-surface-alt: color-mix(in srgb, var(--mf-surface) 90%, white);
+    --mf-bg-hover: color-mix(in srgb, var(--mf-surface) 84%, white);
+    --mf-border: color-mix(in srgb, var(--mf-surface) 72%, white);
+
+    --mf-tint-base: var(--mf-surface);
+    --mf-primary-light-mix: 30%;
+    --mf-primary-border-mix: 55%;
+    --mf-primary-light: color-mix(in srgb, var(--mf-primary) var(--mf-primary-light-mix), var(--mf-tint-base));
+    --mf-primary-border: color-mix(in srgb, var(--mf-primary) var(--mf-primary-border-mix), transparent);
+
+    --mf-success: #4ADE80;
+    --mf-error: #F87171;
+    --mf-warning: #FBBF24;
+    --mf-danger-text: #FF8FA3;
+    --mf-star-empty: color-mix(in srgb, var(--mf-surface) 60%, white);
+    --mf-overlay: rgba(0, 0, 0, 0.6);
+
+    --mf-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --mf-shadow-md: 0 8px 20px rgba(0, 0, 0, 0.35);
+    --mf-shadow-lg: 0 16px 30px rgba(0, 0, 0, 0.45);
+    --mf-shadow-focus: 0 0 0 3px rgba(241, 245, 249, 0.25);
+    --mf-shadow-card: 0 18px 40px rgba(0, 0, 0, 0.35);
+    --mf-shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* Priority list arrows are a black SVG image: flip them to light. */
+[data-mf-mode="dark"] .magicfeedback-priority-list-arrow-up,
+[data-mf-mode="dark"] .magicfeedback-priority-list-arrow-down {
+    filter: invert(1);
 }
 
 /* ========================================
@@ -378,7 +443,13 @@
     margin-bottom: var(--mf-space-sm);
 }
 
-.deepdots-popup h2 {
+/* Element rules (h2, p, inputs, ...) are scoped to the survey container, the
+   previewQuestion() host and the priority-list modal, which is portaled to
+   <body>. This sheet is
+   loaded on the host page, so a bare `p` or `input` would restyle the host
+   app too. :where() keeps the specificity of the bare selector, so every
+   .magicfeedback-* rule still wins over these as before. */
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) h2 {
     font-size: var(--mf-font-size-xl);
     font-weight: 600;
     color: var(--mf-text-primary);
@@ -387,7 +458,7 @@
     letter-spacing: -0.01em;
 }
 
-.deepdots-popup p {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) p {
     margin: 0;
     font-size: var(--mf-font-size-sm);
     color: var(--mf-text-secondary);
@@ -396,13 +467,13 @@
 /* ========================================
    FORM INPUTS
    ======================================== */
-.deepdots-popup input[type="date"],
-.deepdots-popup input[type="text"],
-.deepdots-popup input[type="number"],
-.deepdots-popup input[type="email"],
-.deepdots-popup input[type="password"],
-.deepdots-popup textarea,
-.deepdots-popup select {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="date"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="text"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="number"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="email"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="password"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea,
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select {
     padding: 0.75rem 0.9rem;
     font-size: var(--mf-font-size-base);
     font-family: inherit;
@@ -417,24 +488,24 @@
     box-shadow: var(--mf-shadow-sm);
 }
 
-.deepdots-popup textarea {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea {
     min-height: 100px;
     resize: vertical;
 }
 
-.deepdots-popup input::placeholder,
-.deepdots-popup textarea::placeholder {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input::placeholder,
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea::placeholder {
     color: var(--mf-text-muted);
 }
 
 /* Remove number input spinners */
-.deepdots-popup input::-webkit-outer-spin-button,
-.deepdots-popup input::-webkit-inner-spin-button {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input::-webkit-outer-spin-button,
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
 
-.deepdots-popup input[type="number"] {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="number"] {
     /* -moz-appearance: textfield; removed for lint compatibility */
 }
 
@@ -484,7 +555,7 @@
     font-size: 1.35rem;
     font-weight: var(--mf-font-weight-extrabold);
     line-height: 1;
-    color: #FFFFFF;
+    color: var(--mf-on-primary);
     background-color: var(--mf-secondary, #2E2E2E);
     border: 2px solid var(--mf-secondary, #2E2E2E);
     border-radius: var(--mf-radius-full);
@@ -545,7 +616,7 @@
 }
 
 /* Custom Select Arrow */
-.deepdots-popup select {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right var(--mf-space-md) center;
@@ -553,9 +624,9 @@
 }
 
 /* Error State */
-.deepdots-popup input.error,
-.deepdots-popup select.error,
-.deepdots-popup textarea.error {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input.error,
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select.error,
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea.error {
     border-color: var(--mf-error);
 }
 
@@ -958,7 +1029,7 @@ div.magicfeedback-radio {
 
 .magicfeedback-rating-number-option-row .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
 .magicfeedback-rating-number-option-row-reverse .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
-    color: #fff;
+    color: var(--mf-on-primary);
     background-color: var(--mf-primary);
     box-shadow: var(--mf-shadow-md);
 }
@@ -997,7 +1068,7 @@ div.magicfeedback-radio {
 }
 
 .magicfeedback-rating-number-option--extra .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
-    color: #fff;
+    color: var(--mf-on-primary);
     background-color: var(--mf-primary);
     box-shadow: var(--mf-shadow-md);
 }
@@ -1035,7 +1106,7 @@ div.magicfeedback-radio {
 
 .magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
 .magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
-    color: #fff;
+    color: var(--mf-on-primary);
     background-color: var(--mf-primary);
     box-shadow: var(--mf-shadow-md);
 }
@@ -1067,7 +1138,7 @@ div.magicfeedback-radio {
 
 .magicfeedback-rating-number-option-column .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value,
 .magicfeedback-rating-number-option-column-reverse .magicfeedback-rating-number-option-label-container input[type="radio"]:checked + .magicfeedback-rating-number-value {
-    color: #fff;
+    color: var(--mf-on-primary);
     background-color: var(--mf-primary);
 }
 
@@ -1087,13 +1158,13 @@ div.magicfeedback-radio {
 @media (hover: hover) {
     .magicfeedback-rating-star-option:not(:checked) > .rating__star:hover,
     .magicfeedback-rating-star-option:not(:checked) > .rating__star:hover ~ span {
-        color: #fbbf24;
+        color: var(--mf-star);
         transform: scale(1.1);
     }
 }
 
 .magicfeedback-rating-star-selected {
-    color: #fbbf24 !important;
+    color: var(--mf-star) !important;
 }
 
 /* ========================================
@@ -1314,6 +1385,10 @@ div.magicfeedback-radio {
     width: 100%;
 }
 
+[data-mf-mode="dark"] .magicfeedback-max-diff {
+    --mf-max-diff-worst: #F59E0B;
+}
+
 .magicfeedback-max-diff-container {
     width: 100%;
     /* the layout follows the space the survey gets (a pop-in, a sidebar),
@@ -1436,7 +1511,7 @@ div.magicfeedback-radio {
     width: 26px;
     height: 26px;
     margin: 0;
-    border: 2px solid color-mix(in srgb, var(--mf-text-secondary) 80%, white);
+    border: 2px solid color-mix(in srgb, var(--mf-text-secondary) 80%, var(--mf-tint-base));
     border-radius: var(--mf-radius-full);
     background: var(--mf-bg-secondary);
     cursor: pointer;
@@ -1451,12 +1526,12 @@ div.magicfeedback-radio {
 
 .magicfeedback-max-diff-best:checked {
     border-color: var(--mf-primary);
-    background: radial-gradient(circle, #FFFFFF 0 4px, var(--mf-primary) 4.5px);
+    background: radial-gradient(circle, var(--mf-on-primary) 0 4px, var(--mf-primary) 4.5px);
 }
 
 .magicfeedback-max-diff-worst:checked {
     border-color: var(--mf-max-diff-worst);
-    background: radial-gradient(circle, #FFFFFF 0 4px, var(--mf-max-diff-worst) 4.5px);
+    background: radial-gradient(circle, var(--mf-on-primary) 0 4px, var(--mf-max-diff-worst) 4.5px);
 }
 
 .magicfeedback-max-diff-input:focus-visible {
@@ -1636,7 +1711,7 @@ div.magicfeedback-radio {
     padding: 0.8rem 1.6rem;
     font-size: var(--mf-font-size-base);
     font-weight: 800;
-    color: #FFFFFF;
+    color: var(--mf-on-primary);
     background-color: var(--mf-primary);
     border: 2px solid var(--mf-primary);
     border-radius: var(--mf-radius-full);
@@ -1739,7 +1814,7 @@ div.magicfeedback-radio {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0,0,0,0.4);
+    background: var(--mf-overlay);
     display: none; /* toggled to flex when open */
     align-items: center;
     justify-content: center;
@@ -1748,9 +1823,10 @@ div.magicfeedback-radio {
 
 /* Modal container */
 .magicfeedback-modal {
-    background: #fff;
+    background: var(--mf-surface);
+    color: var(--mf-text-primary);
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    box-shadow: var(--mf-shadow-modal);
     max-width: 520px;
     width: 90%;
     max-height: 80vh;
@@ -1867,7 +1943,7 @@ div.magicfeedback-radio {
 .magicfeedback-button-primary {
     border-color: var(--mf-primary);
     background: var(--mf-primary);
-    color: #fff;
+    color: var(--mf-on-primary);
     box-shadow: var(--mf-shadow-md);
 }
 
@@ -1883,7 +1959,7 @@ div.magicfeedback-radio {
 
 /* Warning flash */
 .magicfeedback-warning {
-    color: #C70039;
+    color: var(--mf-danger-text);
 }
 
 /* Start message button */
@@ -1892,7 +1968,7 @@ div.magicfeedback-radio {
     border: 2px solid var(--mf-primary);
     border-radius: var(--mf-radius-full);
     background: var(--mf-primary);
-    color: #fff;
+    color: var(--mf-on-primary);
     padding: 0.8rem 1.4rem;
     font-size: 15px;
     font-weight: 800;
@@ -1934,13 +2010,13 @@ div.magicfeedback-radio {
         font-size: var(--mf-font-size-base);
     }
 
-    .deepdots-popup input[type="date"],
-    .deepdots-popup input[type="text"],
-    .deepdots-popup input[type="number"],
-    .deepdots-popup input[type="email"],
-    .deepdots-popup input[type="password"],
-    .deepdots-popup textarea,
-    .deepdots-popup select {
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="date"],
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="text"],
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="number"],
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="email"],
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) input[type="password"],
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) textarea,
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) select {
         padding: 0.85rem 0.95rem;
         font-size: 1rem;
         min-height: 46px;
@@ -2002,9 +2078,9 @@ div.magicfeedback-radio {
    ACCESSIBILITY
    ======================================== */
 @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop), :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) *,
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)::before, :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) *::before,
+    :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)::after, :where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop) *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
@@ -2036,17 +2112,17 @@ div.magicfeedback-radio {
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
-    color: #666;
+    color: var(--mf-text-muted);
 }
 
 .magicfeedback-modal-close:focus {
-    color: #000;
+    color: var(--mf-text-strong);
     outline: none;
 }
 
 @media (hover: hover) {
     .magicfeedback-modal-close:hover {
-        color: #000;
+        color: var(--mf-text-strong);
         outline: none;
     }
 }
@@ -2281,7 +2357,7 @@ div.magicfeedback-radio {
 
 /* background-position has no logical form: move the select caret to the
    left edge, opposite the padding that inset-inline-end already mirrored. */
-[dir="rtl"] select {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)[dir="rtl"] select {
     background-position: left var(--mf-space-md) center;
 }
 
@@ -2289,12 +2365,12 @@ div.magicfeedback-radio {
    even in an Arabic survey: keep their own direction LTR so punctuation
    (@, ., +, /) lands where the user expects, but align them to the start of
    the RTL line so they still read as part of the form. */
-[dir="rtl"] input[type="email"],
-[dir="rtl"] input[type="url"],
-[dir="rtl"] input[type="number"],
-[dir="rtl"] input[type="tel"],
-[dir="rtl"] input[type="date"],
-[dir="rtl"] input[type="time"] {
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)[dir="rtl"] input[type="email"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)[dir="rtl"] input[type="url"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)[dir="rtl"] input[type="number"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)[dir="rtl"] input[type="tel"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)[dir="rtl"] input[type="date"],
+:where(.magicfeedback-container, .magicfeedback-preview, .magicfeedback-modal-backdrop)[dir="rtl"] input[type="time"] {
     direction: ltr;
     text-align: right;
 }

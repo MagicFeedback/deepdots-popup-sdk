@@ -68,7 +68,10 @@ const BARE = [
     'select {',
     'input[type="number"] {',
 ];
-for (const sel of BARE) {
+// Desde 2.2.43 (DD-180) el paquete ya acota esos selectores él mismo con
+// `:where(.magicfeedback-container, …)`: no repintan la web del host y no queda nada que acotar.
+const PRESCOPED = css.includes(':where(.magicfeedback-container');
+for (const sel of PRESCOPED ? [] : BARE) {
     const indent = sel.startsWith('    ') ? '    ' : '';
     const scoped = sel
         .split(',\n')
@@ -184,9 +187,9 @@ const header = `/**
  *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
  *     página del host, y la tipografía la decide el popup.
  *  2. .magicfeedback-container hereda la fuente del popup (var(--deepdots-font, inherit)).
- *  3. Los selectores desnudos (h2, p, input, textarea, select, ::placeholder, .error) van
- *     acotados a .deepdots-popup: este CSS se inyecta en el <head> del host y sin acotar
- *     repintaría su web.
+ *  3. ${PRESCOPED
+    ? 'Los selectores de elementos (h2, p, input…) ya vienen acotados por el paquete con\n *     :where(.magicfeedback-container, …) desde 2.2.43 (DD-180): no repintan la web del host.'
+    : 'Los selectores desnudos (h2, p, input, textarea, select, ::placeholder, .error) van\n *     acotados a .deepdots-popup: este CSS se inyecta en el <head> del host y sin acotar\n *     repintaría su web.'}
  *  4. El grupo .magicfeedback-radio se cualifica como div.magicfeedback-radio (la clase acaba
  *     también en el <input> del boolean).
  *  5. Todo :hover va dentro de @media (hover: hover): en táctil WebKit deja el hover pegado
