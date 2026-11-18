@@ -117,7 +117,9 @@ describe('WebView (React Native) · contraste del chrome', () => {
   it('se aplica al cargar el Style, y solo con chrome', () => {
     const html = buildSurveyHtml({ surveyId: 's-1', productId: 'p-1' });
 
-    expect(html).toContain('if(chromeOn && s.boxBackgroundColor){ popup.style.background=s.boxBackgroundColor; ddApplyChromeContrast(s.boxBackgroundColor); }');
+    // DD-241: el fondo final lo calcula ddChromeColors (Style + theme + modo de la app).
+    expect(html).toContain('ddApplyAppearanceColors(s);');
+    expect(html).toContain('if(chromeOn){ popup.style.background=c.background; ddApplyChromeContrast(c.background); }');
   });
 
   it('fondo oscuro: variables dark y meta color-scheme dark', () => {

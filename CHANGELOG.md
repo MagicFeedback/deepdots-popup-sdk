@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Light / dark from the app (DD-241, Danske Spil).** New `init({ appearance: 'system' | 'light' | 'dark' })` and `setAppearance()` / `getAppearance()`. Without it nothing changes: the survey Style colours decide (DD-247). `'system'` follows `prefers-color-scheme`; the popup frame follows a change while it is open, the survey keeps the mode it opened with. In dark the card, primary and secondary buttons and progress bar use the Style's optional `dark` colours (DD-239), else the Style colour if it is already dark, else a default dark palette (light primary button with dark text). The survey gets the mode through the survey SDK `mode` option (DD-238; older versions ignore it). Same in the React Native WebView (`system` resolved inside it). Mirrors the native SDK (DD-240).
+
 ### Fixed
-- **Popup text follows the survey Style background, not the theme (DD-247).** With a dark `boxBackgroundColor` in the survey Style and the default light `theme`, the title, close button, progress text and Back stayed near-black on the dark card, and form controls used a light `color-scheme`. Once the Style loads, the popup now picks those colours and `color-scheme` from the luminance of the final background (WCAG relative luminance, dark below 0.179). `theme` is only the default background when the Style has none, and a colour the SDK cannot read (not hex or `rgb()`) leaves things as before. `buttonSecondaryColor` still wins on Back. In the React Native WebView the colours are CSS variables, so the host `surveyCss` keeps the last word.
+- **Popup text follows the survey Style background, not the theme (DD-247).** With a dark `boxBackgroundColor` in the survey Style and the default light `theme`, the title, close button, progress text and Back stayed near-black on the dark card, and form controls used a light `color-scheme`. Once the Style loads, the popup now picks those colours and `color-scheme` from the luminance of the final background (WCAG relative luminance, dark below 0.2, the same cut as the survey SDK and the native popup). `theme` is only the default background when the Style has none, and a colour the SDK cannot read (not hex or `rgb()`) leaves things as before. `buttonSecondaryColor` still wins on Back. In the React Native WebView the colours are CSS variables, so the host `surveyCss` keeps the last word.
 
 ## [1.21.1] — 2026-11-18
 

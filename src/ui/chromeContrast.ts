@@ -58,10 +58,12 @@ export function relativeLuminance([r, g, b]: [number, number, number]): number {
 }
 
 /**
- * Punto en el que el texto blanco pasa a contrastar más que el negro:
- * (1 + 0.05) / (L + 0.05) = (L + 0.05) / 0.05 → L ≈ 0.179.
+ * Debajo de esta luminancia el fondo es oscuro. Mismo corte que el survey (magicfeedback-sdk
+ * DD-238), el popup nativo (DD-246) y el aviso del Admin (DD-237): así el chrome y el survey
+ * cambian de paleta a la vez. Antes era ~0.179 (donde el blanco empieza a contrastar más que el
+ * negro) y entre 0.179 y 0.2 el título salía negro con el survey ya en oscuro.
  */
-const DARK_THRESHOLD = 0.179;
+export const DARK_THRESHOLD = 0.2;
 
 /** true si el fondo es oscuro, false si es claro, null si no se puede leer el color. */
 export function isDarkBackground(color?: string | null): boolean | null {

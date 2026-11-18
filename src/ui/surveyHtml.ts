@@ -6,6 +6,7 @@ import { LABELS, RESOLVE_LOCALE_JS, RTL_LOCALES, directionFor, getLabels, resolv
 import { REVEAL_TIMEOUT_MS } from './reveal';
 import { PRIMARY_COLOR_JS } from './surveyPalette';
 import { CHROME_CONTRAST_JS } from './chromeContrast';
+import { APPEARANCE_JS, normalizeAppearance, type Appearance } from './appearance';
 import { BUSY_JS } from './busy';
 import { SUBMIT_ERROR_JS } from './submitError';
 import magicfeedbackCss from '../assets/style.css';
@@ -72,6 +73,11 @@ export interface BuildSurveyHtmlOptions {
   version?: string;
   font?: PopupFont; // fuente personalizada (family + url opcional)
   theme?: 'light' | 'dark';
+  /**
+   * Claro/oscuro de la app (DD-241). `system` se resuelve dentro del WebView con
+   * `prefers-color-scheme`. Sin él mandan los colores del Style.
+   */
+  appearance?: Appearance;
   position?: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
   actions?: PopupActions;
   /**
@@ -161,7 +167,11 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const fontFamilyValue = opts.font ? buildFontFamilyValue(opts.font.family) : '-apple-system,system-ui,sans-serif';
   const popupClass = opts.font?.family ? 'deepdots-popup deepdots-has-font' : 'deepdots-popup';
 
-  const isDark = opts.theme === 'dark';
+  // Modo fijado por la app (light/dark) ya se conoce aquí; `system` se resuelve en el WebView.
+  const appearance = normalizeAppearance(opts.appearance);
+  const isDark = appearance === 'dark' || appearance === 'light' ? appearance === 'dark' : opts.theme === 'dark';
+  const appearanceJson = jsonForScript(appearance ?? null);
+  const themeJson = jsonForScript(opts.theme ?? null);
   const popupBg = isDark ? '#1e1e1e' : '#fff';
   const colorScheme = isDark ? 'dark' : 'light';
   const textPrimary = isDark ? '#f0f0f0' : '#111';
@@ -533,6 +543,7 @@ ${customCss}
 
 ${PRIMARY_COLOR_JS}
 ${CHROME_CONTRAST_JS}
+${APPEARANCE_JS}
 // Textos del chrome y color-scheme según el fondo final (Style), no el theme. Van como variables
 // CSS para que el surveyCss del host, que va el último en la cascada, siga mandando.
 function ddApplyChromeContrast(bg){
@@ -548,6 +559,23 @@ function ddApplyChromeContrast(bg){
   var meta=document.querySelector('meta[name="color-scheme"]');
   if(meta){ meta.setAttribute('content', pal.colorScheme); }
 }
+// DD-241: modo de la app y colores del chrome (Style + theme + modo; bloque dark del Style).
+var ddTheme=${themeJson};
+var ddForcedMode=ddResolveForcedMode(${appearanceJson});
+function ddApplyAppearanceColors(s){
+  var c=ddChromeColors(s, ddTheme, ddForcedMode);
+  if(chromeOn){ popup.style.background=c.background; ddApplyChromeContrast(c.background); }
+  if(c.loadingBar){ progressBar.style.background=c.loadingBar; progressFollowUp.style.background=c.loadingBar; }
+  if(c.primary){
+    var btns=[submitBtn,startBtn,completeBtn];
+    for(var bi=0;bi<btns.length;bi++){ btns[bi].style.background=c.primary; btns[bi].style.border='none'; btns[bi].style.color=c.onPrimary; }
+  }
+  if(c.secondary){
+    // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
+    backBtn.style.background='transparent'; backBtn.style.color=c.secondary; backBtn.style.border='none';
+  }
+}
+if(ddForcedMode){ ddApplyAppearanceColors(null); }
 ${BUSY_JS}
 ${SUBMIT_ERROR_JS}
 ${REVEAL_JS}
@@ -633,6 +661,8 @@ ${REVEAL_JS}
         // Foco en la primera pregunta de escribir tras Start, Siguiente o Atrás. Las versiones
         // de native sin esta opción la ignoran.
         autofocus:'navigation',
+        // Paleta del survey (DD-238); las versiones sin la opción la ignoran.
+        mode: ddForcedMode||undefined,
         onLoadedEvent:function(args){
           if(args && args.error){ ddShowLoadError('error:load', args.error); return; }
           // Idioma en el que native muestra el survey: manda sobre el del init para que el
@@ -653,22 +683,13 @@ ${REVEAL_JS}
             if(progressPref===null){ progressEnabled=s.showProgressBar===true; }
             if(s.showProgressUnit!==undefined){ progressShowUnit=s.showProgressUnit!==false; }
             if(s.progressUnit){ progressUnit=s.progressUnit; }
-            if(s.loadingBarColor){ progressBar.style.background=s.loadingBarColor; progressFollowUp.style.background=s.loadingBarColor; }
-            if(chromeOn && s.boxBackgroundColor){ popup.style.background=s.boxBackgroundColor; ddApplyChromeContrast(s.boxBackgroundColor); }
+            // Fondo, textos, botones y barra: Style + theme + modo de la app (DD-247, DD-241).
+            ddApplyAppearanceColors(s);
             if(s.contentAlign){ main.style.justifyContent = s.contentAlign==='center' ? 'center' : 'flex-start'; }
             // El survey pinta sus controles con --mf-primary, que sale de primaryColor; si la
             // integración solo configura el del botón, el popup mezclaría el color de la marca
             // con el gris azulado por defecto del paquete.
             ddApplySurveyPrimaryColor(popup, s);
-            if(s.buttonPrimaryColor){
-              submitBtn.style.background=s.buttonPrimaryColor; submitBtn.style.border='none'; submitBtn.style.color='#fff';
-              startBtn.style.background=s.buttonPrimaryColor; startBtn.style.border='none'; startBtn.style.color='#fff';
-              completeBtn.style.background=s.buttonPrimaryColor; completeBtn.style.border='none'; completeBtn.style.color='#fff';
-            }
-            if(s.buttonSecondaryColor){
-              // Botón de texto: solo tiñe la etiqueta, sin recuperar fondo ni borde.
-              backBtn.style.background='transparent'; backBtn.style.color=s.buttonSecondaryColor; backBtn.style.border='none';
-            }
             if(s.logo && !document.getElementById('dd-logo')){
               var logoImg=document.createElement('img');
               logoImg.id='dd-logo'; logoImg.src=s.logo; logoImg.alt='Logo';
