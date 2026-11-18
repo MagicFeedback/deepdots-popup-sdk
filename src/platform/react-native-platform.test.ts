@@ -76,4 +76,26 @@ describe('createHermesRejectionHub', () => {
     hermes.reject(2, new Error('y'));
     expect(other).toHaveBeenCalledTimes(1);
   });
+
+  it('si Hermes falla al activar el tracker, no lanza y lo reintenta con el siguiente listener', () => {
+    let fail = true;
+    const hermes = {
+      enablePromiseRejectionTracker: vi.fn(() => {
+        if (fail) throw new Error('hermes');
+      }),
+    };
+    const hub = createHermesRejectionHub(hermes, { dev: false })!;
+    expect(() => hub.addUnhandledListener(() => {})).not.toThrow();
+    fail = false;
+    hub.addUnhandledListener(() => {});
+    expect(hermes.enablePromiseRejectionTracker).toBeDefined();
+  });
+
+  it('objeto congelado: devuelve null sin lanzar y deja el tracker de Hermes intacto', () => {
+    const original = vi.fn();
+    const hermes = Object.freeze({ enablePromiseRejectionTracker: original });
+    expect(createHermesRejectionHub(hermes, { dev: false })).toBeNull();
+    expect(hermes.enablePromiseRejectionTracker).toBe(original);
+    expect(original).not.toHaveBeenCalled();
+  });
 });
