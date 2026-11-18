@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] — 2026-11-18
+
 ### Changed
 - **`@magicfeedback/native` 2.2.44** (from 2.2.39), in the web bundle and as the default CDN version of the React Native WebView. It brings the survey dark palette (DD-238): a dark `boxBackgroundColor` in the survey Style, a forced `mode` from the host (DD-241) or the Style's `dark` colours (DD-239) now render the questions dark instead of black text on white boxes. Also Catalan, star colour, subtitle alignment, end screens and host-scoped CSS (2.2.40–2.2.43). `src/assets/style.css` is re-vendored from the readable source of the 2.2.44 commit (1909633). Since 2.2.43 the package scopes its element selectors itself (`:where(.magicfeedback-container, …)`), so `scripts/vendor-survey-css.mjs` skips its own scoping step for it.
 
