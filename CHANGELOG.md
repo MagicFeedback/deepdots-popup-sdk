@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.1] — 2026-11-18
+
 ### Fixed
 - **React Native: importing the SDK no longer crashes the app on recent Hermes (Expo SDK 58, React Native 0.88).** Since 1.20.0 the React Native entry wrapped `HermesInternal.enablePromiseRejectionTracker` at import time with a plain assignment. Recent Hermes makes that property read-only, so in a strict-mode bundle the assignment threw `TypeError: Cannot assign to read-only property 'enablePromiseRejectionTracker'` while the bundle loaded, and React Native treated it as fatal in Release builds (`autoTrack: { errors: false }` did not help, because it ran before `init()`). Nothing that runs at import can throw now: the SDK replaces the tracker only when the property is writable (or read-only but configurable), and otherwise leaves Hermes untouched and does not collect unhandled promise rejections, so a tracker installed by the app (Sentry, Crashlytics) keeps working. Uncaught JS errors through `ErrorUtils` are still collected. As before, the tracker is only turned on in `init()` with `autoTrack.errors` on.
 
