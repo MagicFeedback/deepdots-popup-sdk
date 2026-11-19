@@ -20,6 +20,9 @@ export const PARAMS = {
   init: { default: 'once', label: 'init', options: ['once', 'twice'] },
   nav: { default: 'history', label: 'nav', options: ['history', 'silent'] },
   load: { default: 'immediate', label: 'load', options: ['immediate', 'consent', 'delayed'] },
+  // DD-248: Style del survey (solo con survey=fixture) y modo forzado por la app (DD-241).
+  style: { default: '', label: 'style', options: ['', 'dark', 'dark-block'] },
+  appearance: { default: '', label: 'appearance', options: ['', 'light', 'dark', 'system'] },
   css: { default: 'competing', label: 'css', options: ['competing', 'clean'] },
   lang: { default: 'es', label: 'lang', options: ['es', 'en'] },
   user: { default: '', label: 'user', options: null },

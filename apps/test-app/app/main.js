@@ -113,6 +113,7 @@ async function startSdk(reason) {
       geolocation: false,
     };
     if (params.user) config.userId = params.user;
+    if (params.appearance) config.appearance = params.appearance;
     sdk.init(config);
     sdk.on('popup_shown', (e) => lab.log('event', 'popup_shown', pick(e)));
     sdk.on('popup_clicked', (e) => lab.log('event', 'popup_clicked', pick(e)));
