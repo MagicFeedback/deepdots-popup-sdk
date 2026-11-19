@@ -74,8 +74,38 @@ async function labOf(clientId) {
     // DD-70: ?surveySdk=2.2.38 → cada popup llega con surveyFrontend.sdkVersion = esa versión,
     // como si su survey estuviera fijado en el Admin a una release de MagicSurvey que la usa.
     surveySdk: params.get('surveySdk') || '',
+    // DD-248: ?style=dark|dark-block → Style del survey de fixture (ver FIXTURE_STYLES).
+    style: params.get('style') || '',
   };
 }
+
+// DD-248 · Styles de survey para la regresión visual del modo oscuro (DD-236). Colores de
+// ejemplo, no de ningún cliente.
+// - dark: un Style oscuro en sí mismo (paso 1, contraste automático) con color de marca claro.
+// - dark-block: un Style claro con el bloque opcional `dark` (DD-239), para appearance=dark|light.
+const FIXTURE_STYLES = {
+  dark: {
+    backgroundColor: '#0A1726',
+    boxBackgroundColor: '#0F2238',
+    buttonPrimaryColor: '#F2C200',
+    buttonSecondaryColor: '#F2C200',
+    loadingBarColor: '#F2C200',
+  },
+  'dark-block': {
+    backgroundColor: '#F4F6F8',
+    boxBackgroundColor: '#FFFFFF',
+    buttonPrimaryColor: '#0057B8',
+    buttonSecondaryColor: '#0057B8',
+    loadingBarColor: '#0057B8',
+    dark: {
+      backgroundColor: '#0E1013',
+      boxBackgroundColor: '#16181D',
+      buttonPrimaryColor: '#7FB2FF',
+      buttonSecondaryColor: '#7FB2FF',
+      loadingBarColor: '#7FB2FF',
+    },
+  },
+};
 
 /** Aplica ?surveySdk a una respuesta de GET /sdk/{key}/popups (DD-70). */
 function withSurveySdk(defs, lab) {
@@ -176,8 +206,10 @@ async function route(req, url, lab, entry) {
         const res = await fetch(`/app/fixtures/surveys/${info[1]}.${lang}.json`);
         if (res.ok) {
           // Con `fault=slow` la nota del retraso inyectado se conserva.
-          entry.note ??= `fixture: survey ${lang}`;
-          return json(await res.json());
+          entry.note ??= `fixture: survey ${lang}${lab.style ? ` style=${lab.style}` : ''}`;
+          const survey = await res.json();
+          if (FIXTURE_STYLES[lab.style]) survey.style = { ...(survey.style || {}), ...FIXTURE_STYLES[lab.style] };
+          return json(survey);
         }
       }
       if (isFeedback) {

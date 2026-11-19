@@ -27,6 +27,8 @@ Todo el run cabe en un enlace. La barra **Configure** los cambia y recarga.
 | `popups` | `fixture` · `live` | `fixture`: el service worker sirve `app/scenarios.json` (determinista). `live`: la config real de DEV. |
 | `fault` | `none` · `survey406` · `network` · `popups500` · `sdk-cdn` · `slow` · `popups-slow` · `popups-timeout` · `events500` · `survey-garbage` · `chunk` | Fallo inyectado en la red (ver «Fallos» abajo). |
 | `survey` | `dev` · `fixture` | `fixture`: la encuesta sale de `app/fixtures/surveys` y las respuestas se contestan en local. |
+| `style` | `` · `dark` · `dark-block` | Solo con `survey=fixture` (DD-248): Style del survey oscuro (`dark`) o claro con colores `dark` opcionales (`dark-block`). Ver `FIXTURE_STYLES` en `sw.js`. |
+| `appearance` | `` · `light` · `dark` · `system` | `init({ appearance })` (DD-241). Vacío = no se pasa. |
 | `pos` | vacío · `center` · `bottom` · `bottom-right` · … | Fuerza la posición de todos los popups del escenario. |
 | `init` | `once` · `twice` | `twice`: el host llama a `init()` + `autoLaunch()` dos veces (React StrictMode). |
 | `nav` | `history` · `silent` | `silent`: el router cambia la vista sin History API, así que el SDK no se entera de la navegación. |
