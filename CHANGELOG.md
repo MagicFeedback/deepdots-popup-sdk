@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Playwright 1.64.1 (from 1.60.0), which supports Ubuntu 26.04.** The cause of the failure above: Playwright learned Ubuntu 26.04 in 1.61, so 1.60 could not install Chromium there. Same version as MagicSurvey's monitors, which already pass on 26.04. The visual regression image moves to `mcr.microsoft.com/playwright:v1.64.1-noble`. With this the `ubuntu-24.04` pin is no longer needed to make the monitor work; it stays so that a runner image change never lands unannounced. Dev dependency only, no SDK change.
+
 ## [1.22.1] — 2026-11-19
 
 Survey SDK supported: 2.2.38–2.2.44 (survey frontend 3.4.1–3.6.0); bundled: 2.2.44.
