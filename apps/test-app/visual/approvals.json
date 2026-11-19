@@ -17,8 +17,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-desktop/appearance-dark-complex-4-text.png": {
-      "sha256": "67111947b2895356adbd79e9716dd83522490340c50cb139e38c953424cee3dc",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "97ca6a70a8a846046d05ccd80a4989760168a07968e4af619dda14dfc2bdb74e",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-desktop/appearance-dark-complex-5-thanks.png": {
       "sha256": "b5ae20f9b2284fc5072e57d3c6aa23732fefc9cb8df7d3e19c61eb9c8a93a03b",
@@ -69,8 +69,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-desktop/dark-complex-4-text.png": {
-      "sha256": "2fa3a25d2907da3b5395ec2b670803a9202bbdec77a3d47447bf3e53538327d0",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "9d28d4c024b79234a01727ae156151caab7a5a5f70b30d243d0b2fc69f3a4482",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-desktop/dark-complex-5-thanks.png": {
       "sha256": "31349065f68211e7e53fd729ecd58a15942667ba6c3cd2aef3d16f6e9b377de6",
@@ -81,8 +81,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-desktop/dark-simple-2-text.png": {
-      "sha256": "943bcf339f69f57ca37352ccfcc0b768017d9f4ed4f81f6b556067e8772f9aa8",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "d9de505f8442e344da9c61ec3aa4b4dbe9949e5aa67ef5ca43f679f8f8ab6527",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-desktop/simple-1-bottom-left.png": {
       "sha256": "c165eba3b75da15c90bcf33d19196ac4d33f16a95b5a59045cdeb0b7c92fed6b",
@@ -117,8 +117,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-mobile-pixel7/appearance-dark-complex-4-text.png": {
-      "sha256": "3b27c339e23267273ffcdc76afa2ad327db151a3a273d1886f549b7afc672fe7",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "cc9e0777f55bfa2dc955218e717f93629e8a9edcac9c5b405e5ee9fc9801cf85",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-mobile-pixel7/appearance-dark-complex-5-thanks.png": {
       "sha256": "9d322c9bb9cdbb84675cb6167174cab2d2857b2ff19cb698069a98293ddec990",
@@ -169,8 +169,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-mobile-pixel7/dark-complex-4-text.png": {
-      "sha256": "43f99924a74d435eecdb7e4a5347579eaf4cbd886e00dd7e017c670af006777f",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "8993b197639816ef4364cc0970c94c7c71cb2c480dea18114b3755d3e85dcecd",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-mobile-pixel7/dark-complex-5-thanks.png": {
       "sha256": "29351127b5fdb269438ec83e02c6237510b744f0d14a2b444fe24935d307d485",
@@ -181,8 +181,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-mobile-pixel7/dark-simple-2-text.png": {
-      "sha256": "2f271aaa538eb967e7f5e4bf67e8a055293bdff4ae68fb9179d22bf0c4113c0a",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "da8b18525bbcf14b56c39cc5be4c6f42f5ee7711cc3988c9e254cdf20cc37e2c",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-mobile-pixel7/simple-1-bottom-left.png": {
       "sha256": "3df69c55c8adcc9cfc0e5426ae0592c704aa1c797f19b6cd0d804f2f451a6ef3",
@@ -217,8 +217,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-mobile-small/appearance-dark-complex-4-text.png": {
-      "sha256": "cd0139958de0352c3c006596d99595400ffc06dc1e9207ba78a438fa1e95bb81",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "611c260a5f77688f9be1094f700289e222ea1e3608df6d4c2dd33c5a9c1dc41c",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-mobile-small/appearance-dark-complex-5-thanks.png": {
       "sha256": "a058130ea1bc1ae4874b5276034777ddf4c84a20cbc01f0f11b3bf4c2bbbc534",
@@ -269,8 +269,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-mobile-small/dark-complex-4-text.png": {
-      "sha256": "9211a85e26962732cae12851e83722233883a53436a9ae718429b2e0c530a0c0",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "e20c349640bfd2824dd4d31869dcbfddc26d0de38a310bc82ed5dfcf0257092c",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-mobile-small/dark-complex-5-thanks.png": {
       "sha256": "72ee49d8eb232240546416ec4c74fc636d56add5584136ec3b72dee2b0810474",
@@ -281,8 +281,8 @@
       "approvalId": "20261119T093542Z-44497453415"
     },
     "web-mobile-small/dark-simple-2-text.png": {
-      "sha256": "049b5529d2b1093e47fabe2c801daa82c2c1879d455899cd0c61b1b30246c0d7",
-      "approvalId": "20261119T093542Z-44497453415"
+      "sha256": "2278246394efab05f4b1d62c1137f26c3d64e9cc8129d9799a405fa21b766618",
+      "approvalId": "20261119T134809Z-44536047224"
     },
     "web-mobile-small/simple-1-bottom-left.png": {
       "sha256": "b1c1de340eeba3a339a5bf19ef93fb741311ea6003147f6715f5ff051bc1cd23",
@@ -764,6 +764,71 @@
           "key": "web-mobile-small/dark-simple-2-text.png",
           "sha256": "049b5529d2b1093e47fabe2c801daa82c2c1879d455899cd0c61b1b30246c0d7",
           "previousSha256": null
+        }
+      ]
+    },
+    {
+      "id": "20261119T134809Z-44536047224",
+      "approvedAt": "2026-11-19T13:48:09.975Z",
+      "approvedBy": "sarias980",
+      "reason": "main runs Playwright 1.64.1: only the textarea's resize grip differs (35-142 px) in the dark text states approved on dev with 1.60",
+      "source": {
+        "runId": "44536047224",
+        "runUrl": "https://github.com/MagicFeedback/deepdots-popup-sdk/actions/runs/44536047224",
+        "sdk": "local",
+        "sdkVersion": "1.22.1-local",
+        "platform": "web",
+        "devices": {
+          "web-desktop": "Chromium 156.0.8078.80 · 1280×860 @1x",
+          "web-mobile-pixel7": "Chromium 156.0.8078.80 · 412×839 @2.625x · mobile/touch",
+          "web-mobile-small": "Chromium 156.0.8078.80 · 375×667 @2x · mobile/touch"
+        }
+      },
+      "files": [
+        {
+          "key": "web-desktop/appearance-dark-complex-4-text.png",
+          "sha256": "97ca6a70a8a846046d05ccd80a4989760168a07968e4af619dda14dfc2bdb74e",
+          "previousSha256": "67111947b2895356adbd79e9716dd83522490340c50cb139e38c953424cee3dc"
+        },
+        {
+          "key": "web-desktop/dark-complex-4-text.png",
+          "sha256": "9d28d4c024b79234a01727ae156151caab7a5a5f70b30d243d0b2fc69f3a4482",
+          "previousSha256": "2fa3a25d2907da3b5395ec2b670803a9202bbdec77a3d47447bf3e53538327d0"
+        },
+        {
+          "key": "web-desktop/dark-simple-2-text.png",
+          "sha256": "d9de505f8442e344da9c61ec3aa4b4dbe9949e5aa67ef5ca43f679f8f8ab6527",
+          "previousSha256": "943bcf339f69f57ca37352ccfcc0b768017d9f4ed4f81f6b556067e8772f9aa8"
+        },
+        {
+          "key": "web-mobile-pixel7/appearance-dark-complex-4-text.png",
+          "sha256": "cc9e0777f55bfa2dc955218e717f93629e8a9edcac9c5b405e5ee9fc9801cf85",
+          "previousSha256": "3b27c339e23267273ffcdc76afa2ad327db151a3a273d1886f549b7afc672fe7"
+        },
+        {
+          "key": "web-mobile-pixel7/dark-complex-4-text.png",
+          "sha256": "8993b197639816ef4364cc0970c94c7c71cb2c480dea18114b3755d3e85dcecd",
+          "previousSha256": "43f99924a74d435eecdb7e4a5347579eaf4cbd886e00dd7e017c670af006777f"
+        },
+        {
+          "key": "web-mobile-pixel7/dark-simple-2-text.png",
+          "sha256": "da8b18525bbcf14b56c39cc5be4c6f42f5ee7711cc3988c9e254cdf20cc37e2c",
+          "previousSha256": "2f271aaa538eb967e7f5e4bf67e8a055293bdff4ae68fb9179d22bf0c4113c0a"
+        },
+        {
+          "key": "web-mobile-small/appearance-dark-complex-4-text.png",
+          "sha256": "611c260a5f77688f9be1094f700289e222ea1e3608df6d4c2dd33c5a9c1dc41c",
+          "previousSha256": "cd0139958de0352c3c006596d99595400ffc06dc1e9207ba78a438fa1e95bb81"
+        },
+        {
+          "key": "web-mobile-small/dark-complex-4-text.png",
+          "sha256": "e20c349640bfd2824dd4d31869dcbfddc26d0de38a310bc82ed5dfcf0257092c",
+          "previousSha256": "9211a85e26962732cae12851e83722233883a53436a9ae718429b2e0c530a0c0"
+        },
+        {
+          "key": "web-mobile-small/dark-simple-2-text.png",
+          "sha256": "2278246394efab05f4b1d62c1137f26c3d64e9cc8129d9799a405fa21b766618",
+          "previousSha256": "049b5529d2b1093e47fabe2c801daa82c2c1879d455899cd0c61b1b30246c0d7"
         }
       ]
     }
