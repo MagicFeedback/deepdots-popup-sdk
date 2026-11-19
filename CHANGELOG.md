@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.1] — 2026-11-19
+
 ### Fixed
 - **Thank-you text on a dark card (DD-248).** With a dark survey Style or `appearance: 'dark'`, the default "Thank you for your feedback!" (and any `<p>` in `successMessage`) was the light-mode grey on the dark card, almost unreadable: the survey's dark palette only applies inside its own container and this screen is outside it. It now uses the light chrome text on dark cards, in the web popup and the React Native WebView. Light cards are unchanged.
 
