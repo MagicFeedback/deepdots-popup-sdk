@@ -10,15 +10,17 @@ import { CHROME_CONTRAST_JS } from './chromeContrast';
  */
 
 let loadedStyle: Record<string, unknown> | null = null;
+let finishOnLoad = false;
 
 vi.mock('@magicfeedback/native', () => {
   const form = () => ({
     progress: 0,
     total: 3,
-    generate: (_divId: string, options: { onLoadedEvent?: (args: unknown) => void }) => {
+    generate: (_divId: string, options: { onLoadedEvent?: (args: unknown) => void; afterSubmitEvent?: (args: unknown) => void }) => {
       if (loadedStyle && options.onLoadedEvent) {
         options.onLoadedEvent({ loading: false, progress: 0, total: 3, formData: { style: loadedStyle } });
       }
+      if (finishOnLoad) options.afterSubmitEvent?.({ completed: true, progress: 3, total: 3 });
       return Promise.resolve();
     },
     back: () => {},
@@ -46,6 +48,28 @@ describe('popup DOM (web) · contraste del chrome', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     loadedStyle = null;
+    finishOnLoad = false;
+  });
+
+  // DD-248: el gracias está fuera del contenedor del survey, donde el gris del CSS del survey
+  // seguía siendo el de modo claro.
+  it('pantalla final en tarjeta oscura: texto claro también en los <p>', async () => {
+    loadedStyle = { boxBackgroundColor: '#0f172a' };
+    finishOnLoad = true;
+    const { popup } = await render();
+    const done = popup.querySelector('.deepdots-success') as HTMLElement;
+
+    expect(done.style.color).toBe('#f0f0f0');
+    expect(done.style.getPropertyValue('--mf-text-secondary')).toBe('#f0f0f0');
+  });
+
+  it('pantalla final en tarjeta clara: no toca el gris del survey', async () => {
+    loadedStyle = { boxBackgroundColor: '#ffffff' };
+    finishOnLoad = true;
+    const { popup } = await render();
+    const done = popup.querySelector('.deepdots-success') as HTMLElement;
+
+    expect(done.style.getPropertyValue('--mf-text-secondary')).toBe('');
   });
 
   it('Style oscuro con theme light por defecto: textos claros y color-scheme dark', async () => {
@@ -130,6 +154,7 @@ describe('WebView (React Native) · contraste del chrome', () => {
     expect(el.style.getPropertyValue('--dd-text-muted')).toBe('#9ca3af');
     expect(el.style.getPropertyValue('--dd-progress-track')).toBe('#3f3f46');
     expect(el.style.getPropertyValue('--dd-color-scheme')).toBe('dark');
+    expect(el.style.getPropertyValue('--dd-success-text')).toBe('#f0f0f0');
     expect(document.querySelector('meta[name="color-scheme"]')!.getAttribute('content')).toBe('dark');
   });
 
@@ -139,6 +164,12 @@ describe('WebView (React Native) · contraste del chrome', () => {
 
     expect(el.style.getPropertyValue('--dd-text-primary')).toBe('#111');
     expect(el.style.getPropertyValue('--dd-color-scheme')).toBe('light');
+    expect(el.style.getPropertyValue('--dd-success-text')).toBe('');
+  });
+
+  it('pantalla final: el texto usa --dd-success-text en oscuro y el gris del survey en claro (DD-248)', () => {
+    const html = buildSurveyHtml({ surveyId: 's-1', productId: 'p-1' });
+    expect(html).toContain('.deepdots-success p{margin:0;font-size:16px;font-weight:600;line-height:1.4;color:var(--dd-success-text,var(--mf-text-secondary))}');
   });
 
   it('color ilegible: no toca nada', () => {

@@ -748,6 +748,12 @@ export async function renderPopup(
             done.style.cssText = `width:100%; text-align:center; padding:24px 0; color:${theme.textPrimary};`;
             main.insertBefore(done, errorHint);
         }
+        // El CSS del survey pinta los <p> con --mf-text-secondary, cuyo valor oscuro solo vale
+        // dentro de su contenedor; esta pantalla está fuera, así que en tarjeta oscura salía en
+        // gris claro de modo claro sobre fondo oscuro (DD-248). `theme` ya es la paleta final.
+        done.style.color = theme.textPrimary;
+        if (theme.colorScheme === 'dark') done.style.setProperty('--mf-text-secondary', theme.textPrimary);
+        else done.style.removeProperty('--mf-text-secondary');
         done.innerHTML = successMessageHtml || '<p>Thank you for your feedback!</p>';
         done.querySelectorAll('img').forEach((img) => {
             img.style.cssText = 'max-width:100%; height:auto; margin:0 auto 16px auto; display:block;';

@@ -300,7 +300,7 @@ body.dd-ready #dd-popup{visibility:visible}
 .deepdots-load-error{display:none;width:100%;text-align:center;padding:24px 0;font-size:15px;color:var(--dd-text-primary,${textPrimary})}
 .deepdots-success{display:none;width:100%;text-align:center;padding:24px 0;color:var(--dd-text-primary,${textPrimary})}
 .deepdots-success img{max-width:100%;height:auto;margin:0 auto 16px auto;display:block}
-.deepdots-success p{margin:0;font-size:16px;font-weight:600;line-height:1.4}
+.deepdots-success p{margin:0;font-size:16px;font-weight:600;line-height:1.4;color:var(--dd-success-text,var(--mf-text-secondary))}
 .deepdots-popup-footer{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:4px;margin-top:auto;width:100%;padding-top:12px}
 .dd-nav-btn{display:none;border:none;min-height:44px;padding:12px 24px;border-radius:999px;cursor:pointer;font-size:15px;font-weight:600;align-items:center;justify-content:center;text-align:center}
 /* Secundario como botón de texto: sin borde ni fondo, para que el primario sea la única CTA. */
@@ -556,6 +556,8 @@ function ddApplyChromeContrast(bg){
   el.style.setProperty('--dd-text-primary', pal.textPrimary);
   el.style.setProperty('--dd-text-muted', pal.textMuted);
   el.style.setProperty('--dd-progress-track', pal.progressTrack);
+  // DD-248: el gracias va fuera del contenedor del survey, donde el gris del survey es el claro.
+  if(dark){ el.style.setProperty('--dd-success-text', pal.textPrimary); } else { el.style.removeProperty('--dd-success-text'); }
   var meta=document.querySelector('meta[name="color-scheme"]');
   if(meta){ meta.setAttribute('content', pal.colorScheme); }
 }
