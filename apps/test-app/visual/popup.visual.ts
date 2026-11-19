@@ -73,57 +73,70 @@ async function recordDevice(page: Page) {
   writeFileSync(join(OUT, p.name, 'device.json'), JSON.stringify({ device: p.name, info, sdkVersion, sdk: SDK }));
 }
 
+/**
+ * Encuesta compleja (center, overlay): cada página, el error de obligatoria y el gracias.
+ * `prefix` va delante de cada estado (DD-248: `dark-`, `appearance-dark-`…).
+ */
+async function complexFlow(page: Page, prefix = '', params: Record<string, string> = {}) {
+  await open(page, '/products/42', { scenario: 'rate-product', ...params });
+  await recordDevice(page);
+  await page.getByTestId('rate-product').click();
+  const popup = popupOf(page);
+  await shot(page, `${prefix}complex-1-open`);
+
+  await popup.getByRole('button', { name: 'Enviar' }).click();
+  await expect(popup.getByText('Responde la pregunta obligatoria para continuar.')).toBeVisible();
+  await shot(page, `${prefix}complex-1-required-error`);
+
+  // RADIO: avanza sola al elegir. Página 2 = la más alta (estrellas + múltiple).
+  await popup.getByText('En parte').click();
+  await expect(popup.getByText('Valora la ficha de producto')).toBeVisible();
+  await settle(page);
+  await popup.locator('label[for="rating-pdp_stars-4"]').click();
+  await expect(popup.locator('#rating-pdp_stars-4')).toBeChecked();
+  await popup.getByText('Materiales').click();
+  await expect(popup.getByRole('checkbox', { name: 'Materiales' })).toBeChecked();
+  await shot(page, `${prefix}complex-2-selected`);
+
+  await popup.getByRole('button', { name: 'Enviar' }).click();
+  await expect(popup.getByText('¿Volverías a comprar en NORDLY?')).toBeVisible();
+  await shot(page, `${prefix}complex-3-boolean-email`);
+
+  await settle(page);
+  await popup.getByText('Sí', { exact: true }).click(); // obligatoria
+  await expect(popup.getByRole('radio', { name: 'Sí', exact: true })).toBeChecked();
+  await popup.getByRole('button', { name: 'Enviar' }).click();
+  await expect(popup.getByText('¿Algo más que quieras contarnos?')).toBeVisible();
+  await settle(page);
+  await popup.locator('textarea').fill('Todo bien, gracias.');
+  await shot(page, `${prefix}complex-4-text`);
+
+  await popup.getByRole('button', { name: 'Enviar' }).click();
+  await expect(popup.getByRole('button', { name: 'Completar encuesta' })).toBeVisible();
+  await shot(page, `${prefix}complex-5-thanks`);
+}
+
+/** Encuesta simple (bottom-right, sin overlay): NPS y la página de texto. */
+async function simpleFlow(page: Page, prefix = '', params: Record<string, string> = {}) {
+  await open(page, '/account', { scenario: 'help-click', ...params });
+  await page.getByTestId('help-button').click();
+  const popup = popupOf(page);
+  await shot(page, `${prefix}simple-1-bottom-right`);
+
+  await popup.locator('label[for="rating-nps-9"]').click(); // NPS avanza solo
+  await expect(popup.locator('textarea')).toBeVisible();
+  await settle(page);
+  await popup.locator('textarea').fill('Más tallas, por favor.');
+  await shot(page, `${prefix}simple-2-text`);
+}
+
 test.describe(`popup visual · sdk ${SDK}`, () => {
   test('complex survey (center, overlay): every page, validation error and thank-you', async ({ page }) => {
-    await open(page, '/products/42', { scenario: 'rate-product' });
-    await recordDevice(page);
-    await page.getByTestId('rate-product').click();
-    const popup = popupOf(page);
-    await shot(page, 'complex-1-open');
-
-    await popup.getByRole('button', { name: 'Enviar' }).click();
-    await expect(popup.getByText('Responde la pregunta obligatoria para continuar.')).toBeVisible();
-    await shot(page, 'complex-1-required-error');
-
-    // RADIO: avanza sola al elegir. Página 2 = la más alta (estrellas + múltiple).
-    await popup.getByText('En parte').click();
-    await expect(popup.getByText('Valora la ficha de producto')).toBeVisible();
-    await settle(page);
-    await popup.locator('label[for="rating-pdp_stars-4"]').click();
-    await expect(popup.locator('#rating-pdp_stars-4')).toBeChecked();
-    await popup.getByText('Materiales').click();
-    await expect(popup.getByRole('checkbox', { name: 'Materiales' })).toBeChecked();
-    await shot(page, 'complex-2-selected');
-
-    await popup.getByRole('button', { name: 'Enviar' }).click();
-    await expect(popup.getByText('¿Volverías a comprar en NORDLY?')).toBeVisible();
-    await shot(page, 'complex-3-boolean-email');
-
-    await settle(page);
-    await popup.getByText('Sí', { exact: true }).click(); // obligatoria
-    await expect(popup.getByRole('radio', { name: 'Sí', exact: true })).toBeChecked();
-    await popup.getByRole('button', { name: 'Enviar' }).click();
-    await expect(popup.getByText('¿Algo más que quieras contarnos?')).toBeVisible();
-    await settle(page);
-    await popup.locator('textarea').fill('Todo bien, gracias.');
-    await shot(page, 'complex-4-text');
-
-    await popup.getByRole('button', { name: 'Enviar' }).click();
-    await expect(popup.getByRole('button', { name: 'Completar encuesta' })).toBeVisible();
-    await shot(page, 'complex-5-thanks');
+    await complexFlow(page);
   });
 
   test('simple survey (bottom-right, no overlay): NPS and the text page', async ({ page }) => {
-    await open(page, '/account', { scenario: 'help-click' });
-    await page.getByTestId('help-button').click();
-    const popup = popupOf(page);
-    await shot(page, 'simple-1-bottom-right');
-
-    await popup.locator('label[for="rating-nps-9"]').click(); // NPS avanza solo
-    await expect(popup.locator('textarea')).toBeVisible();
-    await settle(page);
-    await popup.locator('textarea').fill('Más tallas, por favor.');
-    await shot(page, 'simple-2-text');
+    await simpleFlow(page);
   });
 
   for (const pos of ['top', 'bottom-left'] as const) {
@@ -133,4 +146,25 @@ test.describe(`popup visual · sdk ${SDK}`, () => {
       await shot(page, `simple-1-${pos}`);
     });
   }
+
+  // DD-248 · modo oscuro (DD-236). Paso 1: un Style oscuro da textos claros solo (DD-238,
+  // DD-247). Paso 2: appearance de la app con los colores `dark` opcionales del Style (DD-239,
+  // DD-241); en claro esos colores se ignoran.
+  test('dark Style: complex survey', async ({ page }) => {
+    await complexFlow(page, 'dark-', { style: 'dark' });
+  });
+
+  test('dark Style: simple survey', async ({ page }) => {
+    await simpleFlow(page, 'dark-', { style: 'dark' });
+  });
+
+  test('appearance dark with the Style dark colours', async ({ page }) => {
+    await complexFlow(page, 'appearance-dark-', { style: 'dark-block', appearance: 'dark' });
+  });
+
+  test('appearance light ignores the Style dark colours', async ({ page }) => {
+    await open(page, '/products/42', { scenario: 'rate-product', style: 'dark-block', appearance: 'light' });
+    await page.getByTestId('rate-product').click();
+    await shot(page, 'appearance-light-complex-1-open');
+  });
 });
