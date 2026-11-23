@@ -8,6 +8,7 @@ import { PRIMARY_COLOR_JS } from './surveyPalette';
 import { CHROME_CONTRAST_JS } from './chromeContrast';
 import { APPEARANCE_JS, normalizeAppearance, type Appearance } from './appearance';
 import { BUSY_JS } from './busy';
+import { PROGRESS_VIEW_JS } from './progressView';
 import { SUBMIT_ERROR_JS } from './submitError';
 import magicfeedbackCss from '../assets/style.css';
 
@@ -428,13 +429,17 @@ ${customCss}
   var progressEnabled=progressPref===true;
   var progressShowUnit=true;
   var progressUnit='fraction';
+  // DD-210: qué cuenta la barra (style.progressMode).
+  var progressMode='current';
+${PROGRESS_VIEW_JS}
   var onStartPage=false;
 
   function updateProgress(p){
     var total=p&&typeof p.total==='number'?p.total:0;
     var progress=p&&typeof p.progress==='number'?p.progress:0;
-    // Solo tiene sentido con más de una página, fuera de la pantalla de inicio y sin completar.
-    if(!progressEnabled||onStartPage||p&&p.completed||total<=1){
+    // Reglas en ddProgressView (espejo de progressView.ts, MagicSurvey y el SDK nativo).
+    var view=ddProgressView({progress:progress,total:total,completed:!!(p&&p.completed),mode:progressMode,unit:progressUnit},DD_LABELS_ACTIVE);
+    if(!progressEnabled||onStartPage||!view.visible){
       progressEl.style.display='none';
       // Sin barra, el hueco cabecera→pregunta lo pone el contenido.
       content.style.paddingTop='16px';
@@ -443,22 +448,11 @@ ${customCss}
     progressEl.style.display='flex';
     // Con barra, el hueco inferior ya lo pone el bloque de progreso: no duplicarlo.
     content.style.paddingTop='0';
-    // Espejo de LineProgressQuestion (MagicSurvey): la barra usa el valor real (las follow-up
-    // suman +0.5 y avanzan media casilla) y la etiqueta redondea hacia abajo, porque una
-    // follow-up es un paso DENTRO de la misma pregunta, no la siguiente.
-    var current=Math.min(total,Math.max(1,progress+1));
-    var pct=Math.min(100,Math.max(0,(current/total)*100));
-    progressBar.style.width=pct+'%';
-    var label=Math.min(total,Math.max(1,Math.floor(progress)+1));
+    progressBar.style.width=view.percent+'%';
     progressLabel.style.display=progressShowUnit?'block':'none';
-    if(progressUnit==='percentage'){
-      progressCurrent.textContent=Math.round(pct)+'%';
-      progressTotal.textContent='';
-    } else {
-      progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label;
-      progressTotal.textContent=' '+DD_LABELS_ACTIVE.of+' '+total;
-    }
-    progressFollowUp.style.display=p&&p.followup?'inline-block':'none';
+    progressCurrent.textContent=view.current;
+    progressTotal.textContent=view.rest;
+    progressFollowUp.style.display=p&&p.followup&&!p.completed?'inline-block':'none';
   }
 
   backBtn.textContent=${backLabel};
@@ -685,6 +679,7 @@ ${REVEAL_JS}
             if(progressPref===null){ progressEnabled=s.showProgressBar===true; }
             if(s.showProgressUnit!==undefined){ progressShowUnit=s.showProgressUnit!==false; }
             if(s.progressUnit){ progressUnit=s.progressUnit; }
+            if(s.progressMode){ progressMode=s.progressMode; }
             // Fondo, textos, botones y barra: Style + theme + modo de la app (DD-247, DD-241).
             ddApplyAppearanceColors(s);
             if(s.contentAlign){ main.style.justifyContent = s.contentAlign==='center' ? 'center' : 'flex-start'; }
