@@ -421,6 +421,8 @@ export interface FormStyle
     showProgressBar: boolean;
     showProgressUnit: boolean;
     progressUnit: 'percentage' | 'fraction';
+    /** Qué cuenta la barra (DD-210): la pregunta actual (por defecto) o las respondidas. */
+    progressMode?: 'current' | 'completed';
     /** Colores opcionales para modo oscuro (DD-239), mismas claves que los claros. */
     dark?: Partial<Pick<FormStyle, 'backgroundColor' | 'boxBackgroundColor' | 'buttonPrimaryColor' | 'buttonSecondaryColor' | 'buttonOnTopColor' | 'loadingBarColor' | 'logo'>> | null;
 }

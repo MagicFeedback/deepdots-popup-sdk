@@ -62,7 +62,7 @@ describe('buildSurveyHtml i18n', () => {
     expect(html).not.toContain("errorHint.textContent='Please answer the required question to continue.'");
     expect(html).not.toContain("progressCurrent.textContent='Question '+label");
     expect(html).toContain('DD_LABELS_ACTIVE.errorRequired');
-    expect(html).toContain('DD_LABELS_ACTIVE.question');
+    expect(html).toContain('mode:progressMode,unit:progressUnit},DD_LABELS_ACTIVE)');
   });
 });
 

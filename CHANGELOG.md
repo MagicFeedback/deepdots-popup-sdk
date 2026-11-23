@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Progress bar can count answered questions (DD-210).** With `style.progressMode: "completed"` the bar starts at 0%, shows "2 of 5 answered" on question 3, does not move while an AI follow-up is open, and shows 100% ("5 of 5 answered") on the thank-you screen. Missing or `"current"` keeps today's bar. Web popup and React Native WebView; new chrome texts `answeredOf` / `answered` in all locales.
+
 ## [1.22.1] — 2026-11-19
 
 Survey SDK supported: 2.2.38–2.2.44 (survey frontend 3.4.1–3.6.0); bundled: 2.2.44.
