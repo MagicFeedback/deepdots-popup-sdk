@@ -513,7 +513,9 @@ interface PopupDefinition {
   productId: string;
   style?: {
     theme: 'light' | 'dark';
-    position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
+    position: 'top' | 'bottom' | 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
+    size?: 'small' | 'regular'; // card up to 360px / 600px (default regular)
+    blockPage?: boolean;        // backdrop + keeps the clicks; center always blocks (default false)
     imageUrl: string | null;
     font?: {
       family: string;   // clean family name, not a stack
