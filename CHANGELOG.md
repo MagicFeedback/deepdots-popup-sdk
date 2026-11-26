@@ -20,6 +20,9 @@ Survey SDK supported: 2.2.38–2.2.47 (survey frontend 3.4.1–3.6.0); bundled: 
 - **Popup size and page blocking (DD-334).** `style.size` (`small` up to 360px, 300px on narrow screens; `regular` up to 600px, the default) and `style.blockPage` (backdrop over the page and the popup keeps the clicks, for positions other than `center`; default `false`). `center` always blocks. Without the new fields nothing changes. In the React Native WebView `blockPage` only paints the backdrop: whether touches reach the app below depends on how the host mounts the WebView.
 - **Progress bar can count answered questions (DD-210).** With `style.progressMode: "completed"` the bar starts at 0%, shows "2 of 5 answered" on question 3, does not move while an AI follow-up is open, and shows 100% ("5 of 5 answered") on the thank-you screen. Missing or `"current"` keeps today's bar. Web popup and React Native WebView; new chrome texts `answeredOf` / `answered` in all locales.
 
+### Fixed
+- **Popup exclusions by email, domain or attribute on the first page (DD-561).** `init({ userId, contactAttributes })` sent the contact (`POST /sdk/popups/contact`) at the same time as the popups request, so on a user's first page the server could not apply the exclusions by email, domain or attribute yet (DD-333) and an excluded user could see the popup. When the attributes are new or changed, the popups request now waits for the contact POST, at most 1.5 s (`CONTACT_SYNC_TIMEOUT_MS`); a slow or failed POST never blocks the popups. Unchanged attributes (no POST) or no `contactAttributes`: no wait, as before.
+
 ## [1.22.1] — 2026-11-19
 
 Survey SDK supported: 2.2.38–2.2.44 (survey frontend 3.4.1–3.6.0); bundled: 2.2.44.

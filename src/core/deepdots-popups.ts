@@ -94,6 +94,13 @@ const RESERVED_EVENT_PREFIX = 'deepdots_';
 const CUSTOM_EVENT_PREFIX = 'deepdots_event_';
 /** Techo del buffer de disparos recibidos mientras se cargan las definiciones (descarta los más viejos). */
 export const MAX_PENDING_TRIGGERS = 20;
+/**
+ * DD-561: how long the popups GET waits for the contact POST sent by `init({ contactAttributes })`.
+ * The server applies the exclusions by email, domain and attribute (DD-333) from the contact, so
+ * on a user's first page the GET has to go after the POST. Never longer than this: a slow or
+ * failed POST must not block the popups.
+ */
+export const CONTACT_SYNC_TIMEOUT_MS = 1500;
 
 /** Disparo del host recibido antes de que lleguen las definiciones de popups. */
 type PendingTrigger =
@@ -213,6 +220,8 @@ export class DeepdotsPopups {
     private engagement: EngagementTracker | null = null;
     /** Atributos internos del usuario identificado → POST /sdk/popups/contact. Null si no hay userId. */
     private contact: ContactManager | null = null;
+    /** DD-561: contact POST of `init()`, awaited (with a cap) by the popups GET. Null if none. */
+    private contactSync: Promise<unknown> | null = null;
     /** Storage resuelto en init() (inyectado por el host o localStorage). Reusado al cambiar de usuario. */
     private storage: KeyValueStorage | null = null;
     /** Marca si ya se inició la navegación manual (setScreen) — para RN sin History API. */
@@ -314,9 +323,11 @@ export class DeepdotsPopups {
                 userId,
                 post: (body) => this.postContact(body),
             });
-            // Atributos de contact pasados en init: envío fire-and-forget (solo si cambiaron).
+            // Atributos de contact pasados en init (solo se envían si cambiaron). El GET de popups
+            // espera a este envío (DD-561, máx. CONTACT_SYNC_TIMEOUT_MS) para que las exclusiones
+            // por email, dominio o atributo apliquen ya en la primera página.
             if (config.contactAttributes) {
-                void this.setContactAttributes(config.contactAttributes);
+                this.contactSync = this.setContactAttributes(config.contactAttributes);
             }
         }
         this.log('tracking · user_id:', this.tracking.getUserId(), '· new_user:', this.tracking.isNewUser(), '· enabled:', this.tracking.isTrackingEnabled());
@@ -1710,6 +1721,8 @@ export class DeepdotsPopups {
             this.log('Missing apiKey or baseUrl. Skipping popups fetch.');
             return [];
         }
+        // Sin POST pendiente no se cede el turno: el GET sale en el mismo tick que antes.
+        if (this.contactSync) await this.waitForContactSync();
         const filter = userId ? { where: { userId } } : null;
         const query = filter ? `?filter=${encodeURIComponent(JSON.stringify(filter))}` : '';
         const endpoint = `${baseUrl}/sdk/${encodeURIComponent(apiKey)}/popups${query}`;
@@ -1731,6 +1744,24 @@ export class DeepdotsPopups {
             this.log('Error fetching popups', error);
             return null;
         }
+    }
+
+    /**
+     * DD-561: espera al POST de contact de `init()` antes del GET de popups, como mucho
+     * `CONTACT_SYNC_TIMEOUT_MS`. Sin atributos nuevos la promesa ya está resuelta y no hay espera.
+     * Nunca rechaza.
+     */
+    private async waitForContactSync(): Promise<void> {
+        const pending = this.contactSync;
+        this.contactSync = null;
+        if (!pending) return;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<'timeout'>((resolve) => {
+            timer = setTimeout(() => resolve('timeout'), CONTACT_SYNC_TIMEOUT_MS);
+        });
+        const result = await Promise.race([pending.then(() => 'done' as const, () => 'done' as const), timeout]);
+        if (timer) clearTimeout(timer);
+        if (result === 'timeout') this.log('contact · POST still pending, fetching popups anyway');
     }
 
     /**
