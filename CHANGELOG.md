@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] — 2026-11-26
+
+Survey SDK supported: 2.2.38–2.2.47 (survey frontend 3.4.1–3.6.0); bundled: 2.2.47.
+
 ### Changed
 - **No analytics from localhost by default (DD-540).** On `localhost`, `*.localhost`, `127.x.x.x`, `0.0.0.0` and `::1` the analytics channel (events, crashes, page views) stays in dry-run even with `analytics` set, so local development no longer lands in the host's production project. New `trackLocalhost: true` sends anyway. Popups, surveys and answers are not affected. Web only.
 - **Crash reporter skips known browser noise (DD-540).** "ResizeObserver loop completed with undelivered notifications" and "ResizeObserver loop limit exceeded" are never reported (`BENIGN_ERROR_PATTERNS`). Network and storage blips (`auth/network-request-failed`, IndexedDB "connection is closing") are reported as non-fatal `warning`, so they no longer count against Crash-Free Users (`NON_FATAL_ERROR_PATTERNS`). Crashes queued by an older version are cleaned the same way on replay.
