@@ -1,3 +1,4 @@
+import { resolvePlacement, SMALL_CARD_MOBILE_MAX_PX } from './placement';
 import { BUNDLED_SURVEY_SDK_VERSION, surveySdkCssUrls, surveySdkUrls } from './surveySdkVersion';
 import type { IdentityAnswer } from '../tracking/tracking-manager';
 import { buildFontFaceCss, buildFontFamilyValue } from './font';
@@ -8,6 +9,7 @@ import { PRIMARY_COLOR_JS } from './surveyPalette';
 import { CHROME_CONTRAST_JS } from './chromeContrast';
 import { APPEARANCE_JS, normalizeAppearance, type Appearance } from './appearance';
 import { BUSY_JS } from './busy';
+import { PROGRESS_VIEW_JS } from './progressView';
 import { SUBMIT_ERROR_JS } from './submitError';
 import magicfeedbackCss from '../assets/style.css';
 
@@ -79,6 +81,10 @@ export interface BuildSurveyHtmlOptions {
    */
   appearance?: Appearance;
   position?: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
+  /** Tamaño de la tarjeta (DD-334). Por defecto `regular`. */
+  size?: 'small' | 'regular';
+  /** Velo sobre la página con posiciones que no son `center` (DD-334). Por defecto `false`. */
+  blockPage?: boolean;
   actions?: PopupActions;
   /**
    * Renderiza el "modal" del popup (tarjeta con fondo/sombra/bordes + overlay + posicionamiento).
@@ -112,23 +118,6 @@ export interface BuildSurveyHtmlOptions {
    */
   language?: string;
 }
-
-interface PositionRule {
-  justifyContent: string;
-  alignItems: string;
-  padding: string;
-  background: string;
-}
-
-const POSITION_MAP: Record<string, PositionRule> = {
-  center: { justifyContent: 'center', alignItems: 'center', padding: '0', background: 'rgba(0,0,0,0.5)' },
-  bottom: { justifyContent: 'center', alignItems: 'flex-end', padding: '16px', background: 'transparent' },
-  'bottom-right': { justifyContent: 'flex-end', alignItems: 'flex-end', padding: '16px', background: 'transparent' },
-  'bottom-left': { justifyContent: 'flex-start', alignItems: 'flex-end', padding: '16px', background: 'transparent' },
-  top: { justifyContent: 'center', alignItems: 'flex-start', padding: '16px', background: 'transparent' },
-  'top-right': { justifyContent: 'flex-end', alignItems: 'flex-start', padding: '16px', background: 'transparent' },
-  'top-left': { justifyContent: 'flex-start', alignItems: 'flex-start', padding: '16px', background: 'transparent' },
-};
 
 /**
  * Serializa un valor para incrustarlo dentro de un `<script>`. `JSON.stringify` no escapa `<`,
@@ -177,7 +166,10 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const textPrimary = isDark ? '#f0f0f0' : '#111';
   const textMuted = isDark ? '#9ca3af' : '#6b7280';
   const trackBg = isDark ? '#3f3f46' : '#e5e7eb';
-  const pos = POSITION_MAP[opts.position ?? 'center'] ?? POSITION_MAP.center;
+  // Posición, tamaño y bloqueo (DD-334), con la misma resolución que el popup DOM web. En el
+  // WebView el velo es solo visual: que los toques lleguen a la app de debajo depende del host,
+  // que es quien monta el WebView.
+  const pos = resolvePlacement({ position: opts.position, size: opts.size, blockPage: opts.blockPage });
 
   // chrome:false → el host envuelve el survey en su propio Modal/tarjeta. El HTML se vuelve
   // transparente y llena el contenedor (sin fondo/sombra/borde/overlay/posicionamiento propios);
@@ -189,7 +181,7 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   const cardBg = chrome ? popupBg : 'transparent';
   const cardShadow = chrome ? '0 4px 6px rgba(0,0,0,0.1)' : 'none';
   const cardRadius = chrome ? '8px' : '0';
-  const cardMaxWidth = chrome ? '600px' : 'none';
+  const cardMaxWidth = chrome ? `${pos.cardMaxWidthPx}px` : 'none';
   const cardWidth = chrome ? '90%' : '100%';
   const cardMinHeight = chrome ? '200px' : '0';
   // Con chrome el alto lo marca el contenido (hasta 90vh); sin chrome llena el contenedor del
@@ -200,7 +192,7 @@ export function buildSurveyHtml(opts: BuildSurveyHtmlOptions): string {
   // chrome:false, donde el contenedor es del host: ahí llena el ancho y NO añade los insets
   // de safe-area (el host ya los aplica; sumarlos otra vez dejaba un hueco muerto bajo el footer).
   const mobileCard = chrome
-    ? `.deepdots-popup{width:calc(100% - 24px);max-width:calc(100% - 24px);border-radius:12px;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 16px}`
+    ? `.deepdots-popup{width:calc(100% - 24px);max-width:${pos.size === 'small' ? `min(${SMALL_CARD_MOBILE_MAX_PX}px, calc(100% - 24px))` : 'calc(100% - 24px)'};border-radius:12px;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 16px}`
     : `.deepdots-popup{width:100%;max-width:100%;border-radius:0;padding:16px}`;
 
   // El título viaja como literal JSON y se aplica con textContent: viene de la API y no debe
@@ -428,13 +420,17 @@ ${customCss}
   var progressEnabled=progressPref===true;
   var progressShowUnit=true;
   var progressUnit='fraction';
+  // DD-210: qué cuenta la barra (style.progressMode).
+  var progressMode='current';
+${PROGRESS_VIEW_JS}
   var onStartPage=false;
 
   function updateProgress(p){
     var total=p&&typeof p.total==='number'?p.total:0;
     var progress=p&&typeof p.progress==='number'?p.progress:0;
-    // Solo tiene sentido con más de una página, fuera de la pantalla de inicio y sin completar.
-    if(!progressEnabled||onStartPage||p&&p.completed||total<=1){
+    // Reglas en ddProgressView (espejo de progressView.ts, MagicSurvey y el SDK nativo).
+    var view=ddProgressView({progress:progress,total:total,completed:!!(p&&p.completed),mode:progressMode,unit:progressUnit},DD_LABELS_ACTIVE);
+    if(!progressEnabled||onStartPage||!view.visible){
       progressEl.style.display='none';
       // Sin barra, el hueco cabecera→pregunta lo pone el contenido.
       content.style.paddingTop='16px';
@@ -443,22 +439,11 @@ ${customCss}
     progressEl.style.display='flex';
     // Con barra, el hueco inferior ya lo pone el bloque de progreso: no duplicarlo.
     content.style.paddingTop='0';
-    // Espejo de LineProgressQuestion (MagicSurvey): la barra usa el valor real (las follow-up
-    // suman +0.5 y avanzan media casilla) y la etiqueta redondea hacia abajo, porque una
-    // follow-up es un paso DENTRO de la misma pregunta, no la siguiente.
-    var current=Math.min(total,Math.max(1,progress+1));
-    var pct=Math.min(100,Math.max(0,(current/total)*100));
-    progressBar.style.width=pct+'%';
-    var label=Math.min(total,Math.max(1,Math.floor(progress)+1));
+    progressBar.style.width=view.percent+'%';
     progressLabel.style.display=progressShowUnit?'block':'none';
-    if(progressUnit==='percentage'){
-      progressCurrent.textContent=Math.round(pct)+'%';
-      progressTotal.textContent='';
-    } else {
-      progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label;
-      progressTotal.textContent=' '+DD_LABELS_ACTIVE.of+' '+total;
-    }
-    progressFollowUp.style.display=p&&p.followup?'inline-block':'none';
+    progressCurrent.textContent=view.current;
+    progressTotal.textContent=view.rest;
+    progressFollowUp.style.display=p&&p.followup&&!p.completed?'inline-block':'none';
   }
 
   backBtn.textContent=${backLabel};
@@ -685,6 +670,7 @@ ${REVEAL_JS}
             if(progressPref===null){ progressEnabled=s.showProgressBar===true; }
             if(s.showProgressUnit!==undefined){ progressShowUnit=s.showProgressUnit!==false; }
             if(s.progressUnit){ progressUnit=s.progressUnit; }
+            if(s.progressMode){ progressMode=s.progressMode; }
             // Fondo, textos, botones y barra: Style + theme + modo de la app (DD-247, DD-241).
             ddApplyAppearanceColors(s);
             if(s.contentAlign){ main.style.justifyContent = s.contentAlign==='center' ? 'center' : 'flex-start'; }

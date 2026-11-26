@@ -69,6 +69,54 @@ const STACK_MAX = 8000;
 const QUEUE_KEY = 'deepdots.crash.queue';
 const MAX_QUEUED = 20;
 
+/**
+ * Avisos del navegador que no son fallos de la app (DD-540): no se reportan nunca.
+ * Se comparan con `name`, `code` y `message` del error.
+ */
+export const BENIGN_ERROR_PATTERNS: readonly RegExp[] = [
+  /ResizeObserver loop completed with undelivered notifications/i,
+  /ResizeObserver loop limit exceeded/i,
+];
+
+/**
+ * Fallos transitorios de red o de almacenamiento (DD-540): se reportan, pero como `warning`
+ * no fatal, para que no cuenten en Crash-Free Users.
+ */
+export const NON_FATAL_ERROR_PATTERNS: readonly RegExp[] = [
+  /auth\/network-request-failed/i,
+  // IndexedDB cerrándose (pestaña en segundo plano, otra pestaña actualiza la versión, logout).
+  /connection is closing/i,
+];
+
+/** Texto con el que se clasifica un error: `name`, `code` y `message` (o el valor tal cual). */
+function errorText(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const e = error as { name?: unknown; code?: unknown; message?: unknown };
+    return [e.name, e.code, e.message].filter((v) => typeof v === 'string').join(' ');
+  }
+  return String(error ?? '');
+}
+
+const matches = (text: string, patterns: readonly RegExp[]) => patterns.some((p) => p.test(text));
+
+/** Aviso del navegador que no hay que reportar (p. ej. el bucle de ResizeObserver). */
+export function isBenignError(error: unknown): boolean {
+  return matches(errorText(error), BENIGN_ERROR_PATTERNS);
+}
+
+/** Ruido de red o almacenamiento que se reporta como `warning` no fatal. */
+export function isNonFatalNoise(error: unknown): boolean {
+  return matches(errorText(error), NON_FATAL_ERROR_PATTERNS);
+}
+
+/** Aplica las listas a un record ya guardado (cola de replay de una versión anterior). */
+function reclassify(r: CrashRecord): CrashRecord | null {
+  const text = `${r.crashType} ${r.message}`;
+  if (matches(text, BENIGN_ERROR_PATTERNS)) return null;
+  if (matches(text, NON_FATAL_ERROR_PATTERNS)) return { ...r, fatal: false, severity: 'warning' };
+  return r;
+}
+
 /** Convierte un CrashRecord en los params del evento `deepdots_app_crash` (omite undefined). */
 export function crashRecordToParams(r: CrashRecord): Record<string, unknown> {
   const params: Record<string, unknown> = {
@@ -142,7 +190,8 @@ export class CrashReporter {
   /** API pública del host: reporta un error (app viva) → emite el evento ya. */
   reportError(error: unknown, options: ReportErrorOptions = {}): void {
     if (!this.isEnabled()) return;
-    const severity = options.severity ?? 'error';
+    if (isBenignError(error)) return;
+    const severity = isNonFatalNoise(error) ? 'warning' : (options.severity ?? 'error');
     const handled = options.handled ?? true;
     const fatal = severity === 'fatal';
     const record = this.buildRecord(error, severity, handled, fatal, options.context);
@@ -151,6 +200,11 @@ export class CrashReporter {
 
   /** Captura un error no manejado (fatal) → persiste a disco para replay en el siguiente arranque. */
   captureUnhandled(error: unknown): void {
+    if (isBenignError(error)) return;
+    if (isNonFatalNoise(error)) {
+      this.persist(this.buildRecord(error, 'warning', false, false));
+      return;
+    }
     this.persist(this.buildRecord(error, 'fatal', false, true));
   }
 
@@ -186,7 +240,8 @@ export class CrashReporter {
     if (queue.length) {
       try { this.options.storage.removeItem(QUEUE_KEY); } catch { /* noop */ }
     }
-    return queue;
+    // La cola puede venir de una versión sin las listas de DD-540.
+    return queue.map(reclassify).filter((r): r is CrashRecord => r !== null);
   }
 
   /** Instala los handlers globales de errores no capturados (no-op sin `window`). Idempotente. */

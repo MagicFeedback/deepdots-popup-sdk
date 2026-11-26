@@ -1,3 +1,4 @@
+import { resolvePlacement } from './placement';
 import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import type { PopupRenderOptions } from '../platform/renderer';
@@ -7,6 +8,7 @@ import { applySurveyPrimaryColor } from './surveyPalette';
 import { chromePalette, type ChromePalette } from './chromeContrast';
 import { chromeColors, resolveForcedMode, systemPrefersDark, type ColorMode, type StyleColors } from './appearance';
 import { setSurveyBusy } from './busy';
+import { progressView } from './progressView';
 import { sdkLog, sdkWarn, sdkError } from '../util/logger';
 import { directionFor, getLabels, resolveActionLabels } from '../i18n/labels';
 import { REVEAL_TIMEOUT_MS, revealWhenPainted as revealWhenImagesLoaded } from './reveal';
@@ -203,21 +205,13 @@ export async function renderPopup(
     let forcedMode: ColorMode | null = resolveForcedMode(appearance, systemPrefersDark());
     let theme = chromePalette(chromeColors(null, style?.theme, forcedMode).dark);
 
-    const positionMap: Record<string, { justifyContent: string; alignItems: string; padding?: string; background: string }> = {
-        'center':       { justifyContent: 'center',     alignItems: 'center',                        background: 'rgba(0,0,0,0.5)' },
-        'bottom':       { justifyContent: 'center',     alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
-        'bottom-right': { justifyContent: 'flex-end',   alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
-        'bottom-left':  { justifyContent: 'flex-start', alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
-        'top':          { justifyContent: 'center',     alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
-        'top-right':    { justifyContent: 'flex-end',   alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
-        'top-left':     { justifyContent: 'flex-start', alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
-    };
-    const pos = positionMap[style?.position ?? 'center'] ?? positionMap['center'];
-    // Sin velo (posiciones de esquina y de borde) el contenedor sigue cubriendo toda la
-    // pantalla para poder alinear la tarjeta, pero es transparente: no puede quedarse con los
-    // clics del host. Solo la tarjeta los recibe. Con velo (`center`) el popup es modal y
-    // tapar la página es lo esperado.
-    const passThrough = pos.background === 'transparent';
+    // Posición, tamaño y bloqueo (DD-334): misma resolución que el HTML del WebView de RN.
+    const pos = resolvePlacement(style);
+    // Sin velo el contenedor sigue cubriendo toda la pantalla para poder alinear la tarjeta,
+    // pero es transparente: no puede quedarse con los clics del host. Solo la tarjeta los
+    // recibe. Con velo (`center`, o `blockPage`) el popup es modal y tapar la página es lo
+    // esperado.
+    const passThrough = !pos.blocksPage;
 
     // Crear popup base
     const popup = document.createElement('div');
@@ -235,7 +229,7 @@ export async function renderPopup(
       border-radius: 8px;
       padding: 24px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      max-width: 600px;
+      max-width: ${pos.cardMaxWidthPx}px;
       width: 90%;
       max-height: 90vh;
       min-height: 200px;
@@ -323,6 +317,8 @@ export async function renderPopup(
     let progressEnabled = options?.showProgressBar === true;
     let progressShowUnit = true;
     let progressUnit: 'percentage' | 'fraction' = 'fraction';
+    // DD-210: qué cuenta la barra (`style.progressMode`); cualquier otro valor = 'current'.
+    let progressMode: string = 'current';
 
     const progressEl = document.createElement('div');
     progressEl.id = 'dd-progress';
@@ -364,7 +360,8 @@ export async function renderPopup(
     function updateProgress(p: { progress?: number; total?: number; completed?: boolean; followup?: boolean }) {
         const total = typeof p.total === 'number' ? p.total : 0;
         const progress = typeof p.progress === 'number' ? p.progress : 0;
-        if (!progressEnabled || onStartPage || p.completed || total <= 1) {
+        const view = progressView({ progress, total, completed: p.completed, mode: progressMode, unit: progressUnit }, labels);
+        if (!progressEnabled || onStartPage || !view.visible) {
             progressEl.style.display = 'none';
             // Sin barra, el hueco cabecera→pregunta lo pone el contenido.
             containerContent.style.paddingTop = '16px';
@@ -373,22 +370,12 @@ export async function renderPopup(
         progressEl.style.display = 'flex';
         // Con barra, el hueco inferior ya lo pone el bloque de progreso: no duplicarlo.
         containerContent.style.paddingTop = '0';
-        // La barra usa el valor real (las follow-up suman +0.5 y avanzan media casilla); la
-        // etiqueta redondea hacia abajo, porque una follow-up es un paso DENTRO de la misma
-        // pregunta y no la siguiente.
-        const current = Math.min(total, Math.max(1, progress + 1));
-        const pct = Math.min(100, Math.max(0, (current / total) * 100));
-        progressBar.style.width = `${pct}%`;
-        const label = Math.min(total, Math.max(1, Math.floor(progress) + 1));
+        // Reglas en `progressView` (espejo de MagicSurvey y del SDK nativo).
+        progressBar.style.width = `${view.percent}%`;
         progressLabel.style.display = progressShowUnit ? 'block' : 'none';
-        if (progressUnit === 'percentage') {
-            progressCurrent.textContent = `${Math.round(pct)}%`;
-            progressTotal.textContent = '';
-        } else {
-            progressCurrent.textContent = `${labels.question} ${label}`;
-            progressTotal.textContent = ` ${labels.of} ${total}`;
-        }
-        progressFollowUp.style.display = p.followup ? 'inline-block' : 'none';
+        progressCurrent.textContent = view.current;
+        progressTotal.textContent = view.rest;
+        progressFollowUp.style.display = p.followup && !p.completed ? 'inline-block' : 'none';
     }
 
     ensureMagicFeedbackStyles(cspNonce);
@@ -796,7 +783,7 @@ export async function renderPopup(
     container.style.justifyContent = pos.justifyContent;
     container.style.alignItems = pos.alignItems;
     container.style.background = pos.background;
-    if (pos.padding) container.style.padding = pos.padding;
+    container.style.padding = pos.padding;
 
     // ── Apertura diferida ────────────────────────────────────────────────────────────────
     // El spinner de apertura es lo que el cliente reporta como mala sensación: medido, está
@@ -1032,6 +1019,7 @@ export async function renderPopup(
                 if (options?.showProgressBar === undefined) progressEnabled = s.showProgressBar === true;
                 if (s.showProgressUnit !== undefined) progressShowUnit = s.showProgressUnit !== false;
                 if (s.progressUnit) progressUnit = s.progressUnit;
+                if (s.progressMode) progressMode = s.progressMode;
                 // Fondo, textos, `color-scheme`, botones y barra: Style + theme + modo de la app
                 // (DD-247, DD-241). En oscuro, los colores opcionales `dark` del Style (DD-239).
                 loadedStyle = s as StyleColors;

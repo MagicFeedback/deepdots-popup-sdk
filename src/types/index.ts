@@ -101,6 +101,13 @@ export interface DeepdotsInitParams {
      */
     analytics?: AnalyticsKeys;
     /**
+     * Send analytics (events, crashes, page views) when the page runs on a local dev host
+     * (`localhost`, `*.localhost`, `127.x.x.x`, `0.0.0.0`, `::1`). Default `false`: there the
+     * analytics channel stays in dry-run, so local development does not land in your
+     * production project. Popups, surveys and answers work the same. Web only.
+     */
+    trackLocalhost?: boolean;
+    /**
      * Called when the analytics channel opens or closes a session (needs `analytics`), with the
      * id the Deepdots API stores as `sdkSessionId` on the feedback the session becomes: send it
      * to your backend to attach data to that feedback later. A session whose only batch is the
@@ -340,6 +347,16 @@ export interface PopupFont {
 export interface PopupStyle {
     theme: 'light' | 'dark';
     position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
+    /**
+     * Card size (DD-334). `regular` (default) is up to 600px wide; `small` up to 360px, for one
+     * short question that should not cover the page.
+     */
+    size?: 'small' | 'regular';
+    /**
+     * Cover the page with a backdrop and keep the clicks while the popup is open (DD-334).
+     * Default `false`. Ignored for `center`, which always blocks the page.
+     */
+    blockPage?: boolean;
     /** @deprecated Not used by the SDK; kept only for API compatibility */
     imageUrl?: string | null;
     /** Fuente personalizada. Si falta, se mantiene el comportamiento actual. */
@@ -421,6 +438,8 @@ export interface FormStyle
     showProgressBar: boolean;
     showProgressUnit: boolean;
     progressUnit: 'percentage' | 'fraction';
+    /** Qué cuenta la barra (DD-210): la pregunta actual (por defecto) o las respondidas. */
+    progressMode?: 'current' | 'completed';
     /** Colores opcionales para modo oscuro (DD-239), mismas claves que los claros. */
     dark?: Partial<Pick<FormStyle, 'backgroundColor' | 'boxBackgroundColor' | 'buttonPrimaryColor' | 'buttonSecondaryColor' | 'buttonOnTopColor' | 'loadingBarColor' | 'logo'>> | null;
 }

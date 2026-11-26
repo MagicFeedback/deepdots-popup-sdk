@@ -1,7 +1,7 @@
 /**
  * NO EDITAR A MANO — generado por scripts/vendor-survey-css.mjs
  *
- * Copia de @magicfeedback/native@2.2.44 → dist/styles/magicfeedback-default.css
+ * Copia de @magicfeedback/native@2.2.47 → dist/styles/magicfeedback-default.css
  * (la hoja canónica del paquete, la que apunta su campo "style"), con estos cambios locales:
  *
  *  1. Sin el @import de Google Fonts (Nunito): no queremos una petición externa desde la
@@ -243,6 +243,11 @@
     padding: var(--mf-space-lg);
     margin: var(--mf-space-lg) 0;
     animation: mf-scale-in 0.3s ease-out;
+    /* A long word or URL with no spaces wraps instead of running off the card
+       (Lemu, 23-nov: an info page with "Hehehe…" was cut on the right).
+       break-word, not anywhere: it only breaks a word that does not fit and
+       leaves the min-content width alone, so nothing in a flex row shrinks. */
+    overflow-wrap: break-word;
 }
 
 /* .magicfeedback-info-message/-start-message are set via innerHTML (see
@@ -429,6 +434,7 @@
    LABELS & TYPOGRAPHY
    ======================================== */
 .magicfeedback-label {
+    overflow-wrap: break-word;
     font-size: var(--mf-font-size-lg);
     font-weight: var(--mf-font-weight-bold);
     color: var(--mf-text-primary);
@@ -438,6 +444,7 @@
 }
 
 .magicfeedback-sublabel {
+    overflow-wrap: break-word;
     font-size: var(--mf-font-size-base);
     font-weight: var(--mf-font-weight-normal);
     color: var(--mf-text-secondary);

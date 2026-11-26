@@ -120,6 +120,8 @@ export class ReactNativePopupRenderer implements PopupRenderer {
       font: style?.font,
       theme: style?.theme,
       position: style?.position,
+      size: style?.size,
+      blockPage: style?.blockPage,
       actions,
       // renderChrome:false (init) → HTML sin tarjeta/overlay: el host lo envuelve en su Modal.
       chrome: renderChrome,

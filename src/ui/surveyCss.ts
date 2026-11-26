@@ -8,4 +8,5 @@ export const SURVEY_CSS_LOADERS: Record<string, () => Promise<{ default: string 
   '2.2.38': () => import('../assets/survey-css/2.2.38.css'),
   '2.2.39': () => import('../assets/survey-css/2.2.39.css'),
   '2.2.44': () => import('../assets/survey-css/2.2.44.css'),
+  '2.2.47': () => import('../assets/survey-css/2.2.47.css'),
 };

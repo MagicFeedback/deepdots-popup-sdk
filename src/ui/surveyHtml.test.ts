@@ -219,22 +219,25 @@ describe('buildSurveyHtml barra de progreso', () => {
 
   it('se oculta en la pantalla de inicio, al completar y con una sola página', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain('if(!progressEnabled||onStartPage||p&&p.completed||total<=1){');
+    expect(html).toContain('if(!progressEnabled||onStartPage||!view.visible){');
+    // Pantalla final y una sola página: las decide ddProgressView (progressView.test.ts).
+    expect(html).toContain('function ddProgressView(input, labels){');
     expect(html).toContain("progressEl.style.display='none'");
   });
 
   it('la etiqueta redondea hacia abajo (una follow-up no es la pregunta siguiente)', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
     // la barra usa el valor real (con el +0.5 de las follow-up), la etiqueta el entero
-    expect(html).toContain('var current=Math.min(total,Math.max(1,progress+1))');
-    expect(html).toContain('var label=Math.min(total,Math.max(1,Math.floor(progress)+1))');
-    expect(html).toContain("progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label");
+    expect(html).toContain('var cur=clamp(progress+1,1,total);');
+    expect(html).toContain('var lab=clamp(Math.floor(progress)+1,1,total);');
+    expect(html).toContain('progressCurrent.textContent=view.current;');
   });
 
   it('respeta progressUnit percentage y el color de loadingBarColor', () => {
     const html = buildSurveyHtml({ surveyId: 's1', productId: 'p1' });
-    expect(html).toContain("if(progressUnit==='percentage')");
-    expect(html).toContain("progressCurrent.textContent=Math.round(pct)+'%'");
+    expect(html).toContain("pctUnit=input.unit==='percentage'");
+    expect(html).toContain("current:Math.round(pct)+'%'");
+    expect(html).toContain('if(s.progressMode){ progressMode=s.progressMode; }');
     expect(html).toContain('if(c.loadingBar){ progressBar.style.background=c.loadingBar;');
   });
 });
@@ -260,8 +263,8 @@ describe('buildSurveyHtml métricas del diseño', () => {
     expect(html).toContain('#dd-progress-current{font-weight:700');
     expect(html).toContain('#dd-progress-total{font-weight:400;color:var(--dd-text-muted,#6b7280)}');
     // El texto sale de la tabla de traducciones (i18n del chrome), no de un literal inglés.
-    expect(html).toContain("progressCurrent.textContent=DD_LABELS_ACTIVE.question+' '+label");
-    expect(html).toContain("progressTotal.textContent=' '+DD_LABELS_ACTIVE.of+' '+total");
+    expect(html).toContain("current:labels.question+' '+lab,rest:' '+labels.of+' '+total");
+    expect(html).toContain('progressTotal.textContent=view.rest;');
   });
 
   it('los botones tienen altura y radio de acción táctil', () => {

@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Playwright 1.64.1 (from 1.60.0), which supports Ubuntu 26.04.** The cause of the failure above: Playwright learned Ubuntu 26.04 in 1.61, so 1.60 could not install Chromium there. Same version as MagicSurvey's monitors, which already pass on 26.04. The visual regression image moves to `mcr.microsoft.com/playwright:v1.64.1-noble`. With this the `ubuntu-24.04` pin is no longer needed to make the monitor work; it stays so that a runner image change never lands unannounced. Dev dependency only, no SDK change.
 
+## [1.23.0] — 2026-11-26
+
+Survey SDK supported: 2.2.38–2.2.47 (survey frontend 3.4.1–3.6.0); bundled: 2.2.47.
+
+### Changed
+- **No analytics from localhost by default (DD-540).** On `localhost`, `*.localhost`, `127.x.x.x`, `0.0.0.0` and `::1` the analytics channel (events, crashes, page views) stays in dry-run even with `analytics` set, so local development no longer lands in the host's production project. New `trackLocalhost: true` sends anyway. Popups, surveys and answers are not affected. Web only.
+- **Crash reporter skips known browser noise (DD-540).** "ResizeObserver loop completed with undelivered notifications" and "ResizeObserver loop limit exceeded" are never reported (`BENIGN_ERROR_PATTERNS`). Network and storage blips (`auth/network-request-failed`, IndexedDB "connection is closing") are reported as non-fatal `warning`, so they no longer count against Crash-Free Users (`NON_FATAL_ERROR_PATTERNS`). Crashes queued by an older version are cleaned the same way on replay.
+- **`@magicfeedback/native` 2.2.47** (from 2.2.44), in the web bundle and as the default CDN version of the React Native WebView; also assignable (`SUPPORTED_SURVEY_SDK_VERSIONS`, `src/assets/survey-css/2.2.47.css`). A page's jump rules are now checked in the order set in the Admin, with "Otherwise" last (DD-483); before, the oldest matching rule won. Also long words wrap in titles, subtitles and info/start messages (2.2.47), and 2.2.45/2.2.46 (dynamic surveys: email check, base question settings, exclusive answers; open-question follow-up asked while typing). `src/assets/style.css` and the 2.2.47 sheet are re-vendored from the readable source of the 2.2.47 release commit (fabaa13).
+
+### Added
+- **Popup size and page blocking (DD-334).** `style.size` (`small` up to 360px, 300px on narrow screens; `regular` up to 600px, the default) and `style.blockPage` (backdrop over the page and the popup keeps the clicks, for positions other than `center`; default `false`). `center` always blocks. Without the new fields nothing changes. In the React Native WebView `blockPage` only paints the backdrop: whether touches reach the app below depends on how the host mounts the WebView.
+- **Progress bar can count answered questions (DD-210).** With `style.progressMode: "completed"` the bar starts at 0%, shows "2 of 5 answered" on question 3, does not move while an AI follow-up is open, and shows 100% ("5 of 5 answered") on the thank-you screen. Missing or `"current"` keeps today's bar. Web popup and React Native WebView; new chrome texts `answeredOf` / `answered` in all locales.
+
+### Fixed
+- **Popup exclusions by email, domain or attribute on the first page (DD-561).** `init({ userId, contactAttributes })` sent the contact (`POST /sdk/popups/contact`) at the same time as the popups request, so on a user's first page the server could not apply the exclusions by email, domain or attribute yet (DD-333) and an excluded user could see the popup. When the attributes are new or changed, the popups request now waits for the contact POST, at most 1.5 s (`CONTACT_SYNC_TIMEOUT_MS`); a slow or failed POST never blocks the popups. Unchanged attributes (no POST) or no `contactAttributes`: no wait, as before.
+
 ## [1.22.1] — 2026-11-19
 
 Survey SDK supported: 2.2.38–2.2.44 (survey frontend 3.4.1–3.6.0); bundled: 2.2.44.

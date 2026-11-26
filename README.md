@@ -123,6 +123,10 @@ Config fields:
 - `analytics?: { publicKey: string; integration: string }` — enables the real analytics
   delivery. Without it the analytics channel stays in dry-run: nothing is sent, and the
   payload is only logged when `debug` is on.
+- `trackLocalhost?: boolean` — default `false`: on a local dev host (`localhost`, `*.localhost`,
+  `127.x.x.x`, `0.0.0.0`, `::1`) the analytics channel stays in dry-run even with `analytics`
+  set, so local development does not land in your production project. Popups and surveys work
+  the same. Pass `true` to send from localhost (for example to test analytics against DEV).
 - `onFeedbackSession?: (session: { sessionId: string; status: 'open' | 'closed' }) => void` —
   called when an analytics session opens or closes, with the id the Deepdots API stores as
   `sdkSessionId` on the feedback the session becomes. See
@@ -236,7 +240,7 @@ because the HTML reveals itself; the container just appears a few hundred ms bef
 
 Each popup draws its survey with the survey version assigned to it in the Admin (*Survey frontend version*: latest or pinned), like the survey page does. The API sends it per popup as `surveyFrontend.sdkVersion`, the `@magicfeedback/native` version that survey release was built with.
 
-- Supported versions: `SUPPORTED_SURVEY_SDK_VERSIONS` (now 2.2.38, 2.2.39, 2.2.44), the ones whose survey CSS this SDK vendors (`src/assets/survey-css/<v>.css`, scoped to `.deepdots-popup` like `style.css`). JS and CSS follow the version together.
+- Supported versions: `SUPPORTED_SURVEY_SDK_VERSIONS` (now 2.2.38, 2.2.39, 2.2.44, 2.2.47), the ones whose survey CSS this SDK vendors (`src/assets/survey-css/<v>.css`, scoped to `.deepdots-popup` like `style.css`). JS and CSS follow the version together.
 - DOM popup: the browser bundle of that exact version comes from jsDelivr (then unpkg); its CSS ships inside this SDK as a lazy chunk. React Native's WebView loads both from the CDN (the CSS from this package's `dist/assets/assets/survey-css`).
 - Missing (older API, survey release without `sdkVersion`), unsupported, or failing to load (no network, a CSP without `cdn.jsdelivr.net`/`unpkg.com` in `script-src`): the bundled JS and CSS (`BUNDLED_SURVEY_SDK_VERSION`), as before. Never one version's JS with another's CSS.
 - With `debug: true` the choice is logged (`[Deepdots] survey SDK 2.2.38 (assigned)`); an invalid version or a load failure is always logged as a warning (unsupported is debug-only: it is normal for older survey versions). The popup element carries it in `data-survey-sdk`.
@@ -509,7 +513,9 @@ interface PopupDefinition {
   productId: string;
   style?: {
     theme: 'light' | 'dark';
-    position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
+    position: 'top' | 'bottom' | 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center';
+    size?: 'small' | 'regular'; // card up to 360px / 600px (default regular)
+    blockPage?: boolean;        // backdrop + keeps the clicks; center always blocks (default false)
     imageUrl: string | null;
     font?: {
       family: string;   // clean family name, not a stack
