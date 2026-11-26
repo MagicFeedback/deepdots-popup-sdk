@@ -193,3 +193,72 @@ describe('CrashReporter.installReactNative', () => {
     expect(previous).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Known noise (DD-540)', () => {
+  const RO_NEW = 'ResizeObserver loop completed with undelivered notifications.';
+  const RO_OLD = 'ResizeObserver loop limit exceeded';
+
+  it('never reports the ResizeObserver loop warnings, handled or not', () => {
+    const { reporter, emit } = make();
+    for (const msg of [RO_NEW, RO_OLD]) {
+      reporter.reportError(msg);
+      reporter.reportError(new Error(msg), { severity: 'fatal' });
+      reporter._persistForTest(msg);
+      reporter._persistForTest(new Error(msg));
+    }
+    expect(emit).not.toHaveBeenCalled();
+    expect(reporter.drainPendingCrashes()).toEqual([]);
+  });
+
+  it('ignores the ResizeObserver warning from the window error event (message only, no error)', () => {
+    const { reporter } = make();
+    reporter.install();
+    window.dispatchEvent(new ErrorEvent('error', { message: RO_NEW }));
+    window.dispatchEvent(new ErrorEvent('error', { message: 'real boom', error: new TypeError('real boom') }));
+    const drained = reporter.drainPendingCrashes();
+    expect(drained.map((r) => r.message)).toEqual(['real boom']);
+  });
+
+  it('reports network and IndexedDB noise as a non-fatal warning', () => {
+    const { reporter, emit } = make();
+    const firebase = Object.assign(new Error('Firebase: Error (auth/network-request-failed).'), { name: 'FirebaseError', code: 'auth/network-request-failed' });
+    const idb = new DOMException("Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing.", 'InvalidStateError');
+
+    reporter.reportError(firebase, { severity: 'fatal' });
+    expect(emit.mock.calls[0][0]).toMatchObject({ fatal: false, severity: 'warning', handled: true });
+
+    reporter._persistForTest(firebase);
+    reporter._persistForTest(idb);
+    const drained = reporter.drainPendingCrashes();
+    expect(drained).toHaveLength(2);
+    for (const r of drained) expect(r).toMatchObject({ fatal: false, severity: 'warning', handled: false });
+  });
+
+  it('matches the error code even when the message does not carry it', () => {
+    const { reporter, emit } = make();
+    reporter.reportError(Object.assign(new Error('Network error'), { code: 'auth/network-request-failed' }));
+    expect(emit.mock.calls[0][0]).toMatchObject({ severity: 'warning', fatal: false });
+  });
+
+  it('keeps real errors fatal', () => {
+    const { reporter } = make();
+    reporter._persistForTest(new TypeError("Cannot read properties of null (reading 'useContext')"));
+    expect(reporter.drainPendingCrashes()[0]).toMatchObject({ fatal: true, severity: 'fatal' });
+  });
+
+  it('cleans a replay queue written by an older version', () => {
+    const storage = new InMemoryStorage();
+    const base = { crashedAt: 1, stack: '', handled: false, sessionId: null };
+    storage.setItem('deepdots.crash.queue', JSON.stringify([
+      { ...base, crashType: 'Error', message: RO_NEW, fatal: true, severity: 'fatal' },
+      { ...base, crashType: 'FirebaseError', message: 'Firebase: Error (auth/network-request-failed).', fatal: true, severity: 'fatal' },
+      { ...base, crashType: 'TypeError', message: 'boom', fatal: true, severity: 'fatal' },
+    ]));
+    const reporter = new CrashReporter({ storage, emit: vi.fn(), device: () => ({}), sessionId: () => null });
+    const drained = reporter.drainPendingCrashes();
+    expect(drained.map((r) => [r.message, r.severity, r.fatal])).toEqual([
+      ['Firebase: Error (auth/network-request-failed).', 'warning', false],
+      ['boom', 'fatal', true],
+    ]);
+  });
+});

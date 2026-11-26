@@ -123,6 +123,10 @@ Config fields:
 - `analytics?: { publicKey: string; integration: string }` — enables the real analytics
   delivery. Without it the analytics channel stays in dry-run: nothing is sent, and the
   payload is only logged when `debug` is on.
+- `trackLocalhost?: boolean` — default `false`: on a local dev host (`localhost`, `*.localhost`,
+  `127.x.x.x`, `0.0.0.0`, `::1`) the analytics channel stays in dry-run even with `analytics`
+  set, so local development does not land in your production project. Popups and surveys work
+  the same. Pass `true` to send from localhost (for example to test analytics against DEV).
 - `onFeedbackSession?: (session: { sessionId: string; status: 'open' | 'closed' }) => void` —
   called when an analytics session opens or closes, with the id the Deepdots API stores as
   `sdkSessionId` on the feedback the session becomes. See
