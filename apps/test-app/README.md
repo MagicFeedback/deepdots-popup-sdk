@@ -36,6 +36,8 @@ Todo el run cabe en un enlace. La barra **Configure** los cambia y recarga.
 | `css` | `competing` · `clean` | `competing` añade CSS del host que compite con el del popup (`app/styles/competing.css`). |
 | `lang` | `es` · `en` | Idioma de la tienda y `language` del SDK. |
 | `user` | texto | `userId` del `init()`. Si se omite, el SDK usa su id anónimo. |
+| `email` | texto | `contactAttributes: { email }` del `init()` (exclusiones por email o dominio, DD-333). |
+| `key` | texto | Con `popups=live`, la clave pública de otra config de popups de DEV (por defecto «SDK Test App»). |
 | `debug` | `0` · `1` | `debug` del SDK. |
 
 **Reset** borra el `localStorage` (cooldowns, carrito, consentimiento) y recarga la página.

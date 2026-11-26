@@ -26,6 +26,10 @@ export const PARAMS = {
   css: { default: 'competing', label: 'css', options: ['competing', 'clean'] },
   lang: { default: 'es', label: 'lang', options: ['es', 'en'] },
   user: { default: '', label: 'user', options: null },
+  // DD-558: with popups=live, another DEV popup config (its public key) and the contact's email
+  // sent as contactAttributes (exclusions by email or domain, DD-333).
+  key: { default: '', label: 'key', options: null },
+  email: { default: '', label: 'email', options: null },
   debug: { default: '0', label: 'debug', options: ['0', '1'] },
 };
 
