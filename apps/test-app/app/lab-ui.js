@@ -32,6 +32,8 @@ export function mountLabUi({ toolbar, devtools, params, apply, reset }) {
         <form class="lab-form">
           ${TOOLBAR_SELECTS.map(sel).join('')}
           <label class="lab-field"><span>user</span><input data-param="user" value="${esc(params.user)}" placeholder="anonymous" size="10"></label>
+          <label class="lab-field"><span>email</span><input data-param="email" value="${esc(params.email)}" placeholder="none" size="12"></label>
+          <label class="lab-field"><span>key</span><input data-param="key" value="${esc(params.key)}" placeholder="SDK Test App" size="10"></label>
           <button type="submit" class="lab-btn lab-primary" data-testid="lab-apply">Apply &amp; reload</button>
         </form>
       </details>

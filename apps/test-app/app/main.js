@@ -104,7 +104,7 @@ async function startSdk(reason) {
     lab.log('sdk', 'loaded', `${version} · ${url}`);
 
     const sdk = new mod.DeepdotsPopups();
-    const apiKey = params.popups === 'live' ? DEV.popupsApiKey : 'sdk-lab-fixture';
+    const apiKey = params.popups === 'live' ? params.key || DEV.popupsApiKey : 'sdk-lab-fixture';
     const config = {
       apiKey,
       nodeEnv: 'development',
@@ -113,6 +113,7 @@ async function startSdk(reason) {
       geolocation: false,
     };
     if (params.user) config.userId = params.user;
+    if (params.email) config.contactAttributes = { email: params.email };
     if (params.appearance) config.appearance = params.appearance;
     sdk.init(config);
     sdk.on('popup_shown', (e) => lab.log('event', 'popup_shown', pick(e)));
