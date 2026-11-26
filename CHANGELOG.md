@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **No analytics from localhost by default (DD-540).** On `localhost`, `*.localhost`, `127.x.x.x`, `0.0.0.0` and `::1` the analytics channel (events, crashes, page views) stays in dry-run even with `analytics` set, so local development no longer lands in the host's production project. New `trackLocalhost: true` sends anyway. Popups, surveys and answers are not affected. Web only.
+- **Crash reporter skips known browser noise (DD-540).** "ResizeObserver loop completed with undelivered notifications" and "ResizeObserver loop limit exceeded" are never reported (`BENIGN_ERROR_PATTERNS`). Network and storage blips (`auth/network-request-failed`, IndexedDB "connection is closing") are reported as non-fatal `warning`, so they no longer count against Crash-Free Users (`NON_FATAL_ERROR_PATTERNS`). Crashes queued by an older version are cleaned the same way on replay.
 - **`@magicfeedback/native` 2.2.47** (from 2.2.44), in the web bundle and as the default CDN version of the React Native WebView; also assignable (`SUPPORTED_SURVEY_SDK_VERSIONS`, `src/assets/survey-css/2.2.47.css`). A page's jump rules are now checked in the order set in the Admin, with "Otherwise" last (DD-483); before, the oldest matching rule won. Also long words wrap in titles, subtitles and info/start messages (2.2.47), and 2.2.45/2.2.46 (dynamic surveys: email check, base question settings, exclusive answers; open-question follow-up asked while typing). `src/assets/style.css` and the 2.2.47 sheet are re-vendored from the readable source of the 2.2.47 release commit (fabaa13).
 
 ### Added

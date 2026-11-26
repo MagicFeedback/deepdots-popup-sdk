@@ -93,6 +93,8 @@
         publicKey: '5a148214cdd4d164b9ff189c201d0e75',
         integration: 'a0365bd0-6ee1-11f1-94c7-45c08829a73b'
       },
+      // La demo corre en localhost: sin esto el SDK no envía analytics (DD-540).
+      trackLocalhost: true,
     };
     // Carga la build local del SDK (incluye buildAnalyticsFeedbackBody para previsualizar el body).
     const { DeepdotsPopups, buildAnalyticsFeedbackBody } = await import(getSdkSourceUrl());

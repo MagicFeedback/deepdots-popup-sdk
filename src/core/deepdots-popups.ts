@@ -1,3 +1,4 @@
+import { currentHostname, isLocalDevHost } from './local-dev-host';
 import { normalizeAppearance, type Appearance } from '../ui/appearance';
 import {
     DeepdotsConfig,
@@ -322,7 +323,13 @@ export class DeepdotsPopups {
 
         // Recarga en la misma pestaña: la sesión que suspendió el `pagehide` sigue abierta en el
         // backend. Se recoge aquí para que el sink siga en ese registro desde el primer lote.
-        this.analyticsIntegration = config.analytics?.integration;
+        // En localhost el canal de analytics queda en dry-run salvo `trackLocalhost` (DD-540).
+        const localDev = (config.platform ?? 'web') === 'web' && !config.trackLocalhost && isLocalDevHost(currentHostname());
+        const analyticsKeys = localDev ? undefined : config.analytics;
+        if (localDev && config.analytics) {
+            this.log('analytics · localhost: no se envía (trackLocalhost: true para enviar)');
+        }
+        this.analyticsIntegration = analyticsKeys?.integration;
         const resumable = this.readResumableSession();
         if (resumable) {
             this.analyticsFeedbackSessionId = resumable.sessionId;
@@ -332,10 +339,10 @@ export class DeepdotsPopups {
         // Analytics: se envía como Feedback a la integración (`POST /sdk/feedback`) si se
         // pasan claves en init.analytics; si no, queda en dry-run: no envía nada y el payload
         // solo se pinta con `debug`, para no ensuciar la consola de la web del host en producción.
-        const analyticsSink = config.analytics
+        const analyticsSink = analyticsKeys
             ? createFeedbackSink({
                   baseUrl: this.baseUrl,
-                  keys: config.analytics,
+                  keys: analyticsKeys,
                   log: (...a) => this.log(...a),
                   initialSessionId: resumable?.sessionId,
                   // En móvil (RN) la app puede morir con el lote de cierre sin entregar: se
@@ -383,7 +390,7 @@ export class DeepdotsPopups {
         this.installCrashHandlers();
         // Geolocalización por IP: ver `resolveGeo()` para cuándo se consulta a terceros.
         this.geoEnabled = config.geolocation ?? true;
-        this.geoWanted = this.geoEnabled && !!config.analytics;
+        this.geoWanted = this.geoEnabled && !!analyticsKeys;
         this.resolveGeo();
         // Fase 2: navegación → eventos page_view por el canal de analytics.
         this.navObserver = new NavigationObserver();

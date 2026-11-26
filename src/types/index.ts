@@ -101,6 +101,13 @@ export interface DeepdotsInitParams {
      */
     analytics?: AnalyticsKeys;
     /**
+     * Send analytics (events, crashes, page views) when the page runs on a local dev host
+     * (`localhost`, `*.localhost`, `127.x.x.x`, `0.0.0.0`, `::1`). Default `false`: there the
+     * analytics channel stays in dry-run, so local development does not land in your
+     * production project. Popups, surveys and answers work the same. Web only.
+     */
+    trackLocalhost?: boolean;
+    /**
      * Called when the analytics channel opens or closes a session (needs `analytics`), with the
      * id the Deepdots API stores as `sdkSessionId` on the feedback the session becomes: send it
      * to your backend to attach data to that feedback later. A session whose only batch is the
