@@ -464,6 +464,18 @@
             "center"
           ]
         },
+        "size": {
+          "type": "string",
+          "enum": [
+            "small",
+            "regular"
+          ],
+          "description": "Card size (DD-334). `regular` (default) is up to 600px wide; `small` up to 360px, for one short question that should not cover the page."
+        },
+        "blockPage": {
+          "type": "boolean",
+          "description": "Cover the page with a backdrop and keep the clicks while the popup is open (DD-334). Default `false`. Ignored for `center`, which always blocks the page."
+        },
         "imageUrl": {
           "type": [
             "string",

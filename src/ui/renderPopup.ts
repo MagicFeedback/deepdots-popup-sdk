@@ -1,3 +1,4 @@
+import { resolvePlacement } from './placement';
 import {DeepdotsEventType, PopupActions, PopupStyle, FormData} from '../types';
 import { buildSurveyIdentity } from '../tracking/tracking-manager';
 import type { PopupRenderOptions } from '../platform/renderer';
@@ -204,21 +205,13 @@ export async function renderPopup(
     let forcedMode: ColorMode | null = resolveForcedMode(appearance, systemPrefersDark());
     let theme = chromePalette(chromeColors(null, style?.theme, forcedMode).dark);
 
-    const positionMap: Record<string, { justifyContent: string; alignItems: string; padding?: string; background: string }> = {
-        'center':       { justifyContent: 'center',     alignItems: 'center',                        background: 'rgba(0,0,0,0.5)' },
-        'bottom':       { justifyContent: 'center',     alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
-        'bottom-right': { justifyContent: 'flex-end',   alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
-        'bottom-left':  { justifyContent: 'flex-start', alignItems: 'flex-end',   padding: '16px',   background: 'transparent' },
-        'top':          { justifyContent: 'center',     alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
-        'top-right':    { justifyContent: 'flex-end',   alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
-        'top-left':     { justifyContent: 'flex-start', alignItems: 'flex-start', padding: '16px',   background: 'transparent' },
-    };
-    const pos = positionMap[style?.position ?? 'center'] ?? positionMap['center'];
-    // Sin velo (posiciones de esquina y de borde) el contenedor sigue cubriendo toda la
-    // pantalla para poder alinear la tarjeta, pero es transparente: no puede quedarse con los
-    // clics del host. Solo la tarjeta los recibe. Con velo (`center`) el popup es modal y
-    // tapar la página es lo esperado.
-    const passThrough = pos.background === 'transparent';
+    // Posición, tamaño y bloqueo (DD-334): misma resolución que el HTML del WebView de RN.
+    const pos = resolvePlacement(style);
+    // Sin velo el contenedor sigue cubriendo toda la pantalla para poder alinear la tarjeta,
+    // pero es transparente: no puede quedarse con los clics del host. Solo la tarjeta los
+    // recibe. Con velo (`center`, o `blockPage`) el popup es modal y tapar la página es lo
+    // esperado.
+    const passThrough = !pos.blocksPage;
 
     // Crear popup base
     const popup = document.createElement('div');
@@ -236,7 +229,7 @@ export async function renderPopup(
       border-radius: 8px;
       padding: 24px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      max-width: 600px;
+      max-width: ${pos.cardMaxWidthPx}px;
       width: 90%;
       max-height: 90vh;
       min-height: 200px;
@@ -790,7 +783,7 @@ export async function renderPopup(
     container.style.justifyContent = pos.justifyContent;
     container.style.alignItems = pos.alignItems;
     container.style.background = pos.background;
-    if (pos.padding) container.style.padding = pos.padding;
+    container.style.padding = pos.padding;
 
     // ── Apertura diferida ────────────────────────────────────────────────────────────────
     // El spinner de apertura es lo que el cliente reporta como mala sensación: medido, está

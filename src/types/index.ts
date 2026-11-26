@@ -347,6 +347,16 @@ export interface PopupFont {
 export interface PopupStyle {
     theme: 'light' | 'dark';
     position: 'bottom' | 'bottom-right' | 'bottom-left' | 'top' | 'top-right' | 'top-left' | 'center';
+    /**
+     * Card size (DD-334). `regular` (default) is up to 600px wide; `small` up to 360px, for one
+     * short question that should not cover the page.
+     */
+    size?: 'small' | 'regular';
+    /**
+     * Cover the page with a backdrop and keep the clicks while the popup is open (DD-334).
+     * Default `false`. Ignored for `center`, which always blocks the page.
+     */
+    blockPage?: boolean;
     /** @deprecated Not used by the SDK; kept only for API compatibility */
     imageUrl?: string | null;
     /** Fuente personalizada. Si falta, se mantiene el comportamiento actual. */
