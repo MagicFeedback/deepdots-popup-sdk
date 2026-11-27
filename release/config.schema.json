@@ -85,6 +85,10 @@
           "type": "boolean",
           "description": "Send analytics (events, crashes, page views) when the page runs on a local dev host (`localhost`, `*.localhost`, `127.x.x.x`, `0.0.0.0`, `::1`). Default `false`: there the analytics channel stays in dry-run, so local development does not land in your production project. Popups, surveys and answers work the same. Web only."
         },
+        "allowAutomatedBrowsers": {
+          "type": "boolean",
+          "description": "Run against the API also in crawlers and automated browsers (`navigator.webdriver`: Playwright, Selenium, Puppeteer). Default `false`: there the SDK makes no API call (no popups, no contact, no analytics), so bots never become contacts nor use a popup's daily viewer quota (DD-574). Set it to `true` only for your own end-to-end tests. Web only."
+        },
         "geolocation": {
           "type": "boolean",
           "description": "IP geolocation (country/city) added to analytics. Default `true`. The lookup calls third-party services (ipapi.co, then ipwho.is, then ipinfo.io as fallbacks, 3 s timeout each) and only runs when `analytics` is configured, tracking is enabled and the 30-day cache is missing or expired. Set `false` to never call them nor attach country/city."

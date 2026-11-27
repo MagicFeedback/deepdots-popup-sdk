@@ -1,4 +1,4 @@
-import { currentHostname, isLocalDevHost } from './local-dev-host';
+import { currentHostname, isDevOrTestHost, isLocalDevHost } from './local-dev-host';
 import { normalizeAppearance, type Appearance } from '../ui/appearance';
 import {
     DeepdotsConfig,
@@ -34,7 +34,7 @@ import {
     writeSuspendedSession,
 } from '../analytics/suspended-session';
 import { NavigationObserver } from '../tracking/navigation-observer';
-import { collectDeviceInfo } from '../analytics/device-info';
+import { collectDeviceInfo, isAutomatedBrowser } from '../analytics/device-info';
 import { readCachedGeo, writeCachedGeo, fetchGeo } from '../analytics/geo-info';
 import { resolveLanguage } from '../analytics/language';
 import { EngagementTracker } from '../analytics/engagement-tracker';
@@ -252,6 +252,8 @@ export class DeepdotsPopups {
      * verdad para el context de analytics Y para la segmentación por idioma de los popups.
      */
     private language: string | undefined = undefined;
+    /** DD-574: init() en un crawler o navegador automatizado: el SDK no llama a la API. */
+    private automatedBrowser = false;
     /** `geolocation` del init: si es false no se usa ni la caché ni el lookup. */
     private geoEnabled = true;
     /** Solo se consulta a terceros si el país/ciudad se va a enviar (analytics configurado). */
@@ -281,6 +283,28 @@ export class DeepdotsPopups {
         const rn = getReactNativePlatform();
         if (!config.platform && (rn?.os === 'ios' || rn?.os === 'android')) {
             config = { ...config, platform: rn.os };
+        }
+
+        // DD-574: en un crawler o un navegador automatizado (`navigator.webdriver`) el SDK no
+        // llama a la API: ni GET de popups, ni POST de contact, ni analytics. Así un bot no se
+        // convierte en contact ni gasta el cupo diario de un popup. El resto del SDK funciona
+        // igual (sin popups), para no romper la web del host. `allowAutomatedBrowsers` para e2e.
+        // En hosts de desarrollo o test (isDevOrTestHost) no se bloquea: ahí un navegador
+        // automatizado es un e2e (el nuestro, o el de Holte en *.holte.test), como en la API.
+        this.automatedBrowser =
+            !config.allowAutomatedBrowsers &&
+            (config.platform ?? 'web') === 'web' &&
+            !isDevOrTestHost(currentHostname()) &&
+            isAutomatedBrowser();
+        if (this.automatedBrowser) {
+            this.log('automated browser (bot or webdriver): no API calls');
+            config = {
+                ...config,
+                apiKey: undefined,
+                analytics: undefined,
+                contactAttributes: undefined,
+                geolocation: false,
+            };
         }
 
         const env = resolveEnvironment(config.nodeEnv);
@@ -1770,6 +1794,8 @@ export class DeepdotsPopups {
      * y la llamada siguiente reintente.
      */
     private async postContact(body: { publicKey: string; userId: string; userAttributes: ContactAttributes }): Promise<void> {
+        // DD-574: un crawler o navegador automatizado no crea ni toca contacts.
+        if (this.automatedBrowser) return;
         const baseUrl = this.baseUrl;
         if (!baseUrl) throw new Error('no base URL');
         const endpoint = `${baseUrl}/sdk/popups/contact`;
