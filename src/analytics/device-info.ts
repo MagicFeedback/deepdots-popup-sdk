@@ -1,3 +1,5 @@
+import { isbot } from 'isbot';
+
 /**
  * Device info para el context de analytics (Technology #11–13).
  *
@@ -7,9 +9,6 @@
  * `country`/`city` se rellenan de forma asíncrona (ver geo-info.ts).
  * En KMP las APIs nativas dan os_version/device_model reales.
  */
-
-import { isbot } from 'isbot';
-
 export interface DeviceInfo {
   device_type: 'mobile' | 'tablet' | 'desktop';
   os_version?: string;

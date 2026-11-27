@@ -20,6 +20,12 @@ const BROWSERS: Record<string, string> = {
     'Chrome desktop': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
     'Safari iPhone': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1',
     'Chrome Android': 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36',
+    // Webviews de apps: no son bots aunque no lleven "Safari" ni versión de navegador.
+    'Android WebView (; wv)': 'Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.6778.81 Mobile Safari/537.36',
+    'Capacitor iOS': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+    'Capacitor Android': 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A.240905.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.6778.81 Mobile Safari/537.36 Capacitor',
+    Electron: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) MyApp/1.4.0 Chrome/130.0.6723.191 Electron/33.2.1 Safari/537.36',
+    'Facebook in-app (iPad)': 'Mozilla/5.0 (iPad; CPU OS 16_6_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/20G81 Safari/604.1 [FBAN/FBIOS;FBAV/588.1.0.66.71;FBDV/iPad11,6;FBMD/iPad;FBSN/iPadOS;FBSV/16.6.1;FBLC/da_DK]',
 };
 
 describe('isAutomatedBrowser', () => {
@@ -62,6 +68,10 @@ describe('DeepdotsPopups.init() en un navegador automatizado', () => {
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
+
+    function setHost(hostname: string) {
+        vi.stubGlobal('location', { ...window.location, hostname, href: `https://${hostname}/`, pathname: '/', search: '', hash: '' });
+    }
 
     /** init como bd.dk: popups + analytics, y un usuario identificado con atributos. */
     async function initLikeBdDk(extra: Record<string, unknown> = {}) {
@@ -108,5 +118,35 @@ describe('DeepdotsPopups.init() en un navegador automatizado', () => {
         setNavigator(BROWSERS['Chrome desktop'], true);
         await initLikeBdDk({ allowAutomatedBrowsers: true });
         expect(calls.some((c) => c.url.includes('/sdk/pk/popups'))).toBe(true);
+    });
+
+    // Igual que la API (#934, isDevOrTestPage): en un host de desarrollo o test un navegador
+    // automatizado es un e2e, no un crawler. Holte corre su e2e con HeadlessChrome en *.holte.test.
+    it.each([
+        'localfrontend.holsel-ttst01.holte.test',
+        'localhost',
+        '127.0.0.1',
+        'admin.local',
+        'app-dev.deepdots.com',
+        'app.deepdots.com',
+    ])('webdriver en %s (host de dev/test): llama a la API como siempre', async (host) => {
+        setHost(host);
+        setNavigator(BROWSERS['Chrome desktop'], true);
+        await initLikeBdDk();
+        expect(calls.some((c) => c.method === 'GET' && c.url.includes('/sdk/pk/popups'))).toBe(true);
+    });
+
+    it('HeadlessChrome en *.holte.test: llama a la API como siempre', async () => {
+        setHost('localfrontend.holsel-ttst01.holte.test');
+        setNavigator('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/131.0.0.0 Safari/537.36', true);
+        await initLikeBdDk();
+        expect(calls.some((c) => c.url.includes('/sdk/pk/popups'))).toBe(true);
+    });
+
+    it('webdriver en la web de un cliente (bd.dk) sigue sin llamar a la API', async () => {
+        setHost('www.bd.dk');
+        setNavigator(BROWSERS['Chrome desktop'], true);
+        await initLikeBdDk();
+        expect(calls).toEqual([]);
     });
 });

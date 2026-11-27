@@ -189,7 +189,8 @@
       "required": [
         "device_type"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "Device info para el context de analytics (Technology #11–13).\n\nEn Web enviamos `device_type` + `user_agent` crudo y dejamos que el backend derive OS/navegador del UA (como hace GA). Los campos adicionales (timezone, referrer, viewport, etc.) se recogen de las APIs del navegador sin permisos. `country`/`city` se rellenan de forma asíncrona (ver geo-info.ts). En KMP las APIs nativas dan os_version/device_model reales."
     },
     "AutoTrackOptions": {
       "type": "object",

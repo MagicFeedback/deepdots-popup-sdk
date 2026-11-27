@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **No API calls from crawlers and automated browsers (DD-574).** When the page runs in a bot (isbot: bingbot, Googlebot, Baidu, PetalBot...) or in a browser driven by automation (`navigator.webdriver`: Playwright, Selenium, Puppeteer), `init()` makes no API call: no popups request, no contact, no analytics, no geolocation lookup. On bd.dk crawlers ran the SDK with a new anonymous user on every page, so each one became a CRM contact and used up the popup's daily viewer quota before real visitors came. New `allowAutomatedBrowsers: true` keeps the old behaviour for your own end-to-end tests. Web only (React Native has no `navigator.userAgent`). The API filters bots too, so this is an extra defence.
+  - **Dev and test hosts are not blocked**, same rule as the API: on `localhost`, `127.x`, `::1`, `*.localhost`, `*.test`, `*.local`, `*.internal`, `*.example`, `app.deepdots.com` and `app-dev.deepdots.com` an automated browser keeps calling the API, so end-to-end suites there (yours on `*.test`, ours on app-dev) keep getting popups without any change. On any other host, e2e that drives a real browser against a production-like domain needs `allowAutomatedBrowsers: true`, or it gets no popups and no error.
+  - In-app webviews (Android `; wv)`, Capacitor, Electron, Facebook in-app) are not treated as bots.
 
 ## [1.23.0] — 2026-11-26
 

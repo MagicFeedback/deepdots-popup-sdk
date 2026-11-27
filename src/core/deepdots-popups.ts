@@ -1,4 +1,4 @@
-import { currentHostname, isLocalDevHost } from './local-dev-host';
+import { currentHostname, isDevOrTestHost, isLocalDevHost } from './local-dev-host';
 import { normalizeAppearance, type Appearance } from '../ui/appearance';
 import {
     DeepdotsConfig,
@@ -289,8 +289,13 @@ export class DeepdotsPopups {
         // llama a la API: ni GET de popups, ni POST de contact, ni analytics. Así un bot no se
         // convierte en contact ni gasta el cupo diario de un popup. El resto del SDK funciona
         // igual (sin popups), para no romper la web del host. `allowAutomatedBrowsers` para e2e.
+        // En hosts de desarrollo o test (isDevOrTestHost) no se bloquea: ahí un navegador
+        // automatizado es un e2e (el nuestro, o el de Holte en *.holte.test), como en la API.
         this.automatedBrowser =
-            !config.allowAutomatedBrowsers && (config.platform ?? 'web') === 'web' && isAutomatedBrowser();
+            !config.allowAutomatedBrowsers &&
+            (config.platform ?? 'web') === 'web' &&
+            !isDevOrTestHost(currentHostname()) &&
+            isAutomatedBrowser();
         if (this.automatedBrowser) {
             this.log('automated browser (bot or webdriver): no API calls');
             config = {

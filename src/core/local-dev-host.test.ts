@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isLocalDevHost } from './local-dev-host';
+import { isDevOrTestHost, isLocalDevHost } from './local-dev-host';
 import { DeepdotsPopups } from './deepdots-popups';
 import { NoopPopupRenderer } from '../platform/renderer';
 
@@ -9,6 +9,26 @@ describe('isLocalDevHost (DD-540)', () => {
   });
   it.each(['app.deepdots.com', 'app-dev.deepdots.com', 'localhost.example.com', '10.0.0.5', '192.168.1.10', '', undefined])('%s is not local', (h) => {
     expect(isLocalDevHost(h)).toBe(false);
+  });
+});
+
+describe('isDevOrTestHost (DD-574, same list as the API)', () => {
+  it.each([
+    'localhost', '127.0.0.1', '::1', '[::1]', 'admin.localhost',
+    'localfrontend.holsel-ttst01.holte.test', 'shop.local', 'svc.internal', 'demo.example',
+    'app.deepdots.com', 'APP-DEV.deepdots.com',
+  ])('%s is a dev/test host', (h) => {
+    expect(isDevOrTestHost(h)).toBe(true);
+  });
+  it.each([
+    'www.bd.dk', 'deepdots.com', 'api.deepdots.com', 'host.example.com', 'test.com', 'mytest',
+    'app.deepdots.com.evil.io', '10.0.0.5', '', undefined,
+  ])('%s is not', (h) => {
+    expect(isDevOrTestHost(h)).toBe(false);
+  });
+  it('does not widen isLocalDevHost (that one gates analytics)', () => {
+    expect(isLocalDevHost('localfrontend.holsel-ttst01.holte.test')).toBe(false);
+    expect(isLocalDevHost('app-dev.deepdots.com')).toBe(false);
   });
 });
 
