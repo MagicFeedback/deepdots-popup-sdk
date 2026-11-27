@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **No API calls from crawlers and automated browsers (DD-574).** When the page runs in a bot (isbot: bingbot, Googlebot, Baidu, PetalBot...) or in a browser driven by automation (`navigator.webdriver`: Playwright, Selenium, Puppeteer), `init()` makes no API call: no popups request, no contact, no analytics, no geolocation lookup. On bd.dk crawlers ran the SDK with a new anonymous user on every page, so each one became a CRM contact and used up the popup's daily viewer quota before real visitors came. New `allowAutomatedBrowsers: true` keeps the old behaviour for your own end-to-end tests. Web only (React Native has no `navigator.userAgent`). The API filters bots too, so this is an extra defence.
+
 ## [1.23.0] — 2026-11-26
 
 Survey SDK supported: 2.2.38–2.2.47 (survey frontend 3.4.1–3.6.0); bundled: 2.2.47.

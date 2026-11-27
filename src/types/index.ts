@@ -108,6 +108,13 @@ export interface DeepdotsInitParams {
      */
     trackLocalhost?: boolean;
     /**
+     * Run against the API also in crawlers and automated browsers (`navigator.webdriver`:
+     * Playwright, Selenium, Puppeteer). Default `false`: there the SDK makes no API call (no
+     * popups, no contact, no analytics), so bots never become contacts nor use a popup's daily
+     * viewer quota (DD-574). Set it to `true` only for your own end-to-end tests. Web only.
+     */
+    allowAutomatedBrowsers?: boolean;
+    /**
      * Called when the analytics channel opens or closes a session (needs `analytics`), with the
      * id the Deepdots API stores as `sdkSessionId` on the feedback the session becomes: send it
      * to your backend to attach data to that feedback later. A session whose only batch is the

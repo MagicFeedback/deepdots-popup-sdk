@@ -21,6 +21,8 @@
     const init = {
       debug: true,
       nodeEnv: 'development',
+      // Playwright pone navigator.webdriver: sin esto el SDK no llamaría a la API (DD-574).
+      allowAutomatedBrowsers: params.get('bot') !== '1',
     };
     // apiKey/userId opcionales vía query para los distintos casos del test
     if (params.get('apiKey')) init.apiKey = params.get('apiKey');

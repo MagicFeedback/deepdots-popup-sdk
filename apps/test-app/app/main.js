@@ -111,6 +111,9 @@ async function startSdk(reason) {
       debug: params.debug === '1',
       language: params.lang,
       geolocation: false,
+      // Playwright (e2e y visual) pone navigator.webdriver: sin esto el SDK no llamaría a la
+      // API (DD-574). Las versiones anteriores ignoran la opción.
+      allowAutomatedBrowsers: true,
     };
     if (params.user) config.userId = params.user;
     if (params.email) config.contactAttributes = { email: params.email };

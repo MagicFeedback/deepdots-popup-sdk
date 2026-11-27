@@ -8,6 +8,8 @@
  * En KMP las APIs nativas dan os_version/device_model reales.
  */
 
+import { isbot } from 'isbot';
+
 export interface DeviceInfo {
   device_type: 'mobile' | 'tablet' | 'desktop';
   os_version?: string;
@@ -75,4 +77,23 @@ export function collectDeviceInfo(appVersion?: string): DeviceInfo {
     page_load_ms: getPageLoadMs(),
     connection_type: getConnectionType(),
   };
+}
+
+/**
+ * DD-574: the page runs in a crawler (bingbot, Googlebot, Baidu, PetalBot...) or in a browser
+ * driven by automation (`navigator.webdriver`: Selenium, Playwright, Puppeteer, headless
+ * crawlers). On bd.dk (nov-2026) crawlers ran the SDK with a new anonymous user on every page:
+ * each one became a CRM contact and used up the popup's daily viewer quota before real visitors
+ * arrived. In that case `init()` makes no API call at all.
+ *
+ * React Native has no `navigator.userAgent` nor `webdriver`, so it is never automated here.
+ */
+export function isAutomatedBrowser(
+  nav: { userAgent?: string; webdriver?: boolean } | undefined =
+    typeof navigator !== 'undefined' ? navigator : undefined,
+): boolean {
+  if (!nav) return false;
+  if (nav.webdriver === true) return true;
+  const ua = nav.userAgent;
+  return typeof ua === 'string' && ua.trim() !== '' && isbot(ua);
 }
